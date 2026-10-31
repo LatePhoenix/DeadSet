@@ -1,0 +1,6 @@
+{
+  "name": "DeadSet",
+  "description": "Grateful Dead tour and setlist companion: explore classic shows, tag seamless song transitions, track personal show attendance and reviews, and view song frequency and era stats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
