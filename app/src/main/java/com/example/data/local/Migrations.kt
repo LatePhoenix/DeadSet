@@ -311,9 +311,9 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     /**
      * Order-aware pairing of two song-key sequences that never guesses. Uses the longest common
      * subsequence: (i, j) is a candidate when it lies on some optimal alignment
-     * (prefix LCS + 1 + suffix LCS == total). A pair is kept only if it is the sole candidate for
-     * both its JSON index and its row index, so a repeated song with more than one plausible
-     * partner is left alone.
+     * (prefix LCS + 1 + suffix LCS == total). A pair is kept only if it lies on every optimal
+     * alignment (sole candidate for both indices, crossed by no other candidate), so a repeated
+     * song with more than one plausible partner, or competing alignments, are left alone.
      */
     internal fun unambiguousAlignment(a: List<String>, b: List<String>): List<Pair<Int, Int>> {
         val n = a.size
@@ -333,7 +333,14 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         }
         val perA = candidates.groupingBy { it.first }.eachCount()
         val perB = candidates.groupingBy { it.second }.eachCount()
-        return candidates.filter { (i, j) -> perA[i] == 1 && perB[j] == 1 }
+        // Keep a pair only if it is the sole candidate for its JSON index and its row index AND no
+        // other candidate crosses it. Together these mean it lies on EVERY optimal alignment: an
+        // optimal alignment without it would have to reuse its index (another candidate) or cross
+        // it (another candidate), or it could be added, contradicting optimality.
+        return candidates.filter { (i, j) ->
+            perA[i] == 1 && perB[j] == 1 &&
+                candidates.none { (i2, j2) -> (i2 < i && j2 > j) || (i2 > i && j2 < j) }
+        }
     }
 
     private fun backfillPerformancesFromJson(db: SupportSQLiteDatabase) {

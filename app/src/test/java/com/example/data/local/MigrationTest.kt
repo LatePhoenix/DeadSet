@@ -463,6 +463,40 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `5 to 6 only copies pairs that every best alignment agrees on`() {
+        // CodeRabbit's case: JSON [A, B, C] vs rows [B, A, C, A]. Best alignments are A..C and B..C,
+        // so A and B are uncertain (they cross); only C is certain.
+        helper.createDatabase(dbName, 5).apply {
+            for ((id, name) in listOf("althea" to "Althea", "bertha" to "Bertha", "china doll" to "China Doll")) {
+                execSQL("INSERT INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+            }
+            insertV5Show(
+                this, "crossing",
+                """[{"name":"Althea","transitionOut":"SEGUE"},{"name":"Bertha","transitionOut":"SEGUE"},""" +
+                    """{"name":"China Doll","transitionOut":"JAM"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(71, 'crossing', 'bertha', 'Bertha', 'SET_1', 0, 'NONE', NULL, NULL, 0), " +
+                    "(72, 'crossing', 'althea', 'Althea', 'SET_1', 1, 'NONE', NULL, NULL, 0), " +
+                    "(73, 'crossing', 'china doll', 'China Doll', 'SET_1', 2, 'NONE', NULL, NULL, 0), " +
+                    "(74, 'crossing', 'althea', 'Althea', 'SET_1', 3, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, transitionOut FROM song_performances WHERE showId = 'crossing' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            assertEquals(listOf(71L to "NONE", 72L to "NONE", 73L to "JAM", 74L to "NONE"), got)
+        }
+        db.close()
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,
