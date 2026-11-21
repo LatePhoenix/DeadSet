@@ -14,6 +14,7 @@ This file holds the **working state** of the improvement plan. Any agent (Claude
 3. **Finish a step:** change it to `[x]`, add the short commit hash, and note anything surprising under the step.
 4. **End of session:** add a **Handoff log** entry at the top. Say what changed, what's half-done, and what the next agent should do first.
 5. **Plan changes:** edit the steps here. Update `IMPROVEMENT_PLAN.md` only if the *reasoning* changed.
+6. **Working rules** (one task per turn, tests before commit, ground rules): see [`../AGENTS.md`](../AGENTS.md). Cursor and Claude Code both read it.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
@@ -21,12 +22,21 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1 is complete** (DB is now **v6**): steps 1.1–1.9 are merged or in the 1.6–1.9 PR. Next is **Phase 2 (full catalog)**, which needs an owner decision on the dataset and license (step 2.1). Inside migrations, use `rewriteSetlistJson()` or raw SQL, never the app model classes.
+**Where the code is (read this first):**
+- `main` has Phases 0–1 (DB v6), merged through PR #4 (`04da9bb`).
+- **Branch `phase-5-seed-reset` is the working line.** It has everything else: Phases 3, 4 (except 4.3), steps 5.1 and 5.7, and the seed reset. DB is **v10**, `main` is merged into it (`aae31a4`), and **97/97 tests pass**. All the earlier stacked branches (`phase-3-transitions-*`, `phase-4-tribute-*`, `phase-5-almanac-a`) are ancestors of it and need no separate PRs. **Next action: PR [#5](https://github.com/LatePhoenix/DeadSet/pull/5) (`phase-5-seed-reset` → `main`) is open**; let CodeRabbit review it, fix findings, merge. Then delete the old stacked branches.
+- After that, work in the order of the **Next up** list below.
+
+**Next up (in order), after the working-line PR merges:**
+1. **Part A, cleanup & safety** (section "Phase 1b" below): A1 trim deps → A2 delete AI Studio leftovers + README → A3 GitHub Actions CI. A5 (package rename) needs the owner's IDs first.
+2. **Phase 2, catalog importer from gdshowsdb** (C1–C7). This unblocks most of the remaining plan.
+3. **Phase 4 follow-ups D1/D2** (key proxy, R8 + drop Retrofit/Moshi), Phase 5, Phase 6.
 
 **Open decisions for the owner**
-- [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
-- [ ] Phase 2 dataset source and license (see step 2.1).
-- [ ] Ticketmaster API key / Bandsintown registered app ID (needed for Phase 4).
+- [ ] **A5 package/app IDs.** What should the Kotlin package and `applicationId` be (e.g. `app.deadset` / `app.deadset.android`)? Don't change them until the owner answers: changing the app ID orphans existing installs.
+- [x] **Seeded attendance and reviews.** _Decided (owner, relayed 2026-11-21): reset the six. Done on branch `phase-5-seed-reset`: seeds ship unattended with no review/rating/companions/favorite; existing installs are cleared only where the data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`), so user edits survive. Follow-up (owner, 2026-11-21): the other 10 seeds' invented ratings, reviews and favorite songs are blanked too. Cleanup on existing installs now requires rating, favorite, companions and the full invented review to all match exactly, and resets attendance only for the six where it was invented._ Original note: The seed data marks **6 shows as attended** (5 Grateful Dead incl. Soldier Field '95, plus Terrapin Flyer at Martyrs' 2024), each with an invented first-person review, rating and companions. These show up in My Shows, stats and the chase list as if you went. Options: (a) reset all seed shows to unattended with blank reviews, leaving the shows themselves (recommended; your own edits on a device are kept); (b) keep as demo data; (c) tell me which of these you really attended.
+- [x] **Phase 2 dataset** (step 2.1). **Resolved: gdshowsdb** (https://github.com/jefmsmit/gdshowsdb). Verified 2026-11-21: `LICENSE.txt` is **MIT** ("Copyright (c) 2013 Jeff Smith"); data is `data/gdshowsdb/YYYY.yaml` (1965–1995) plus `song_refs.yaml`; each song has `:segued: true|false`. Setlists most likely derive from Deadlists (the repo has `deadlists_parser.rb`, but no explicit statement), so credit both. Rejected: setlist.fm (no copying allowed), gratefulstats.com (terms forbid scraping), jerrybase.com / gdsets.com (no license; owner may ask Jerrybase for permission separately). See Phase 2 below.
+- [ ] **4.3 API keys.** Owner has applied for a Ticketmaster key (not received). Bandsintown's placeholder `app_id` is rejected (confirmed on device). Code path for the key lands with D1 (proxy, behind a feature flag); Bandsintown stays config-driven and is skipped when unset.
 
 ---
 
@@ -34,21 +44,28 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 | Thing | Detail |
 |---|---|
-| JDK | Not on PATH. Use Android Studio's: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"` (bash) or `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` (PowerShell) |
-| Run tests | `./gradlew --offline :app:testDebugUnitTest` (Robolectric, about 20 s once warm) |
-| Full build | `assembleDebug` fails at `validateSigningDebug` because `debug.keystore` is git-ignored and absent. This predates Phase 0. Build from Android Studio, or generate a local debug keystore. |
+| JDK | Not on PATH. Use Android Studio's: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"` (bash) or `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` (PowerShell). In Cursor's terminal set it once per shell before any `gradlew` call. |
+| Run tests | `./gradlew --offline :app:testDebugUnitTest` (Robolectric, about 20 s once warm). Must pass before every commit. |
+| Token economy | Never paste or read whole data files (gdshowsdb YAML, generated DBs, schema JSON) into the chat. Work from small samples, `grep`, and summarized importer output. |
+| Full build | `assembleDebug` needs a local `debug.keystore` (git-ignored). One exists on this machine; elsewhere generate it with `keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US"`. |
 | Offline | `--offline` works with cached deps. **New dependencies need network** (e.g. `room-testing`, `navigation-compose`). |
 | minSdk 24 | **Don't use `java.time`.** Core library desugaring is off. Use `com.example.data.todayIsoDate()` (`data/DateUtils.kt`) or `SimpleDateFormat`. |
 | Python | Not installed. Use the Kotlin/Gradle tools or shell scripts. |
-| Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (required by AI Studio). |
+| Emulator | AVD `Medium_Phone_API_37.0`. Start headless: `ANDROID_AVD_HOME='C:\Users\mhbro\.android\avd' "$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Medium_Phone_API_37.0 -no-window -no-audio -gpu swiftshader_indirect`. Then `adb install -r app/build/outputs/apk/debug/app-debug.apk`, `adb shell am start -n com.aistudio.deadset.kxwmtp/com.example.MainActivity`, `adb exec-out screencap -p > shot.png`. A local git-ignored `debug.keystore` was generated so `assembleDebug` works. Create one with `"$JAVA_HOME/bin/keytool"` (see README). |
+| Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (originally required by AI Studio; CI must generate `debug.keystore` in a step instead of changing them). |
 | Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
 | GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
-| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). There's no CI. **Don't merge until CodeRabbit has posted**: PRs #1 and #2 merged too early and got no review ("Review failed: the pull request is closed"). |
+| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Don't merge while its status is "Review in progress"**: PRs #1 and #2 merged too early and got no review. Free tier ≈ 1 review/hour; "Review rate limited" means it skipped. Trigger a review manually with a PR comment `@coderabbitai review` once the limit lifts. Reply to each finding on its thread and resolve it. |
+| CI | None yet (step A3 adds GitHub Actions). Until then, local `testDebugUnitTest` is the gate. |
 
 ## Conventions
 
-- Package root is `com.example` (scaffold default; renaming it is step 6.6). App ID is `com.aistudio.deadset.kxwmtp`.
-- Every user-visible fact (dates, venues, prices, setlists) must come from a real source or from the user. **No invented data in seeds.** Tests enforce "no future-dated seed shows."
+- Package root is `com.example` (scaffold default; renaming it is A5/6.6, needs owner IDs). App ID is `com.aistudio.deadset.kxwmtp`.
+- Every user-visible fact (dates, venues, prices, setlists, reviews, segues) must come from a real source or from the user. **No invented data in seeds.** If sources disagree, mark the item uncertain rather than picking one. Tests enforce no future-dated seeds and no invented personal data on seeds.
+- **Lean dependencies.** Prefer the standard library, OkHttp and org.json over adding a library.
+- **Cross-platform build tooling.** The owner's machine has no Python; any build tool (e.g. the importer) must be Kotlin/JVM via Gradle and work on Windows and Linux.
+- **Credentials** come from `.env`/env vars or `local.properties`, never committed. Don't ship secrets in `BuildConfig` for release (see D1).
+- **Migrations** read setlist JSON raw (org.json), never through app model classes; parent-table rebuilds must park child rows first (see 1.5/1.6 notes).
 - Seed rows that need to be removed from existing installs go in `CuratedShows.retiredSeedShowIds`. They're deleted only if the user never claimed them.
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` when Claude authored them.
 
@@ -108,43 +125,95 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **1.8:** `ShowEntity.isUpcoming` is an extension property: `date >= today` (a show dated today counts as upcoming). Import `com.example.data.local.isUpcoming`.
   - **1.9:** ViewModel filtering and stats run on `Dispatchers.Default`.
 
-## Phase 2: Full catalog
+## Phase 1b: Cleanup & safety (from external review, 2026-11-21)
 
-- [ ] **2.1 Choose dataset.** It needs about 2,300 GD shows with segue markers and a license that allows bundling. Candidates: setlist.fm API export (check its terms), published community datasets. Record the choice and license here.
-- [ ] **2.2 Importer.** Write a Gradle task or JVM script that converts the dataset into the Phase 1 schema, mapping `->`/`>` to `TransitionType` and normalizing names through the `songs` table.
-- [ ] **2.3 Prebuilt asset DB.** Ship it with `createFromAsset`. Keep user columns (attended, review, rating) in a separate table or merge them on upgrade so they're never overwritten.
-- [ ] **2.4 Perf check.** Make sure Shows, Stats, and Segues stay smooth with the full catalog.
+Do these after the working-line PR merges, one per PR (or batch A1–A3).
+
+- [ ] **A1 Trim unused dependencies.** Firebase AI and App Check are already commented out (5.7). Also remove `logging-interceptor` (no `HttpLoggingInterceptor` reference in `app/src/main`), and drop the Firebase BoM + `google-services` plugin if no Firebase library remains (nothing uses Firebase; AI Studio no longer builds this project). Confirm with `git grep`, then `testDebugUnitTest` + `assembleDebug`.
+- [ ] **A2 Remove AI Studio leftovers + README.** Delete tracked `.aistudio/` (~1.5 MB temp media) and `public/` (~0.6 MB web scaffolding) and `metadata.json`; add them and `.idea/` to `.gitignore`. Write `README.md`: what the app is, how to build (JDK path, keystore), data sources + credits, env vars (`TICKETMASTER_API_KEY`, `BANDSINTOWN_APP_ID`).
+- [ ] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR, `concurrency` with cancel-in-progress, JDK 17+, cache Gradle, **generate `debug.keystore` with `keytool` in a step** (never commit one, never edit `signingConfigs`), run `testDebugUnitTest`. Add a release-shrink check later with D2 (`:app:minifyReleaseWithR8`; `assembleRelease` needs a signing secret).
+- [x] **A4 Demo seed data.** Done on the working line: all 16 seeds ship unattended with no invented review/rating/companions/favorite; existing installs are cleaned only where data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`).
+- [ ] ⏸ **A5 Package + applicationId rename** (= 6.6). **Ask the owner for the IDs first.** Rename `com.example` → owner's package (namespace + directories + Room schema dir name changes with the package!) and `applicationId`. Note: the Room schema folder is named after the DB class's package; move `app/schemas/com.example.data.local.AppDatabase/` accordingly and keep `MigrationTest` green.
+- [x] **B1 = 1.6/1.7** (single source of truth + exact segue match). Done in Phase 1. The external review asked for a DAO "song X segued into Y" query; the app uses the in-memory `SegueMatcher` (fine at ~2,400 shows). **Add the DAO query in C6** so importer tests can check segues straight against the built DB.
+
+## Phase 2: Full catalog (gdshowsdb importer)
+
+Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39,774 song performances, ≈16,577 `:segued: true` flags, ≈282 shows with no setlist (figures from the external review; verify with importer output). `:segued:` is yes/no only, so map `true → SEGUE`, `false → NONE` (it can't tell `>` from `->`). Credit gdshowsdb **and** Deadlists in the app.
+
+- [x] **2.1 Choose dataset.** gdshowsdb (see above).
+- [ ] **C1 / 2.2 `tools/importer` module.** A Kotlin JVM Gradle module (`settings.gradle.kts` include), build-time only, adds nothing to the APK.
+  - Share normalization with the app: move `songKey()`, `SongCatalog`, `SongResolver` (`app/.../data/songs/SongNames.kt`, pure Kotlin) into a small pure-Kotlin `:shared` module used by both `:app` and `tools:importer`, so names normalize identically.
+  - Parse YAML with a small hand-written line parser (no YAML library). Before writing it, look at **one** sample: `curl` just `1977.yaml` and `grep -n -A40 "1977-05-08"` to see one show block. Don't read whole files into the chat.
+- [ ] **C2 Fetch + cache.** Download the 31 year files + `song_refs.yaml` once into `tools/importer/cache/` (gitignored). Write `tools/importer/provenance.json` with the gdshowsdb commit SHA and fetch date.
+- [ ] **C3 Normalize.** Resolve every title through `SongResolver`. Write unmatched titles to `tools/importer/out/unmatched.csv` with counts. The owner (or the agent, with the owner's OK) adds aliases to `SongCatalog` **by hand**. Never auto-insert guessed matches.
+- [ ] **C4 Cross-check (optional `--crosscheck` flag).** Free Relisten API (no key; ~2,000 calls; cache every response; one request at a time with a delay; honest User-Agent). Compare dates/venues/segues, write `out/discrepancies.csv`, and **mark disagreeing shows uncertain** (a flag column) rather than picking a winner. Archive.org's GratefulDead collection is a second free option; its item identifiers can power a per-show "Listen" link (today's link searches by date).
+- [ ] **C5 / 2.3 Build `app/src/main/assets/catalog.db`.** Create tables from the Room exported schema JSON for the current version, so `createFromAsset` passes Room's validation (same identity hash; set `user_version`; include `room_master_table`). Populate songs, song_aliases, shows, song_performances (set, position, transitionOut). **Move user data (attended, rating, review, companions, favorite) out of `shows` into a separate user table first** (its own migration + test), so a catalog refresh can never wipe it. Decide how a newer bundled catalog merges into an existing install (likely: upsert catalog rows by id, never touch user tables).
+- [ ] **C6 Tests.** Show count ≈2,358 (allow a small range); no future dates; 1977-05-08 setlist matches exactly; add the DAO next-song segue query (B1) and test it against the built DB.
+- [ ] **C7 About / credits screen.** gdshowsdb (MIT, with license text), Deadlists, plus Relisten / Archive.org if used.
+- [ ] **2.4 Perf check.** Shows, Stats, Segues and the transition map stay smooth with ~2,400 shows (stats already run off the main thread; consider SQL aggregates if needed). Re-enable the 3.3 Drums/Space set-structure split once real data is in.
 
 ## Phase 3: Transitions
 
-- [ ] **3.1 Segue Families.** Replace `CuratedShows.legendaryTransitions` with a data-driven list (see the table in IMPROVEMENT_PLAN §2.2b). Compute era span and frequency from the catalog; hand-write only the notes. Fact-check the notes.
-- [ ] **3.2 Song "Ins & Outs" panel.** Show the top incoming and outgoing transitions with percentages, filterable by era.
-- [ ] **3.3 Set-structure flow view** on Show Detail (Set I | pre-Drums | Drums/Space | post-Space | Encore).
-- [ ] **3.4 Quiz modes.** "What comes next?" (distractors = real exits from song A), "Complete the suite," "Fill the sandwich," "Name that era," "Build Set Two."
-- [ ] **3.5 Spaced repetition.** A Leitner box per transition pair, stored in Room.
-- [ ] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.
+- [x] **3.1 Segue Families.** Replace `CuratedShows.legendaryTransitions` with a data-driven list (see the table in IMPROVEMENT_PLAN §2.2b). Compute era span and frequency from the catalog; hand-write only the notes. Fact-check the notes.
+- [x] **3.2 Song "Ins & Outs" panel.** Show the top incoming and outgoing transitions with percentages, filterable by era.
+- [x] **3.3 Set-structure flow view** on Show Detail (Set I | pre-Drums | Drums/Space | post-Space | Encore).
+  _As built (3.1–3.3, branch `phase-3-transitions-a`):_
+  - `data/setlist/SetlistAnalytics.kt`: `SegueFamilies.all` (10 families), `familyStats()`, `songFlow()`, `notation()`/`notationBySet()`. Pure functions, covered by `SetlistAnalyticsTest`.
+  - **Facts policy:** family notes describe only the music (meter, feel, structure). Every date, count and "example show" is computed from the catalog ("3 shows in your catalog · 1977–1980"). The old `legendaryTransitions` and the `LegendarySegue` model, which made historical claims, were deleted.
+  - **3.2 deviation:** the Song Flow Explorer is a panel on the Segues tab (chips for the top songs), not a per-song page, because there is no song page yet. It has no era filter yet; add one when a song page exists (5.6 cross-linking).
+  - **3.3 deviation:** a "Setlist at a glance" card in standard notation (`Scarlet Begonias -> Fire on the Mountain, Estimated Prophet`), one line per set. The pre-Drums / Drums-Space / post-Space split was skipped: it only works once Drums/Space are reliably present (Phase 2 data).
+  - The pill and the ribbon below a song now share one color per transition type (`transitionAccent()`).
+  - **Checked on the emulator** (Medium_Phone_API_37.0): Segues tab, flow explorer, family → filtered show list (3 Scarlet > Fire shows), pill cycling on Cornell.
+- [x] **3.4 Quiz modes.** "What comes next?" (distractors = real exits from song A), "Complete the suite," "Fill the sandwich," "Name that era," "Build Set Two."
+- [x] **3.5 Spaced repetition.** A Leitner box per transition pair, stored in Room.
+  _As built (3.4–3.5, branch `phase-3-transitions-b`, DB v6→v7):_
+  - New **Segue School** mode (`TriviaGameMode.SEGUE_SCHOOL`, 10 questions) on the Trivia tab. Generators live in `data/setlist/TransitionQuiz.kt`: complete-the-chain (from `SegueFamilies`), most-often-next, fill-the-sandwich, and name-that-era. Each question exists only if it has exactly one defensible answer, and its liner note cites the catalog evidence.
+  - **Deviation from plan:** "What comes next?" became "which song does X **most often** flow into", with distractors = songs that **never** followed X. The plan's "distractors = real exits" would have made wrong options also correct. It's skipped when the top exits tie.
+  - **Deferred:** "Build Set Two" (drag-to-order) needs a reorder UI; revisit with Phase 6 UI work.
+  - **3.5:** `data/review/Leitner.kt` (5 boxes; intervals 0/1/3/7/14 days; a miss goes back to box 1). The `review_cards` table (`MIGRATION_6_7`, additive) is keyed by question id, which is stable per card. The deck orders due cards (weakest first), then new cards, then not-due cards. `DeadSetViewModel.recordCardAnswer()` is called per answer in Segue School only.
+  - **Checked on the emulator:** an upgrade from a real v6 DB to v7 opened cleanly; Segue School runs; a wrong answer shows the evidence note. A bug found there and fixed: "Brent Mydland Era era" (now guarded by a test).
+- [x] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.
+  _As built (branch `phase-3-transitions-c`):_ a "Transition map" card on the Segues tab (`ui/components/TransitionGraphCard.kt`), built by `SetlistAnalytics.transitionGraph()`. The 14 most-connected songs sit on a circle, with a curved chord per connected transition (width/opacity = count). **Deviation:** you tap a **song** (not an edge) to highlight its links; tapping thin curves on a phone is unreliable, so the song's transitions are listed below as rows, and tapping a row filters the show list. Labels go beside side nodes and above/below top/bottom nodes. Checked on the emulator.
 
 ## Phase 4: Tribute band tracking
 
-- [ ] **4.1 `bands` table.** Replace the `TributeBandFilter` enum. Seed Terrapin Flyer (starred default), DSO, JRAD, Melvin Seals & JGB, Bob Weir & Wolf Bros, Dead & Company; let the user add bands.
-- [ ] **4.2 `events` table + cache.** Store each event's source and last-checked time and show them on the card. Refresh with WorkManager about every 12 hours (new dependency).
-- [ ] **4.3 Credentials.** Register a Bandsintown app ID or drop that source; add a Ticketmaster key. Add setlist.fm for past tribute setlists.
-- [ ] **4.4 Manual add / paste-link import** for local shows (Terrapin Flyer).
-- [ ] **4.5 Near me.** Sort by distance from the profile home city, with a radius slider, replacing the hard-coded Midwest state set.
-- [ ] **4.6 Notifications.** New-date alerts for followed bands; day-of reminder.
-- [ ] **4.7 Song chase list** ("heard 112/180 live") and cross-band stats.
-- [ ] **4.8 DSO recreation link.** Match a tribute setlist to the original GD date and show them side by side.
-- [ ] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
+- [x] **4.1 `bands` table.** Replace the `TributeBandFilter` enum. Seed Terrapin Flyer (starred default), DSO, JRAD, Melvin Seals & JGB, Bob Weir & Wolf Bros, Dead & Company; let the user add bands.
+- [x] **4.2 `events` table + cache.** Store each event's source and last-checked time and show them on the card. Refresh with WorkManager about every 12 hours (new dependency).
+- [ ] ⏸ **Needs owner:** **4.3 Credentials.** Owner applied for a Ticketmaster key (pending). Bandsintown app ID optional (skipped when unset). Add setlist.fm for past tribute setlists (D3).
+- [x] **4.4 Manual add / paste-link import** for local shows (Terrapin Flyer).
+- [x] **4.5 Near me.** Sort by distance from the profile home city, with a radius slider, replacing the hard-coded Midwest state set.
+  _As built (4.1, 4.2, 4.4, 4.5, branch `phase-4-tribute-a`, DB v7→v8):_
+  - **4.1:** `bands` table (`data/local/ConcertEntities.kt`). It's seeded with 6 real band names; Terrapin Flyer, DSO and JRAD are followed (the bands the app queried before). The Tickets tab has a **Bands** dialog to follow/unfollow and add your own (user-added bands can be deleted; built-ins can only be unfollowed). Terrapin Flyer's chip comes first. `TributeBandFilter`, `searchLiveConcerts`, `filterConcertEvents` and `isMidwest` were removed.
+  - **4.2:** `events` cache + `ConcertRepository`. `refresh()` runs when the tab opens or the refresh button is tapped, queries only followed bands, and **replaces the cache only if a source answered**, so a failed refresh never wipes good dates. Past dates are dropped. Each card shows "source · checked N min ago · ~N mi". The empty state says honestly which situation applies (no keys/connection, not following anything, filters too narrow, or no dates listed). Periodic background refresh is left to 4.6 (WorkManager).
+  - **4.4:** the show editor has a **Band** field with one-tap chips (Grateful Dead + followed bands). A new show counts as attended only if its date has passed; upcoming ones appear under "Upcoming". **Bug fixed:** editing a show used to rebuild it from scratch, wiping trivia, archive id, tags, companions and favorite song, and turning built-in shows into custom (deletable) ones. `buildEditedShow()` now copies the existing show. Paste-link import is not done (needs a parser per site; low value until 4.3 is decided).
+  - **4.5:** venue coordinates come from both APIs. The home city is geocoded on device with Android `Geocoder` (no key). Radius chips: any / ≤100 / ≤250 / ≤500 mi, replacing the Midwest toggle. Events without coordinates show only under "Any distance".
+  - **Checked on the emulator:** real v7→v8 upgrade; Chicago geocoded; with no keys the honest empty state appears (Bandsintown rejects the placeholder `app_id`, which confirms 4.3 needs the owner).
+- [x] **4.6 Notifications.** New-date alerts for followed bands; day-of reminder.
+  _As built (branch `phase-4-tribute-d`):_ an **Alerts** chip on the Tickets tab (off by default; on Android 13+ it asks for notification permission first). When on, `ConcertAlertsWorker` (WorkManager, new dependency `work-runtime-ktx` 2.10.0, every ~12 h, needs network) refreshes followed bands. It notifies about dates that weren't cached before (never on the first sync, so turning alerts on doesn't dump every known date as "new") and sends one "Tonight: …" reminder per day for catalog shows dated today. Rules are pure (`data/alerts/ConcertAlertRules.kt`, tested). Prefs: `UserPrefsStore.alertsEnabled` etc. **Checked on the emulator:** permission prompt shown, the job ran ("Worker result SUCCESS"). A real "new date" notification can't be shown until 4.3 provides a working source.
+- [x] **4.7 Song chase list** ("heard 112/180 live") and cross-band stats.
+  _As built (branch `phase-4-tribute-b`, DB v8→v9):_ a Song Chase card on the My Shows tab (`ui/components/SongChaseCard.kt`, `data/setlist/ChaseProgress.kt`, `chase_songs` table). Chased songs resolve to canonical songs, so "St Stephen" and "Saint Stephen" count once. Each song shows where you first heard it (any band); unheard songs are listed first. Plus a "Shows by band" card.
+  - **Bug fixed:** the "Live Songs Seen" tile used `topSongsAttended.size`, which is capped at 15; it now counts distinct songs heard (80 on the seed data).
+  - **Bug found on device and fixed:** "+" used to add any typed text as a new song (e.g. "Mississippi Half"). It's now enabled only for a known title (aliases included); otherwise you pick a suggestion or tap an explicit "Add 'X' as a new song" chip.
+- [x] **4.8 DSO recreation link.** Match a tribute setlist to the original GD date and show them side by side.
+  _As built (branch `phase-4-tribute-e`, DB v9→v10, additive `shows.recreatesShowId`):_ `RecreationMatcher` aligns a tribute setlist with a GD show (LCS over canonical song keys, so skips and extras don't cascade) and scores the share played in order. Tribute show pages offer "Link as a recreation of <date>" when a catalog show matches at least 60% (needs 5+ songs), and once linked show a side-by-side comparison with a match %. Not yet checked on the emulator.
+- [x] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
+  _As built (branch `phase-4-tribute-c`):_ a "Track it live" card on Show Detail for shows that haven't happened yet (`ui/components/LiveTrackerCard.kt`). Pick the set; it suggests the 3 likeliest next songs from what followed the last song (same set, any transition) across the catalog, or the set's usual openers when empty (`SetlistAnalytics.predictNext`). Tap a guess or type any song (same known-title/explicit-new rule as the chase list). `ShowRepository.appendSong` inserts at the end of the chosen set. A "Predicted N of M" score is kept for the session. Uses all adjacency, not only connected transitions, because "what's next" includes stops.
+  - **Bugs fixed while testing on the emulator:** (1) the Setlists header's **Add Show button was squeezed to zero width** on phones, so you couldn't add a show unless the list was empty. The title column now takes `weight(1f)` and the button is a compact icon button. (2) An **upcoming show couldn't be saved without a setlist**; now only past shows require one. (3) Terrapin Flyer is listed first among the editor's band chips.
+- [ ] **D1 Keep the Ticketmaster key out of the APK.** Anything in `BuildConfig` can be extracted. Build a tiny proxy (e.g. a Cloudflare Worker, key held as a Worker secret, exposing only the one Discovery query the app needs, with a per-IP rate limit). App points at the proxy URL behind a feature flag; debug builds may still call Ticketmaster directly with a local key. Commit the Worker source under `tools/proxy/`, never the secret. Deploying it needs the owner's Cloudflare account.
+- [ ] **D2 Slim the release build.** Turn on R8 (`isMinifyEnabled = true`) with keep rules for Room entities/DAOs. Replace Retrofit + Moshi + `KotlinJsonAdapterFactory` (pulls in kotlin-reflect for two endpoints) with plain OkHttp + `org.json`, mirroring how `ConcertRepository` already uses an injectable fetch. Add `:app:minifyReleaseWithR8` to CI.
+- [ ] **D3 (note, don't build yet) Past tribute setlists from setlist.fm.** Free non-commercial API key; fetch on demand, show attribution, don't bundle or keep long-term copies (its terms). Tours stay with Ticketmaster/Bandsintown (SeatGeek is another option).
 
 ## Phase 5: Almanac (trivia + articles)
 
-- [ ] **5.1 Per-question answer history.** Stop repeating questions the user has mastered; show accuracy by category.
+- [x] **5.1 Per-question answer history.** Stop repeating questions the user has mastered; show accuracy by category.
+  _As built (branch `phase-5-almanac-a`):_ every quiz answer, in every mode, now updates the per-question Leitner state in `review_cards` (previously Segue School only). Classic/Blitz/category decks lead with **unseen** questions, then due/weak ones, then mastered-not-due ones (Segue School keeps due-first for review). The Trivia hub shows "Your accuracy by category" (`AnswerHistory.byCategory`). A test enforces that question ids are unique, since they key the history.
 - [ ] **5.2 Fact-check pass** on `DeadTriviaSeed` and `historicTrivia`. Add a `sourceUrl` to `TriviaQuestion`.
 - [ ] **5.3 New question types.** True/false, order-the-dates, who-sang-it, venue→city, lyric→song (paraphrase only, never quoted lyrics).
-- [ ] **5.4 Article format.** Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
+- [ ] **5.4 Article format.** _(Drafting rule from D4: if trivia or articles are ever machine-drafted, do it offline, e.g. a local Ollama run, and fact-check every claim against the catalog or a cited source before committing. Never call an LLM API from the app.)_ Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
-- [ ] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
+- [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
+  _Decision:_ removed (commented out, per the build file's AI Studio convention) `firebase-ai` and both App Check libraries; no code used them. The Firebase BoM and google-services plugin stay so AI Studio builds keep working. Re-enable if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2). App launches cleanly on the emulator.
 
 ## Phase 6: Polish & architecture
 
@@ -153,7 +222,7 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
-- [ ] **6.6 Rename namespace and applicationId**; add `.idea/` to `.gitignore`.
+- [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
 - [ ] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows.
 
 ---
@@ -161,6 +230,24 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (PR #5 CodeRabbit fixes)
+- Addressed clear CodeRabbit findings on PR #5 (`phase-5-coderabbit-fixes`): exact invented-review fingerprint, setlist/review mutexes, chase card when attendance empty, live-tracker set-scoped predictions + SET_3, same-set analytics, chain distractor exclusions, tonight-reminder only when notify posts, home-city stale-lookup guard, ISO date validation, followed-band alert query, Bandsintown skipped when unset (no placeholder), MigrationTest 6→10 seeded cases, README/AGENTS docs.
+- **Deferred (heavy lift / later):** multi-band event identity, refresh race coordination, cross-source concert dedupe, graph keyboard a11y (Phase 6). Noted for owner in PR reply.
+- Unit tests pass. **Next:** push onto PR #5, wait for CodeRabbit re-check, merge, then A1.
+
+### 2026-11-21 · Claude Code (external review triage + handoff to Cursor)
+- Owner had another AI review the project; each suggestion was checked against the code and the sources. **Accepted** into the plan: A1, A2, A3, A5 (Phase 1b), C1–C7 (Phase 2, gdshowsdb), D1, D2 (Phase 4), D3 and D4 as notes. **Already done:** A4 (seed reset on the working line), B1 (Phase 1 steps 1.6/1.7; the DAO segue query is folded into C6). **Adjusted:** C1 shares `songKey`/`SongResolver` through a `:shared` module instead of copying them; C5 must first move user columns out of `shows` and build the asset DB from Room's exported schema so `createFromAsset` validates. **Rejected sources:** gratefulstats.com (terms forbid scraping), jerrybase.com / gdsets.com (no license). gdshowsdb's MIT license was verified directly.
+- Merged `main` (PR #4 fixes) into `phase-5-seed-reset` (`aae31a4`); 97/97 tests pass. Docs rewritten for Cursor: `AGENTS.md` (workflow + ground rules), new `README.md`, this file.
+- **Not checked on the emulator yet:** 4.8 recreation link, seed reset on an existing install.
+- **Next action (Cursor):** PR #5 (`phase-5-seed-reset` → `main`) is open; wait for CodeRabbit, fix findings, merge. Then A1.
+
+### 2026-11-21 · Claude Code (Phases 3–4, autonomous run)
+- **Branch stack** (each builds on the last; open PRs in order, each after the previous merges): PR #4 `phase-1-step-1.6-single-setlist` (awaiting CodeRabbit; it was rate-limited) → `phase-3-transitions-a` (3.1–3.3) → `-b` (3.4–3.5) → `-c` (3.6) → `phase-4-tribute-a` (4.1/4.2/4.4/4.5) → `-b` (4.7) → `-c` (4.9) → `-d` (4.6). Plan: one PR for all of Phase 3 (from `-c`) and one for Phase 4 (from `-d`), because CodeRabbit's free tier allows ~1 review/hour.
+- DB is **v9**; every step's migration is covered by `MigrationTest` and was run for real on the emulator. 81/81 tests pass.
+- Every feature was checked on the emulator (see Environment notes for the commands). Bugs found that way and fixed: unreachable Add Show button; upcoming shows needing a setlist; "Era era" wording; chase "+" creating junk songs; "Live Songs Seen" capped at 15; editing a show wiping hidden fields.
+- **Blocked on owner:** Open decisions (seed attendance/reviews, Phase 2 dataset, 4.3 keys).
+- **Next unblocked:** 4.8 (DSO recreation link), Phase 5 (5.1, 5.3–5.7), Phase 6.
 
 ### 2026-11-21 · Claude Code (steps 1.6–1.9)
 - PR #3 (1.5) merged as `44ac50b` after CodeRabbit's review; its 2 findings were fixed in `8efc907`.

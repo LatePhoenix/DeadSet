@@ -7,6 +7,7 @@ import com.example.TestSeeds
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
+import com.example.data.seed.CuratedShows
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -113,6 +114,114 @@ class SeedingTest {
             )
         )
         assertEquals(listOf(1, 2, 1, 1), repository.getSetlist(show.id).map { it.position })
+    }
+
+    @Test
+    fun `live tracker appends songs at the end of their set`() = runBlocking {
+        repository.ensureSongCatalog() // as at app startup, so aliases resolve
+        val show = TestSeeds.shows.first().copy(id = "live-show", isCustomShow = true)
+        repository.saveShow(show, emptyList())
+        repository.appendSong(show.id, "Bertha", SetType.SET_1)
+        repository.appendSong(show.id, "Ripple", SetType.ENCORE)
+        repository.appendSong(show.id, "Scarlet", SetType.SET_2) // alias -> canonical
+        repository.appendSong(show.id, "Deal", SetType.SET_1)
+        assertEquals(
+            listOf("Bertha", "Deal", "Scarlet Begonias", "Ripple"),
+            repository.getSetlist(show.id).map { it.name }
+        )
+        assertEquals(listOf(1, 2, 1, 1), repository.getSetlist(show.id).map { it.position })
+    }
+
+    @Test
+    fun `seed shows no longer ship as attended or with invented reviews`() {
+        for (seed in TestSeeds.seeds) {
+            val s = seed.show
+            assertTrue(s.id, !s.isAttended)
+            assertEquals(s.id, listOf("", "", ""), listOf(s.userReview, s.attendedWith, s.favoriteSong))
+            assertEquals(s.id, 0f, s.userRating)
+        }
+        // Every seed has a fingerprint, so existing installs get cleaned up too.
+        assertEquals(
+            TestSeeds.seeds.map { it.id }.toSet(),
+            com.example.data.seed.CuratedShows.legacySeedPersonalData.map { it.showId }.toSet()
+        )
+    }
+
+    @Test
+    fun `cleanup keeps attendance the user set on a show whose review was invented`() = runBlocking {
+        val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        val invented = CuratedShows.legacySeedPersonalData.first { it.showId == veneta.id }
+        // Old build's invented review/rating/favorite, but the user marked it attended themselves.
+        dao.insertShow(
+            veneta.copy(
+                isAttended = true, userRating = invented.rating, favoriteSong = invented.favoriteSong,
+                userReview = invented.inventedReview
+            )
+        )
+
+        repository.checkAndSeedDatabase()
+
+        val after = dao.getShowById(veneta.id).first()!!
+        assertTrue("user-set attendance must survive", after.isAttended)
+        assertEquals(listOf(0f, "", ""), listOf(after.userRating, after.userReview, after.favoriteSong))
+    }
+
+    @Test
+    fun `cleanup leaves a show alone if the user changed any invented field`() = runBlocking {
+        val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        val invented = CuratedShows.legacySeedPersonalData.first { it.showId == veneta.id }
+        // Same invented review, but the user re-rated it: treat it as theirs.
+        val rerated = veneta.copy(
+            userRating = 3f, favoriteSong = invented.favoriteSong,
+            userReview = invented.inventedReview
+        )
+        dao.insertShow(rerated)
+
+        repository.checkAndSeedDatabase()
+
+        val after = dao.getShowById(veneta.id).first()!!
+        assertEquals(3f, after.userRating)
+        assertEquals(rerated.userReview, after.userReview)
+    }
+
+    @Test
+    fun `existing installs lose invented attendance, but never the user's own edits`() = runBlocking {
+        val base = TestSeeds.seed("1977-05-08-cornell").show
+        // As an old build stored it: attended, with the invented review and companions.
+        val invented = base.copy(
+            isAttended = true, userRating = 5f, attendedWith = "College tape traders", favoriteSong = "Morning Dew",
+            userReview = "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection, and Jerry's final crescendo on Morning Dew gave everyone in the room chills. Transcendent."
+        )
+        dao.insertShow(invented)
+        val soldier = TestSeeds.seed("1995-07-09-soldier-field").show
+        // The user rewrote this review themselves, so it must be kept.
+        val edited = soldier.copy(isAttended = true, userRating = 4f, attendedWith = "Tour family", userReview = "I was really there!")
+        dao.insertShow(edited)
+
+        repository.checkAndSeedDatabase()
+
+        val cleared = dao.getShowById(base.id).first()!!
+        assertEquals(listOf(false, 0f, "", "", ""), listOf(cleared.isAttended, cleared.userRating, cleared.userReview,
+            cleared.attendedWith, cleared.favoriteSong))
+        val kept = dao.getShowById(soldier.id).first()!!
+        assertTrue(kept.isAttended)
+        assertEquals("I was really there!", kept.userReview)
+    }
+
+    @Test
+    fun `an appended note on an invented review is left alone`() = runBlocking {
+        val base = TestSeeds.seed("1977-05-08-cornell").show
+        val appended = base.copy(
+            isAttended = true, userRating = 5f, attendedWith = "College tape traders", favoriteSong = "Morning Dew",
+            userReview = CuratedShows.legacySeedPersonalData.first { it.showId == base.id }.inventedReview +
+                "\n\nP.S. I really was there."
+        )
+        dao.insertShow(appended)
+        repository.checkAndSeedDatabase()
+        val after = dao.getShowById(base.id).first()!!
+        assertTrue(after.isAttended)
+        assertEquals(appended.userReview, after.userReview)
+        assertEquals(5f, after.userRating)
     }
 
     @Test

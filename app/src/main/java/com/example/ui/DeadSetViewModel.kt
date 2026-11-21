@@ -5,18 +5,30 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
+import com.example.data.local.ReviewCardEntity
+import com.example.data.review.Leitner
+import com.example.data.review.ReviewState
 import com.example.data.local.ShowEntity
 import com.example.data.local.isUpcoming
+import com.example.data.setlist.FamilyStat
 import com.example.data.setlist.SegueMatcher
+import com.example.data.setlist.SetlistAnalytics
+import com.example.data.setlist.predictNext
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
 import com.example.data.repository.ShowRepository
+import com.example.data.repository.ConcertRepository
+import com.example.data.LatLon
+import com.example.ui.screens.ConcertsUiState
 import com.example.data.seed.TriviaGameMode
 import com.example.data.seed.TriviaUserProgress
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 enum class MainTab {
     SHOWS,
@@ -68,9 +80,22 @@ data class UiState(
     val songsByShow: Map<String, List<SongEntry>> = emptyMap(),
     val filteredShows: List<ShowEntity> = emptyList(),
     val stats: OverallStats? = null,
+    /** Each segue family with its play count and date range, computed from the catalog. */
+    val familyStats: List<FamilyStat> = emptyList(),
     val userProfile: UserProfileData = UserProfileData(),
     val triviaProgress: TriviaUserProgress = TriviaUserProgress(),
+    /** Segue School spaced-repetition state by card (question) id. */
+    val reviewStates: Map<String, ReviewState> = emptyMap(),
     val userFeedbackMessage: String? = null
+)
+
+/** Everything derived from one catalog emission, computed together off the main thread. */
+private data class CatalogSnapshot(
+    val shows: List<ShowEntity>,
+    val songsByShow: Map<String, List<SongEntry>>,
+    val filtered: List<ShowEntity>,
+    val stats: OverallStats,
+    val families: List<FamilyStat>
 )
 
 class DeadSetViewModel(application: Application) : AndroidViewModel(application) {
@@ -78,6 +103,8 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     private val database = AppDatabase.getInstance(application)
     val repository = ShowRepository(database.showDao(), database.songDao())
     private val userPrefs = UserPrefsStore(application)
+    private val reviewMutex = Mutex()
+    private val homeLookupGeneration = AtomicInteger(0)
 
     private val _uiState = MutableStateFlow(
         UiState(
@@ -94,31 +121,147 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private val reviewDao = database.reviewDao()
+
+    // --- Song chase list (step 4.7) ---
+    private val chaseDao = database.chaseDao()
+    val chaseSongs: StateFlow<List<com.example.data.local.ChaseSongEntity>> =
+        chaseDao.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _songNames = MutableStateFlow<List<String>>(emptyList())
+    /** Every known song title, for chase-list autocomplete. */
+    val songNames: StateFlow<List<String>> = _songNames.asStateFlow()
+
+    fun loadSongNames() {
+        viewModelScope.launch { _songNames.value = repository.allSongNames() }
+    }
+
+    fun addChaseSong(name: String) {
+        viewModelScope.launch {
+            val song = repository.resolveSong(name) ?: return@launch
+            chaseDao.add(
+                com.example.data.local.ChaseSongEntity(song.songId, song.canonicalName, com.example.data.todayIsoDate())
+            )
+        }
+    }
+
+    fun removeChaseSong(songId: String) = viewModelScope.launch { chaseDao.remove(songId) }
+
+    /** Live tracker (step 4.9): log a just-played song. */
+    fun appendSongToShow(showId: String, name: String, setType: SetType) {
+        viewModelScope.launch {
+            repository.appendSong(showId, name, setType)
+            loadSongNames()
+        }
+    }
+
+    /** Links (or with null, unlinks) a tribute show to the GD show it recreates (step 4.8). */
+    fun setRecreation(showId: String, originalId: String?) {
+        viewModelScope.launch { repository.setRecreation(showId, originalId) }
+    }
+
+    /** Best guesses for the next song, from the whole catalog (step 4.9). */
+    fun predictNext(showId: String, lastSong: String?, setType: SetType): List<String> {
+        val state = _uiState.value
+        return SetlistAnalytics.predictNext(
+            lastSong, setType, state.shows, { state.songsByShow[it.id].orEmpty() },
+            alreadyPlayed = state.songsByShow[showId].orEmpty().map { it.name }
+        )
+    }
+
+    // --- Tickets tab (Phase 4): followed bands + cached upcoming dates ---
+    private val concertRepository = ConcertRepository(database.concertDao())
+    private val _concerts = MutableStateFlow(ConcertsUiState())
+    val concerts: StateFlow<ConcertsUiState> = _concerts.asStateFlow()
+
+    fun refreshConcerts() {
+        if (_concerts.value.isRefreshing) return
+        viewModelScope.launch {
+            _concerts.update { it.copy(isRefreshing = true) }
+            val outcome = runCatching { concertRepository.refresh() }.getOrNull()
+            _concerts.update { it.copy(isRefreshing = false, lastOutcome = outcome ?: it.lastOutcome) }
+        }
+    }
+
+    fun addBand(name: String) = viewModelScope.launch { concertRepository.addBand(name) }
+
+    fun setBandFollowed(bandId: String, followed: Boolean) =
+        viewModelScope.launch { concertRepository.setFollowed(bandId, followed) }
+
+    fun removeBand(bandId: String) = viewModelScope.launch { concertRepository.removeBand(bandId) }
+
+    /** Turns background date checks + notifications on or off (step 4.6). */
+    fun setAlertsEnabled(enabled: Boolean) {
+        userPrefs.setAlertsEnabled(enabled)
+        val ctx = getApplication<Application>()
+        if (enabled) com.example.notifications.ConcertAlertsWorker.schedule(ctx)
+        else com.example.notifications.ConcertAlertsWorker.cancel(ctx)
+        _concerts.update { it.copy(alertsEnabled = enabled) }
+    }
+
+    /** Geocodes the profile's home city for "near me" (no network key needed; may be unavailable). */
+    private fun locateHome(homeCity: String) {
+        val generation = homeLookupGeneration.incrementAndGet()
+        viewModelScope.launch {
+            val home = withContext(Dispatchers.IO) {
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    android.location.Geocoder(getApplication())
+                        .getFromLocationName(homeCity, 1)
+                        ?.firstOrNull()
+                        ?.let { LatLon(it.latitude, it.longitude) }
+                }.getOrNull()
+            }
+            if (generation != homeLookupGeneration.get()) return@launch
+            _concerts.update { it.copy(home = home, homeLabel = homeCity.substringBefore(",").trim()) }
+        }
+    }
+
     init {
+        viewModelScope.launch {
+            reviewDao.observeAll().collect { cards ->
+                _uiState.update { s -> s.copy(reviewStates = cards.associate { it.cardId to it.toState() }) }
+            }
+        }
+
         viewModelScope.launch {
             repository.checkAndSeedDatabase()
         }
+
+        viewModelScope.launch { concertRepository.ensureDefaultBands() }
+        viewModelScope.launch {
+            concertRepository.bands.collect { bands -> _concerts.update { it.copy(bands = bands) } }
+        }
+        viewModelScope.launch {
+            concertRepository.upcomingEvents().collect { events -> _concerts.update { it.copy(events = events) } }
+        }
+        locateHome(_uiState.value.userProfile.homeCity)
+        if (userPrefs.alertsEnabled()) setAlertsEnabled(true) // re-schedules (KEEP) and syncs UI state
 
         viewModelScope.launch {
             repository.allShowsWithSongs.collect { rows ->
                 val current = _uiState.value
                 // Stats and filtering walk every setlist; keep that off the main thread.
-                val (snapshot, stats) = withContext(Dispatchers.Default) {
+                val snapshot = withContext(Dispatchers.Default) {
                     val allShowsList = rows.map { it.show }
                     val songsByShow = rows.associate { it.show.id to it.orderedSongs }
-                    val filtered = applyFilters(
+                    val songsFor = { show: ShowEntity -> songsByShow[show.id].orEmpty() }
+                    CatalogSnapshot(
                         shows = allShowsList,
-                        query = current.searchQuery,
-                        era = current.selectedEra,
-                        attendance = current.attendanceFilter,
-                        sort = current.sortOrder,
-                        segueFilter = current.selectedSegueFilter,
-                        songsByShow = songsByShow
+                        songsByShow = songsByShow,
+                        filtered = applyFilters(
+                            shows = allShowsList,
+                            query = current.searchQuery,
+                            era = current.selectedEra,
+                            attendance = current.attendanceFilter,
+                            sort = current.sortOrder,
+                            segueFilter = current.selectedSegueFilter,
+                            songsByShow = songsByShow
+                        ),
+                        stats = repository.computeOverallStats(allShowsList, songsFor),
+                        families = SetlistAnalytics.familyStats(allShowsList, songsFor)
                     )
-                    Triple(allShowsList, songsByShow, filtered) to
-                        repository.computeOverallStats(allShowsList) { songsByShow[it.id].orEmpty() }
                 }
-                val (allShowsList, songsByShow, filtered) = snapshot
                 _uiState.update { latest ->
                     // A filter setter may have run while we were off the main thread; if so, the
                     // precomputed list is for old filters, so re-filter with the latest ones.
@@ -128,18 +271,19 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                         latest.sortOrder == current.sortOrder &&
                         latest.selectedSegueFilter == current.selectedSegueFilter
                     latest.copy(
-                        shows = allShowsList,
-                        songsByShow = songsByShow,
-                        filteredShows = if (filtersUnchanged) filtered else applyFilters(
-                            shows = allShowsList,
+                        shows = snapshot.shows,
+                        songsByShow = snapshot.songsByShow,
+                        filteredShows = if (filtersUnchanged) snapshot.filtered else applyFilters(
+                            shows = snapshot.shows,
                             query = latest.searchQuery,
                             era = latest.selectedEra,
                             attendance = latest.attendanceFilter,
                             sort = latest.sortOrder,
                             segueFilter = latest.selectedSegueFilter,
-                            songsByShow = songsByShow
+                            songsByShow = snapshot.songsByShow
                         ),
-                        stats = stats
+                        stats = snapshot.stats,
+                        familyStats = snapshot.families
                     )
                 }
             }
@@ -244,7 +388,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun filterByLegendarySegue(segueTitle: String) {
+    fun filterBySegue(segueTitle: String) {
         _uiState.update { current ->
             val newFilter = if (current.selectedSegueFilter == segueTitle) null else segueTitle
             val updated = current.copy(
@@ -351,6 +495,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateUserProfile(profile: UserProfileData) {
+        if (profile.homeCity != _uiState.value.userProfile.homeCity) locateHome(profile.homeCity)
         userPrefs.saveProfile(
             UserPrefsStore.StoredProfile(
                 handle = profile.handle,
@@ -434,6 +579,17 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
         // Persist outside update{}, whose lambda may re-run under contention.
         userPrefs.saveTriviaProgress(_uiState.value.triviaProgress)
+    }
+
+    /** Records a Segue School answer and moves the card between Leitner boxes. */
+    fun recordCardAnswer(cardId: String, correct: Boolean) {
+        viewModelScope.launch {
+            reviewMutex.withLock {
+                val previous = reviewDao.get(cardId)?.toState()
+                val next = Leitner.afterAnswer(previous, correct, com.example.data.todayIsoDate())
+                reviewDao.upsert(ReviewCardEntity.from(cardId, next))
+            }
+        }
     }
 
     fun clearFeedbackMessage() {

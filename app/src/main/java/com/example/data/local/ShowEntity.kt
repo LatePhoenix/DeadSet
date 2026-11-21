@@ -41,6 +41,8 @@ data class ShowEntity(
     val historicTrivia: String = "",   // Notable historical lore & trivia for Today in Dead History
     val bandName: String = "Grateful Dead", // "Grateful Dead", "Terrapin Flyer", etc.
     val venueAddress: String = "",     // Optional specific street address for Google Maps navigation
+    /** For a tribute show: id of the Grateful Dead show it recreates (step 4.8), if linked. */
+    val recreatesShowId: String? = null,
     val lastUpdatedTimestamp: Long = System.currentTimeMillis()
 )
 

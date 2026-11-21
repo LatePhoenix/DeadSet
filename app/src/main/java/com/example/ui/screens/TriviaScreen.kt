@@ -69,6 +69,8 @@ fun TriviaScreen(
         mode: TriviaGameMode
     ) -> Unit,
     onOpenShowDetail: (String) -> Unit,
+    reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
+    onCardAnswered: (cardId: String, correct: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var stage by remember { mutableStateOf(TriviaStage.HUB) }
@@ -126,7 +128,8 @@ fun TriviaScreen(
             category = selectedCategory,
             difficultyFilter = selectedDifficulty,
             shows = shows,
-            parseSongs = parseSongs
+            parseSongs = parseSongs,
+            reviewStates = reviewStates
         )
         activeDeck = deck
         currentIndex = 0
@@ -242,6 +245,7 @@ fun TriviaScreen(
                     selectedDifficulty = selectedDifficulty,
                     onSelectDifficulty = { selectedDifficulty = it },
                     onStartMode = { mode -> startQuiz(mode) },
+                    reviewStates = reviewStates,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -265,6 +269,8 @@ fun TriviaScreen(
                             if (selectedOptionIndex == null) {
                                 selectedOptionIndex = idx
                                 val isCorrect = idx == currentQ.correctIndex
+                                // Every answer feeds per-question history (step 5.1) and Leitner review.
+                                onCardAnswered(currentQ.id, isCorrect)
                                 val newStreak = if (isCorrect) sessionStreak + 1 else 0
                                 sessionStreak = newStreak
                                 if (newStreak > maxSessionStreak) {
@@ -373,10 +379,17 @@ private fun TriviaHubContent(
     selectedDifficulty: TriviaDifficulty?,
     onSelectDifficulty: (TriviaDifficulty?) -> Unit,
     onStartMode: (TriviaGameMode) -> Unit,
+    reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val allAvailableQuestions = remember(shows) {
         DeadTriviaSeed.getAllAvailableQuestions(shows, parseSongs)
+    }
+    // Per-question history grouped by category (step 5.1); covers Segue School questions too.
+    val accuracy = remember(allAvailableQuestions, reviewStates, shows) {
+        val categoryById = allAvailableQuestions.associate { it.id to it.category.shortLabel } +
+            com.example.data.setlist.TransitionQuiz.questions(shows, parseSongs).associate { it.id to it.category.shortLabel }
+        com.example.data.review.AnswerHistory.byCategory(reviewStates) { categoryById[it] }
     }
     val vaultGeneratedCount = remember(allAvailableQuestions) {
         allAvailableQuestions.count { it.isVaultGenerated }
@@ -651,6 +664,52 @@ private fun TriviaHubContent(
                 testTag = "open_flashcards_btn",
                 onClick = { onStartMode(TriviaGameMode.LORE_FLASHCARDS) }
             )
+        }
+
+        // Segue School (transition training with spaced repetition)
+        item {
+            TriviaModeCard(
+                title = TriviaGameMode.SEGUE_SCHOOL.title,
+                subtitle = TriviaGameMode.SEGUE_SCHOOL.subtitle,
+                badgeText = "🎶 ->  >  ~>  Spaced repetition",
+                accentColor = StealieCrimsonLight,
+                buttonText = "Start Segue School ->",
+                testTag = "start_segue_school_btn",
+                onClick = { onStartMode(TriviaGameMode.SEGUE_SCHOOL) }
+            )
+        }
+
+        // Accuracy by category, from per-question answer history (step 5.1)
+        if (accuracy.isNotEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("accuracy_by_category_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Your accuracy by category", color = TextPrimaryDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        for (a in accuracy) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(a.label, color = TextSecondaryDark, fontSize = 12.sp, modifier = Modifier.width(120.dp))
+                                LinearProgressIndicator(
+                                    progress = { a.percent / 100f },
+                                    color = StealieGold,
+                                    trackColor = StealieMidnight,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(6.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("${a.percent}% (${a.correct}/${a.answered})", color = TextSecondaryDark, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 4. Deadhead Trivia Badges & Achievements

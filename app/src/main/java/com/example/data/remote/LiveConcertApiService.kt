@@ -17,18 +17,7 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
- * Filter categories for the Live Concert Search tab.
- */
-enum class TributeBandFilter(val displayName: String, val searchKeyword: String) {
-    ALL("All Dead Bands", ""),
-    DARK_STAR_ORCHESTRA("Dark Star Orchestra", "Dark Star Orchestra"),
-    JRAD("JRAD", "Joe Russo's Almost Dead"),
-    TERRAPIN_FLYER("Terrapin Flyer", "Terrapin Flyer")
-}
-
-/**
- * Normalized Live Concert Event returned from Bandsintown API, Ticketmaster Discovery API,
- * or the live tour schedule index.
+ * Normalized upcoming event from the Bandsintown API or the Ticketmaster Discovery API.
  */
 data class LiveConcertEvent(
     val id: String,
@@ -44,17 +33,10 @@ data class LiveConcertEvent(
     val ticketUrl: String,
     val priceRange: String = "Tickets Available",
     val apiSource: String = "Bandsintown / Ticketmaster",
-    val tourNote: String = ""
-) {
-    val isMidwest: Boolean
-        get() = stateCode.uppercase() in MIDWEST_STATE_CODES
-
-    companion object {
-        val MIDWEST_STATE_CODES = setOf(
-            "IL", "WI", "IN", "MI", "OH", "MN", "MO", "IA", "KS", "NE", "ND", "SD"
-        )
-    }
-}
+    val tourNote: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
 
 // --- Bandsintown Public API v4 DTOs & Retrofit Interface ---
 
@@ -74,7 +56,9 @@ data class BandsintownVenueDto(
     @Json(name = "city") val city: String = "",
     @Json(name = "region") val region: String = "",
     @Json(name = "country") val country: String = "US",
-    @Json(name = "street_address") val streetAddress: String = ""
+    @Json(name = "street_address") val streetAddress: String = "",
+    @Json(name = "latitude") val latitude: String? = null,
+    @Json(name = "longitude") val longitude: String? = null
 )
 
 data class BandsintownOfferDto(
@@ -135,7 +119,8 @@ data class TicketmasterVenueDto(
     @Json(name = "name") val name: String = "",
     @Json(name = "city") val city: TicketmasterCityDto? = null,
     @Json(name = "state") val state: TicketmasterStateDto? = null,
-    @Json(name = "address") val address: TicketmasterAddressDto? = null
+    @Json(name = "address") val address: TicketmasterAddressDto? = null,
+    @Json(name = "location") val location: TicketmasterLocationDto? = null
 )
 
 data class TicketmasterCityDto(
@@ -144,6 +129,11 @@ data class TicketmasterCityDto(
 
 data class TicketmasterStateDto(
     @Json(name = "stateCode") val stateCode: String = ""
+)
+
+data class TicketmasterLocationDto(
+    @Json(name = "latitude") val latitude: String? = null,
+    @Json(name = "longitude") val longitude: String? = null
 )
 
 data class TicketmasterAddressDto(
@@ -201,101 +191,56 @@ class LiveConcertApiClient {
         val raw = runCatching {
             BuildConfig::class.java.getDeclaredField("BANDSINTOWN_APP_ID").get(null) as? String
         }.getOrNull().orEmpty().trim()
-        return if (raw.isBlank() || raw == "null") "deadset_companion_app" else raw
+        return if (raw.isBlank() || raw == "null" || raw == "YOUR_BANDSINTOWN_APP_ID") "" else raw
     }
 
     /**
-     * Searches live concerts from the Bandsintown public API & Ticketmaster Discovery API.
-     * Returns an empty list when neither source responds (e.g. offline or unconfigured keys).
+     * Upcoming events for each of [bandNames] from Bandsintown and (when a key is configured)
+     * Ticketmaster, de-duplicated across sources, past dates dropped. Each source fails quietly;
+     * [FetchResult.sourcesReached] says which ones answered so the UI can explain an empty list.
      */
-    suspend fun searchLiveConcerts(
-        searchQuery: String = "",
-        bandFilter: TributeBandFilter = TributeBandFilter.ALL,
-        midwestOnly: Boolean = false
-    ): List<LiveConcertEvent> = withContext(Dispatchers.IO) {
-        val remoteEvents = mutableListOf<LiveConcertEvent>()
-
-        val effectiveKeyword = when {
-            searchQuery.isNotBlank() -> searchQuery.trim()
-            bandFilter != TributeBandFilter.ALL -> bandFilter.searchKeyword
-            else -> ""
-        }
-
-        // 1. Query Bandsintown Public API for the target artist(s)
-        val artistsToQuery = if (effectiveKeyword.isNotBlank()) {
-            listOf(effectiveKeyword)
-        } else {
-            listOf("Dark Star Orchestra", "Joe Russo's Almost Dead", "Terrapin Flyer")
-        }
-
-        for (artist in artistsToQuery) {
-            val bitEvents = fetchBandsintownArtistEvents(artist)
-            remoteEvents.addAll(bitEvents)
-        }
-
-        // 2. Query Ticketmaster Discovery API v2 if API key is configured
+    suspend fun fetchEventsForBands(bandNames: List<String>): FetchResult = withContext(Dispatchers.IO) {
+        val events = mutableListOf<LiveConcertEvent>()
+        val reached = mutableSetOf<String>()
         val tmKey = getTicketmasterApiKey()
-        if (tmKey.isNotBlank()) {
-            val tmQuery = effectiveKeyword.ifBlank { "Grateful Dead" }
-            remoteEvents.addAll(fetchTicketmasterEvents(tmQuery, tmKey))
+        val bandsintownAppId = getBandsintownAppId()
+        for (band in bandNames) {
+            if (bandsintownAppId.isNotBlank()) {
+                fetchBandsintownArtistEvents(band)?.let { events += it; reached += "Bandsintown" }
+            }
+            if (tmKey.isNotBlank()) {
+                fetchTicketmasterEvents(band, tmKey)?.let { tm ->
+                    reached += "Ticketmaster"
+                    // Keyword search can return unrelated acts; keep events naming the band.
+                    events += tm.filter { it.bandName.contains(band, ignoreCase = true) || it.eventTitle.contains(band, ignoreCase = true) }
+                        .map { it.copy(bandName = band) }
+                }
+            }
         }
-
-        // 3. De-duplicate events reported by both sources and drop dates that have already passed
         val today = com.example.data.todayIsoDate()
-        val combined = remoteEvents
-            .filter { it.date >= today }
-            .distinctBy { "${it.bandName.lowercase()}-${it.date}-${it.city.lowercase()}" }
-
-        filterConcertEvents(
-            events = combined,
-            searchQuery = searchQuery,
-            bandFilter = bandFilter,
-            midwestOnly = midwestOnly
+        FetchResult(
+            events = events
+                .filter { it.date >= today }
+                .distinctBy { "${it.bandName.lowercase()}-${it.date}-${it.city.lowercase()}" },
+            sourcesReached = reached,
+            ticketmasterConfigured = tmKey.isNotBlank()
         )
     }
 
-    /**
-     * Pure filtering function for live concert events (used both after API fetch and for instant UI filter updates).
-     */
-    fun filterConcertEvents(
-        events: List<LiveConcertEvent>,
-        searchQuery: String = "",
-        bandFilter: TributeBandFilter = TributeBandFilter.ALL,
-        midwestOnly: Boolean = false
-    ): List<LiveConcertEvent> {
-        val q = searchQuery.trim().lowercase()
-        return events.filter { event ->
-            val matchesMidwest = !midwestOnly || event.isMidwest
-            val matchesBandChip = when (bandFilter) {
-                TributeBandFilter.ALL -> true
-                TributeBandFilter.DARK_STAR_ORCHESTRA ->
-                    event.bandName.contains("Dark Star Orchestra", ignoreCase = true) ||
-                        event.bandName.equals("DSO", ignoreCase = true)
-                TributeBandFilter.JRAD ->
-                    event.bandName.contains("Joe Russo", ignoreCase = true) ||
-                        event.bandName.contains("JRAD", ignoreCase = true)
-                TributeBandFilter.TERRAPIN_FLYER ->
-                    event.bandName.contains("Terrapin Flyer", ignoreCase = true)
-            }
-            val matchesSearch = q.isEmpty() ||
-                event.bandName.lowercase().contains(q) ||
-                event.eventTitle.lowercase().contains(q) ||
-                event.venueName.lowercase().contains(q) ||
-                event.city.lowercase().contains(q) ||
-                event.stateCode.lowercase().contains(q) ||
-                event.tourNote.lowercase().contains(q)
+    data class FetchResult(
+        val events: List<LiveConcertEvent>,
+        val sourcesReached: Set<String>,
+        val ticketmasterConfigured: Boolean
+    )
 
-            matchesMidwest && matchesBandChip && matchesSearch
-        }.sortedBy { it.date }
-    }
-
-    private suspend fun fetchBandsintownArtistEvents(artistName: String): List<LiveConcertEvent> {
+    /** Null when the request fails or is rejected (e.g. unregistered app_id), empty when there are no events. */
+    private suspend fun fetchBandsintownArtistEvents(artistName: String): List<LiveConcertEvent>? {
         return runCatching {
             val response = bandsintownService.getArtistEvents(
                 artistName = artistName,
                 appId = getBandsintownAppId()
             )
-            if (!response.isSuccessful) return emptyList()
+            if (!response.isSuccessful) return null
             val dtos = response.body().orEmpty()
             dtos.mapNotNull { dto ->
                 val venue = dto.venue ?: return@mapNotNull null
@@ -323,19 +268,22 @@ class LiveConcertApiClient {
                     ticketUrl = ticketLink,
                     priceRange = "See tickets",
                     apiSource = "Bandsintown API",
-                    tourNote = dto.description.take(120)
+                    tourNote = dto.description.take(120),
+                    latitude = venue.latitude?.toDoubleOrNull(),
+                    longitude = venue.longitude?.toDoubleOrNull()
                 )
             }
-        }.getOrDefault(emptyList())
+        }.getOrNull()
     }
 
-    private suspend fun fetchTicketmasterEvents(keyword: String, apiKey: String): List<LiveConcertEvent> {
+    /** Null when the request fails or is rejected, empty when there are no events. */
+    private suspend fun fetchTicketmasterEvents(keyword: String, apiKey: String): List<LiveConcertEvent>? {
         return runCatching {
             val response = ticketmasterService.searchMusicEvents(
                 apiKey = apiKey,
                 keyword = keyword
             )
-            if (!response.isSuccessful) return emptyList()
+            if (!response.isSuccessful) return null
             val events = response.body()?.embedded?.events.orEmpty()
             val encodedKeyword = URLEncoder.encode(keyword, "UTF-8")
             events.mapNotNull { dto ->
@@ -365,9 +313,11 @@ class LiveConcertApiClient {
                     ticketUrl = dto.url.ifBlank { "https://www.ticketmaster.com/search?q=$encodedKeyword" },
                     priceRange = priceText,
                     apiSource = "Ticketmaster Discovery API",
-                    tourNote = dto.info.take(120)
+                    tourNote = dto.info.take(120),
+                    latitude = venue.location?.latitude?.toDoubleOrNull(),
+                    longitude = venue.location?.longitude?.toDoubleOrNull()
                 )
             }
-        }.getOrDefault(emptyList())
+        }.getOrNull()
     }
 }

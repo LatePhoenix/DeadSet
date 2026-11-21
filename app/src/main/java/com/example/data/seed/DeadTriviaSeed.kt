@@ -72,6 +72,13 @@ enum class TriviaGameMode(
         subtitle = "Browse & flip all curated + Room database trivia cards with full liner notes",
         questionCount = 0,
         timeLimitSeconds = null
+    ),
+    SEGUE_SCHOOL(
+        id = "segue_school",
+        title = "Segue School",
+        subtitle = "Learn which songs flow into which. Questions you miss come back sooner (spaced repetition).",
+        questionCount = 10,
+        timeLimitSeconds = null
     )
 }
 
@@ -675,8 +682,20 @@ object DeadTriviaSeed {
         difficultyFilter: TriviaDifficulty?,
         shows: List<ShowEntity>,
         parseSongs: (ShowEntity) -> List<SongEntry>,
-        seed: Long = System.currentTimeMillis()
+        seed: Long = System.currentTimeMillis(),
+        reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
+        today: String = com.example.data.todayIsoDate()
     ): List<TriviaQuestion> {
+        if (mode == TriviaGameMode.SEGUE_SCHOOL) {
+            // Spaced repetition: due cards first (weakest box first), then new cards.
+            val byId = com.example.data.setlist.TransitionQuiz.questions(shows, parseSongs)
+                .shuffled(Random(seed))
+                .associateBy { it.id }
+            return com.example.data.review.Leitner.order(byId.keys.toList(), reviewStates, today)
+                .take(mode.questionCount)
+                .map { byId.getValue(it) }
+        }
+
         val allPool = getAllAvailableQuestions(shows, parseSongs)
 
         if (mode == TriviaGameMode.DAILY_DEADHEAD) {
@@ -693,6 +712,12 @@ object DeadTriviaSeed {
             allPool.filter { category == TriviaCategory.ALL || it.category == category }.ifEmpty { allPool }
         }
 
-        return filtered.shuffled(Random(seed)).take(mode.questionCount.coerceAtLeast(5))
+        // Per-question history (step 5.1): unseen and weak/due questions first, mastered ones that
+        // are not due yet last, so a round rarely repeats what you already know. Shuffled first so
+        // ties stay random.
+        val byId = filtered.shuffled(Random(seed)).associateBy { it.id }
+        val ordered = com.example.data.review.Leitner.order(byId.keys.toList(), reviewStates, today)
+            .let { ids -> ids.filter { it !in reviewStates } + ids.filter { it in reviewStates } }
+        return ordered.take(mode.questionCount.coerceAtLeast(5)).map { byId.getValue(it) }
     }
 }

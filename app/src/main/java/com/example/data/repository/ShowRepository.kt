@@ -14,6 +14,8 @@ import com.example.data.songs.SongResolver
 import com.example.data.songs.songKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class OverallStats(
@@ -37,6 +39,8 @@ class ShowRepository(
     private val showDao: ShowDao,
     private val songDao: SongDao
 ) {
+    /** Serializes setlist read-modify-write so concurrent adds/toggles cannot overwrite each other. */
+    private val setlistMutex = Mutex()
 
     val allShows: Flow<List<ShowEntity>> = showDao.getAllShows()
     val allShowsWithSongs: Flow<List<ShowWithSongs>> = showDao.getAllShowsWithSongs()
@@ -60,6 +64,16 @@ class ShowRepository(
     suspend fun checkAndSeedDatabase() = withContext(Dispatchers.IO) {
         ensureSongCatalog()
         showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
+        for (legacy in CuratedShows.legacySeedPersonalData) {
+            showDao.clearInventedPersonalData(
+                id = legacy.showId,
+                inventedRating = legacy.rating,
+                inventedFavorite = legacy.favoriteSong,
+                inventedCompanions = legacy.attendedWith,
+                inventedReview = legacy.inventedReview,
+                clearAttendance = legacy.inventedAttendance
+            )
+        }
         if (showDao.getShowsCount() == 0) {
             showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
         }
@@ -114,6 +128,18 @@ class ShowRepository(
         )
     }
 
+    /** Resolves a typed title to its canonical song (creating it if new); null for blank input. */
+    suspend fun resolveSong(name: String): SongResolver.Resolved? = withContext(Dispatchers.IO) {
+        if (name.isBlank()) return@withContext null
+        val resolver = loadSongResolver()
+        resolver.resolve(name).also { persistNewSongs(resolver) }
+    }
+
+    /** All known song names (catalog + user-entered), for autocomplete. */
+    suspend fun allSongNames(): List<String> = withContext(Dispatchers.IO) {
+        songDao.getAllSongs().map { it.canonicalName }.sorted()
+    }
+
     private suspend fun loadSongResolver(): SongResolver = SongResolver(
         aliasToSongId = songDao.getAllAliases().associate { it.aliasKey to it.songId },
         songNames = songDao.getAllSongs().associate { it.id to it.canonicalName }
@@ -132,6 +158,11 @@ class ShowRepository(
 
     suspend fun deleteShow(show: ShowEntity) = withContext(Dispatchers.IO) {
         showDao.deleteShow(show)
+    }
+
+    /** Links a tribute show to the Grateful Dead show it recreates, or unlinks with null (4.8). */
+    suspend fun setRecreation(showId: String, originalId: String?) = withContext(Dispatchers.IO) {
+        showDao.setRecreation(showId, originalId)
     }
 
     suspend fun toggleAttendance(id: String, isAttended: Boolean) = withContext(Dispatchers.IO) {
@@ -156,10 +187,25 @@ class ShowRepository(
 
     /** Cycles the song's transition into the next one: Stop → Segue → Transition → Jam → Stop. */
     suspend fun toggleSongTransition(showId: String, songIndex: Int) = withContext(Dispatchers.IO) {
-        val songs = getSetlist(showId).toMutableList()
-        if (songIndex in songs.indices) {
-            val current = songs[songIndex]
-            songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
+        setlistMutex.withLock {
+            val songs = getSetlist(showId).toMutableList()
+            if (songIndex in songs.indices) {
+                val current = songs[songIndex]
+                songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
+                writeSetlist(showId, songs, loadSongResolver())
+            }
+        }
+    }
+
+    /**
+     * Live tracker (step 4.9): adds a just-played song at the end of [setType], before any later
+     * set already logged (e.g. an Encore entered early stays last).
+     */
+    suspend fun appendSong(showId: String, name: String, setType: SetType) = withContext(Dispatchers.IO) {
+        setlistMutex.withLock {
+            val songs = getSetlist(showId).toMutableList()
+            val insertAt = songs.indexOfFirst { it.setType.ordinal > setType.ordinal }.let { if (it < 0) songs.size else it }
+            songs.add(insertAt, SongEntry(name = name.trim(), setType = setType))
             writeSetlist(showId, songs, loadSongResolver())
         }
     }

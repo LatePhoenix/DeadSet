@@ -66,7 +66,19 @@ class UserPrefsStore(context: Context) {
             .apply()
     }
 
+    // --- Show alerts (step 4.6) ---
+    fun alertsEnabled(): Boolean = prefs.getBoolean(K_ALERTS, false)
+    fun setAlertsEnabled(enabled: Boolean) = prefs.edit().putBoolean(K_ALERTS, enabled).apply()
+    /** False until a background refresh has filled the cache once, so the first sync never alerts. */
+    fun hasSyncedEvents(): Boolean = prefs.getBoolean(K_EVENTS_SYNCED, false)
+    fun markEventsSynced() = prefs.edit().putBoolean(K_EVENTS_SYNCED, true).apply()
+    fun lastTonightReminder(): String = prefs.getString(K_TONIGHT, "").orEmpty()
+    fun setLastTonightReminder(date: String) = prefs.edit().putString(K_TONIGHT, date).apply()
+
     private companion object {
+        const val K_ALERTS = "alerts_enabled"
+        const val K_EVENTS_SYNCED = "alerts_events_synced"
+        const val K_TONIGHT = "alerts_last_tonight_reminder"
         const val PREFS_NAME = "deadset_user_prefs"
         const val K_ANSWERED = "trivia_total_answered"
         const val K_CORRECT = "trivia_total_correct"

@@ -163,12 +163,7 @@ fun SegueIndicatorPill(
     onToggle: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val accent = when (transition) {
-        TransitionType.NONE -> null
-        TransitionType.SEGUE -> StealieCrimsonLight
-        TransitionType.TRANSITION -> StealieGold
-        TransitionType.JAM -> StealieCyan
-    }
+    val accent = transitionAccent(transition)
     val bg = accent?.copy(alpha = 0.18f) ?: StealieCardDark
     val border = accent ?: BorderSubtle
     val textColor = accent ?: TextTertiaryDark
@@ -249,4 +244,12 @@ fun StatMetricCard(
             )
         }
     }
+}
+
+/** Accent color for a transition type; null for a plain stop. */
+fun transitionAccent(transition: TransitionType): Color? = when (transition) {
+    TransitionType.NONE -> null
+    TransitionType.SEGUE -> StealieCrimsonLight
+    TransitionType.TRANSITION -> StealieGold
+    TransitionType.JAM -> StealieCyan
 }

@@ -212,3 +212,23 @@ Curated, annotated entries that replace the current six. Each shows the era it w
 | **6. Polish** | Nav-Compose + 5 tabs · ViewModel split · share cards · widget · live predictor | Larger refactors once features are stable |
 
 Phase 0 is roughly a day of work and can be done right away.
+
+## 5. External review (2026-11-21): what was kept and why
+
+The owner had another AI review the project. Each suggestion was checked against the code and its sources before going into the plan. Steps live in [PROGRESS.md](PROGRESS.md) under Phase 1b, Phase 2 and Phase 4.
+
+| Item | Verdict | Reasoning |
+|---|---|---|
+| **A1** trim unused deps | Keep | Firebase AI/App Check were already dropped (5.7). `logging-interceptor` is unused, and with AI Studio out of the loop nothing needs the Firebase BoM or google-services plugin. Smaller build, fewer CVE alerts. |
+| **A2** delete `.aistudio/`, `public/`, add README | Keep | ~2 MB of tracked AI Studio scratch files and web scaffolding that the Android app never uses; there was no README. |
+| **A3** GitHub Actions CI | Keep | CodeRabbit reviews but nothing runs the tests on a PR. CI must create `debug.keystore` with `keytool` instead of committing one or touching `signingConfigs`. |
+| **A4** stop shipping fake attended shows | Already done | The seed reset blanked all 16 seeds and cleans old installs only where data still matches the invented values. |
+| **A5** rename package / app ID | Keep, needs owner | Same as 6.6. Changing `applicationId` orphans existing installs, so the owner picks the IDs. The Room schema folder is named after the package and must move with it. |
+| **B1** single source of truth + exact segue query | Already done | Phase 1 (1.6/1.7) made `song_performances` the only setlist store and replaced the word-overlap filter. The DAO-level query is still useful for importer tests, so it moved into C6. |
+| **C1–C7** gdshowsdb importer | Keep, adjusted | gdshowsdb is MIT-licensed (verified), covers 1965–1995 with a per-song `:segued:` flag. This unblocks Phase 2, which had no licensed dataset. Adjustments: share name normalization through a `:shared` module rather than duplicating it; hand-parse the YAML (no new library); build the asset DB from Room's exported schema so `createFromAsset` validates; split user data out of `shows` first so a catalog refresh can't wipe it. `:segued:` can't tell `>` from `->`, so everything imports as `SEGUE`. |
+| **C4** Relisten / Archive.org cross-check | Keep, optional | Free, keyless; mark disagreeing shows uncertain instead of choosing a winner (matches the no-invented-facts rule). Archive.org identifiers also give a better "Listen" link. |
+| Scraping gratefulstats / jerrybase / gdsets | Reject | GratefulStats' terms forbid it; the other two have no license. The owner may ask Jerrybase for permission separately. |
+| **D1** key proxy | Keep | Keys in `BuildConfig` ship in the APK. A tiny Worker holding the Ticketmaster key behind one endpoint fixes that; it needs the owner's Cloudflare account to deploy. |
+| **D2** R8 + drop Retrofit/Moshi | Keep | Two endpoints don't justify Retrofit + Moshi + kotlin-reflect; `ConcertRepository` already works with a plain fetch function. R8 needs Room keep rules and a CI shrink check. |
+| **D3** setlist.fm for tribute setlists | Note only | Fits 4.3 later; terms allow on-demand fetching with attribution, not bundling. |
+| **D4** offline LLM drafting | Note only | Consistent with 5.2: drafts are fine offline if every fact is checked against a source; the app never calls an LLM. |

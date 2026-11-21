@@ -68,20 +68,9 @@ data class SongEntry(
 ) {
     /**
      * True if this song flows into the next one in any way (segue, transition or jam).
-     * Computed, so Moshi doesn't serialize it.
+     * Computed from [transitionOut]; never stored.
      */
     val isConnected: Boolean get() = transitionOut.connects
-}
-
-data class LegendarySegue(
-    val songA: String,
-    val songB: String,
-    val thirdSong: String? = null,
-    val description: String,
-    val iconEmoji: String
-) {
-    val displayTitle: String
-        get() = if (thirdSong != null) "$songA ➔ $songB ➔ $thirdSong" else "$songA ➔ $songB"
 }
 
 data class EraStat(

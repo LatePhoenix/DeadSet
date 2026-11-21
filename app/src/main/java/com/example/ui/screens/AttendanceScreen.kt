@@ -26,6 +26,7 @@ import com.example.ui.components.BerthaRose
 import com.example.ui.components.DancingBearsMarchRow
 import com.example.ui.components.RatingStars
 import com.example.ui.components.ShowCard
+import com.example.ui.components.SongChaseCard
 import com.example.ui.components.StatMetricCard
 import com.example.ui.components.StealieEmblem
 import com.example.ui.theme.*
@@ -36,6 +37,11 @@ fun AttendanceScreen(
     stats: OverallStats?,
     onShowClick: (String) -> Unit,
     onExploreShowsClick: () -> Unit,
+    songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
+    chaseStatuses: List<com.example.data.setlist.ChaseStatus> = emptyList(),
+    allSongNames: List<String> = emptyList(),
+    onAddChase: (String) -> Unit = {},
+    onRemoveChase: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showLiveSongsSheet by remember { mutableStateOf(false) }
@@ -115,61 +121,60 @@ fun AttendanceScreen(
         containerColor = StealieMidnight,
         modifier = modifier
     ) { innerPadding ->
-        if (attendedShows.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    StealieEmblem(size = 64.dp)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "No shows attended yet",
-                        color = TextPrimaryDark,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Browse classic shows in the catalog and tap 'I Was There' to log your tour attendance, ratings, and memories!",
-                        color = TextSecondaryDark,
-                        fontSize = 13.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = onExploreShowsClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = StealieGold),
-                        shape = RoundedCornerShape(10.dp)
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = innerPadding.calculateTopPadding() + 8.dp,
+                bottom = innerPadding.calculateBottomPadding() + 80.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (attendedShows.isEmpty()) {
+                item {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = null,
-                            tint = StealieMidnight
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        StealieEmblem(size = 64.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Explore Classic Shows",
-                            color = StealieMidnight,
+                            text = "No shows attended yet",
+                            color = TextPrimaryDark,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Browse classic shows in the catalog and tap 'I Was There' to log your tour attendance, ratings, and memories!",
+                            color = TextSecondaryDark,
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Button(
+                            onClick = onExploreShowsClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = StealieGold),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = null,
+                                tint = StealieMidnight
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Explore Classic Shows",
+                                color = StealieMidnight,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = innerPadding.calculateTopPadding() + 8.dp,
-                    bottom = innerPadding.calculateBottomPadding() + 80.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
+            } else {
                 // Personal Attendance Summary Cards
                 item {
                     val ratedShows = attendedShows.filter { it.userRating > 0f }
@@ -189,7 +194,7 @@ fun AttendanceScreen(
                             modifier = Modifier.weight(1f)
                         )
                         StatMetricCard(
-                            value = "${stats?.topSongsAttended?.size ?: 0}",
+                            value = "${com.example.data.setlist.ChaseProgress.distinctSongsHeard(attendedShows) { songsByShow[it.id].orEmpty() }}",
                             label = "Live Songs Seen",
                             icon = Icons.Filled.MusicNote,
                             accentColor = StealieCyan,
@@ -202,6 +207,42 @@ fun AttendanceScreen(
                             accentColor = StealiePurple,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+            }
+
+            // Song chase list (step 4.7) — always visible so users can start a chase before attending.
+            item {
+                SongChaseCard(
+                    statuses = chaseStatuses,
+                    allSongNames = allSongNames,
+                    onAdd = onAddChase,
+                    onRemove = onRemoveChase,
+                    onOpenShow = onShowClick
+                )
+            }
+
+            if (attendedShows.isNotEmpty()) {
+                // Attended shows by band (any band counts)
+                val byBand = com.example.data.setlist.ChaseProgress.showsByBand(attendedShows)
+                if (byBand.size > 1) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Shows by band", color = StealieCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                for ((band, count) in byBand) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(band, color = TextPrimaryDark, fontSize = 13.sp)
+                                        Text("$count", color = StealieGold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

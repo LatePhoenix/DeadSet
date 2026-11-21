@@ -29,12 +29,14 @@ import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
+import com.example.data.setlist.SetlistAnalytics
 import com.example.ui.util.ConcertIntentHelper
 import com.example.ui.components.BerthaRose
 import com.example.ui.components.CassetteTapeJCard
 import com.example.ui.components.EraBadge
 import com.example.ui.components.RatingStars
 import com.example.ui.components.SegueIndicatorPill
+import com.example.ui.components.transitionAccent
 import com.example.ui.components.StealieEmblem
 import com.example.ui.components.TerrapinTurtleBadge
 import com.example.ui.theme.*
@@ -50,6 +52,10 @@ fun ShowDetailScreen(
     onSaveReviewAndNotes: (showId: String, review: String, rating: Float, attendedWith: String, favoriteSong: String) -> Unit,
     onEditShow: ((String) -> Unit)? = null,
     onDeleteShow: ((ShowEntity) -> Unit)? = null,
+    /** Shown near the top for shows that haven't happened yet (live tracker, step 4.9). */
+    liveTracker: (@Composable () -> Unit)? = null,
+    /** Tribute show ↔ the GD show it recreates (step 4.8). */
+    recreation: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -354,6 +360,13 @@ fun ShowDetailScreen(
                 }
             }
 
+            if (liveTracker != null) {
+                item { liveTracker() }
+            }
+            if (recreation != null) {
+                item { recreation() }
+            }
+
             // Historic Trivia Card
             if (show.historicTrivia.isNotBlank()) {
                 item {
@@ -464,6 +477,41 @@ fun ShowDetailScreen(
                                     color = StealieCyan,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Whole setlist in standard notation, one line per set (step 3.3)
+            if (songs.isNotEmpty()) {
+                item {
+                    Surface(
+                        color = StealieCardDark,
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("setlist_notation_card")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "SETLIST AT A GLANCE",
+                                color = StealieGold,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                            for ((setType, line) in SetlistAnalytics.notationBySet(songs)) {
+                                Text(
+                                    text = "${setType.shortLabel}: $line",
+                                    color = TextPrimaryDark,
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp
                                 )
                             }
                         }
@@ -601,12 +649,12 @@ fun ShowDetailScreen(
                                     modifier = Modifier
                                         .width(2.dp)
                                         .fillMaxHeight()
-                                        .background(StealieCrimsonLight)
+                                        .background(transitionAccent(song.transitionOut) ?: StealieCrimsonLight)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "${song.transitionOut.symbol} ${song.transitionOut.description}",
-                                    color = StealieCrimsonLight,
+                                    color = transitionAccent(song.transitionOut) ?: StealieCrimsonLight,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )

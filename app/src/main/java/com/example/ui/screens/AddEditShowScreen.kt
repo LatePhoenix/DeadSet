@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,6 +37,8 @@ import java.util.UUID
 fun AddEditShowScreen(
     existingShow: ShowEntity?,
     existingSongs: List<SongEntry> = emptyList(),
+    /** Followed tribute bands offered as one-tap choices for the Band field. */
+    bandSuggestions: List<String> = emptyList(),
     onBack: () -> Unit,
     onSave: (ShowEntity, List<SongEntry>) -> Unit,
     modifier: Modifier = Modifier
@@ -46,6 +50,7 @@ fun AddEditShowScreen(
     var cityText by remember { mutableStateOf(existingShow?.city ?: "") }
     var stateText by remember { mutableStateOf(existingShow?.stateOrCountry ?: "CA") }
     var tourText by remember { mutableStateOf(existingShow?.tourName ?: "Tour Run") }
+    var bandText by remember { mutableStateOf(existingShow?.bandName ?: "Grateful Dead") }
     var selectedEra by remember {
         mutableStateOf(
             if (existingShow != null) DeadEra.fromId(existingShow.eraId) else DeadEra.SPRING_77
@@ -232,6 +237,46 @@ fun AddEditShowScreen(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        // Band (step 4.4): log tribute shows yourself, past or upcoming.
+                        OutlinedTextField(
+                            value = bandText,
+                            onValueChange = { bandText = it },
+                            label = { Text("Band") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = StealieMidnight,
+                                unfocusedContainerColor = StealieMidnight,
+                                focusedBorderColor = StealieGold,
+                                unfocusedBorderColor = BorderSubtle,
+                                focusedTextColor = TextPrimaryDark,
+                                unfocusedTextColor = TextPrimaryDark
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("band_input")
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            for (name in listOf("Grateful Dead") + bandSuggestions) {
+                                FilterChip(
+                                    selected = bandText.equals(name, ignoreCase = true),
+                                    onClick = { bandText = name },
+                                    label = { Text(name, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = StealieMidnight,
+                                        labelColor = TextSecondaryDark,
+                                        selectedContainerColor = StealieGold.copy(alpha = 0.2f),
+                                        selectedLabelColor = StealieGold
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -509,27 +554,28 @@ fun AddEditShowScreen(
                             errorMessage = "Please enter a venue name."
                             return@Button
                         }
-                        if (songList.isEmpty()) {
-                            errorMessage = "Please add at least one song to the setlist."
+                        val date = dateText.trim()
+                        if (!com.example.data.isValidIsoDate(date)) {
+                            errorMessage = "Please enter the date as YYYY-MM-DD."
+                            return@Button
+                        }
+                        // A past show needs its setlist; an upcoming one can be logged now and filled in live.
+                        if (songList.isEmpty() && date < com.example.data.todayIsoDate()) {
+                            errorMessage = "Please add at least one song to the setlist (only upcoming shows can be saved without one)."
                             return@Button
                         }
 
-                        val id = existingShow?.id ?: "custom-${UUID.randomUUID()}"
-                        val show = ShowEntity(
-                            id = id,
-                            date = dateText.trim(),
-                            venue = venueText.trim(),
-                            city = cityText.trim().ifEmpty { "San Francisco" },
-                            stateOrCountry = stateText.trim().ifEmpty { "CA" },
+                        val show = buildEditedShow(
+                            existing = existingShow,
+                            newId = { "custom-${UUID.randomUUID()}" },
+                            date = dateText,
+                            venue = venueText,
+                            city = cityText,
+                            state = stateText,
                             eraId = selectedEra.id,
-                            tourName = tourText.trim().ifEmpty { "Tour Run" },
-                            isAttended = existingShow?.isAttended ?: true,
-                            userRating = existingShow?.userRating ?: 5f,
-                            userReview = existingShow?.userReview ?: "",
-                            archiveIdentifier = "",
-                            tapeQuality = tapeQualityText.trim(),
-                            isCustomShow = true,
-                            tags = "Custom Show,Setlist Builder"
+                            tour = tourText,
+                            tapeQuality = tapeQualityText,
+                            band = bandText
                         )
                         onSave(show, songList.toList())
                     },
@@ -556,4 +602,48 @@ fun AddEditShowScreen(
             }
         }
     }
+}
+
+/**
+ * The show to save from the editor's fields. Editing copies [existing] so everything the form
+ * doesn't show (historic trivia, archive id, tags, attendance, review, companions, custom flag)
+ * survives; previously an edit rebuilt the show and silently wiped those. A brand-new show is
+ * custom, and counts as attended only if its date has already passed.
+ */
+internal fun buildEditedShow(
+    existing: ShowEntity?,
+    newId: () -> String,
+    date: String,
+    venue: String,
+    city: String,
+    state: String,
+    eraId: String,
+    tour: String,
+    tapeQuality: String,
+    band: String,
+    today: String = com.example.data.todayIsoDate()
+): ShowEntity {
+    val base = existing ?: ShowEntity(
+        id = newId(),
+        date = "",
+        venue = "",
+        city = "",
+        stateOrCountry = "",
+        eraId = eraId,
+        tourName = "",
+        isAttended = date.trim() < today,
+        isCustomShow = true,
+        tags = "Custom Show"
+    )
+    return base.copy(
+        date = date.trim(),
+        venue = venue.trim(),
+        city = city.trim().ifEmpty { "San Francisco" },
+        stateOrCountry = state.trim().ifEmpty { "CA" },
+        eraId = eraId,
+        tourName = tour.trim().ifEmpty { "Tour Run" },
+        tapeQuality = tapeQuality.trim(),
+        bandName = band.trim().ifEmpty { "Grateful Dead" },
+        lastUpdatedTimestamp = System.currentTimeMillis()
+    )
 }

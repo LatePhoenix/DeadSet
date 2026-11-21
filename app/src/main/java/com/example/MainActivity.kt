@@ -22,6 +22,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.*
 import com.example.ui.screens.*
 import com.example.ui.theme.*
+import com.example.ui.components.LiveTrackerCard
+import com.example.data.local.isUpcoming
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -158,21 +160,44 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 )
                             }
                             MainTab.LIVE_TICKETS -> {
-                                LiveConcertsScreen()
+                                val concerts by viewModel.concerts.collectAsStateWithLifecycle()
+                                LiveConcertsScreen(
+                                    state = concerts,
+                                    onRefresh = viewModel::refreshConcerts,
+                                    onAddBand = { viewModel.addBand(it) },
+                                    onSetFollowed = { id, f -> viewModel.setBandFollowed(id, f) },
+                                    onRemoveBand = { viewModel.removeBand(it) },
+                                    onSetAlerts = viewModel::setAlertsEnabled
+                                )
                             }
                             MainTab.ATTENDANCE -> {
                                 val attended = uiState.shows.filter { it.isAttended }
+                                val chased by viewModel.chaseSongs.collectAsStateWithLifecycle()
+                                val songNames by viewModel.songNames.collectAsStateWithLifecycle()
+                                LaunchedEffect(Unit) { viewModel.loadSongNames() }
                                 AttendanceScreen(
                                     attendedShows = attended,
                                     stats = uiState.stats,
                                     onShowClick = viewModel::openShowDetail,
-                                    onExploreShowsClick = { viewModel.setTab(MainTab.SHOWS) }
+                                    onExploreShowsClick = { viewModel.setTab(MainTab.SHOWS) },
+                                    songsByShow = uiState.songsByShow,
+                                    chaseStatuses = remember(chased, attended, uiState.songsByShow) {
+                                        com.example.data.setlist.ChaseProgress.statuses(
+                                            chased.map { it.songId to it.songName }, attended
+                                        ) { uiState.songsByShow[it.id].orEmpty() }
+                                    },
+                                    allSongNames = songNames,
+                                    onAddChase = viewModel::addChaseSong,
+                                    onRemoveChase = { viewModel.removeChaseSong(it) }
                                 )
                             }
                             MainTab.TRANSITIONS -> {
                                 TransitionsScreen(
                                     stats = uiState.stats,
-                                    onFilterBySegue = viewModel::filterByLegendarySegue
+                                    onFilterBySegue = viewModel::filterBySegue,
+                                    families = uiState.familyStats,
+                                    shows = uiState.shows,
+                                    songsByShow = uiState.songsByShow
                                 )
                             }
                             MainTab.STATS -> {
@@ -190,7 +215,9 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     parseSongs = viewModel::songsFor,
                                     triviaProgress = uiState.triviaProgress,
                                     onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
-                                    onOpenShowDetail = viewModel::openShowDetail
+                                    onOpenShowDetail = viewModel::openShowDetail,
+                                    reviewStates = uiState.reviewStates,
+                                    onCardAnswered = viewModel::recordCardAnswer
                                 )
                             }
                             MainTab.PROFILE -> {
@@ -222,7 +249,42 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 onToggleSongTransition = viewModel::toggleSongTransition,
                                 onSaveReviewAndNotes = viewModel::saveReviewAndNotes,
                                 onEditShow = viewModel::openEditShow,
-                                onDeleteShow = viewModel::deleteShow
+                                onDeleteShow = viewModel::deleteShow,
+                                liveTracker = if (show.isUpcoming) {
+                                    {
+                                        val names by viewModel.songNames.collectAsStateWithLifecycle()
+                                        LaunchedEffect(Unit) { viewModel.loadSongNames() }
+                                        LiveTrackerCard(
+                                            showId = show.id,
+                                            songs = songs,
+                                            predictionsFor = { last, set -> viewModel.predictNext(show.id, last, set) },
+                                            allSongNames = names,
+                                            onAddSong = { name, set -> viewModel.appendSongToShow(show.id, name, set) }
+                                        )
+                                    }
+                                } else null,
+                                recreation = if (!show.bandName.equals("Grateful Dead", ignoreCase = true)) {
+                                    {
+                                        val original = show.recreatesShowId?.let { id -> uiState.shows.firstOrNull { it.id == id } }
+                                        val suggestion = remember(show.id, songs, uiState.shows) {
+                                            if (original != null) null
+                                            else com.example.data.setlist.RecreationMatcher.bestMatch(
+                                                tribute = songs,
+                                                candidates = uiState.shows,
+                                                songsFor = { uiState.songsByShow[it.id].orEmpty() }
+                                            )
+                                        }
+                                        com.example.ui.components.RecreationCard(
+                                            tributeSongs = songs,
+                                            original = original,
+                                            originalSongs = original?.let { uiState.songsByShow[it.id] }.orEmpty(),
+                                            suggestion = suggestion,
+                                            onLink = { viewModel.setRecreation(show.id, it) },
+                                            onUnlink = { viewModel.setRecreation(show.id, null) },
+                                            onOpenShow = viewModel::openShowDetail
+                                        )
+                                    }
+                                } else null
                             )
                         } else {
                             Box(
@@ -241,6 +303,9 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         AddEditShowScreen(
                             existingShow = existing,
                             existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
+                            bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
+                                .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
+                                .map { it.name },
                             onBack = { viewModel.navigateBack() },
                             onSave = viewModel::saveCustomShow
                         )

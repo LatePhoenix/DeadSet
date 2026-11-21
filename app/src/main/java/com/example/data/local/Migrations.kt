@@ -396,3 +396,59 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         }
     }
 }
+
+/**
+ * 6 → 7: add `review_cards` for Segue School spaced repetition (step 3.5). Additive only.
+ * SQL below is copied from schemas/.../7.json; keep them identical.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `review_cards` (`cardId` TEXT NOT NULL, `box` INTEGER NOT NULL, " +
+                "`lastReviewedDate` TEXT NOT NULL, `timesSeen` INTEGER NOT NULL, `timesCorrect` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`cardId`))"
+        )
+    }
+}
+
+/**
+ * 7 → 8: add `bands` (followed tribute bands) and `events` (cached upcoming dates), Phase 4.
+ * Additive only. SQL below is copied from schemas/.../8.json; keep them identical.
+ */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `bands` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`isFollowed` INTEGER NOT NULL, `isBuiltIn` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `events` (`id` TEXT NOT NULL, `bandName` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                "`date` TEXT NOT NULL, `displayDate` TEXT NOT NULL, `venueName` TEXT NOT NULL, `city` TEXT NOT NULL, " +
+                "`stateCode` TEXT NOT NULL, `country` TEXT NOT NULL, `venueAddress` TEXT NOT NULL, " +
+                "`ticketUrl` TEXT NOT NULL, `priceRange` TEXT NOT NULL, `source` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                "`latitude` REAL, `longitude` REAL, `lastCheckedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_date` ON `events` (`date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_bandName` ON `events` (`bandName`)")
+    }
+}
+
+/**
+ * 8 → 9: add `chase_songs` (songs the user wants to hear live), step 4.7. Additive only.
+ * SQL below is copied from schemas/.../9.json; keep them identical.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `chase_songs` (`songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`addedDate` TEXT NOT NULL, PRIMARY KEY(`songId`))"
+        )
+    }
+}
+
+/** 9 → 10: `shows.recreatesShowId` links a tribute show to the GD show it replays (step 4.8). */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `shows` ADD COLUMN `recreatesShowId` TEXT")
+    }
+}

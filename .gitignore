@@ -16,3 +16,8 @@
 local.properties
 .env
 debug.keystore
+
+# Local IDE state and build-time importer data
+.idea/
+tools/importer/cache/
+tools/importer/out/

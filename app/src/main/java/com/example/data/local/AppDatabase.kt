@@ -11,7 +11,11 @@ import androidx.room.migration.Migration
         ShowEntity::class,
         SongPerformanceEntity::class,
         SongEntity::class,
-        SongAliasEntity::class
+        SongAliasEntity::class,
+        ReviewCardEntity::class,
+        BandEntity::class,
+        EventEntity::class,
+        ChaseSongEntity::class
     ],
     version = AppDatabase.VERSION,
     exportSchema = true
@@ -19,10 +23,13 @@ import androidx.room.migration.Migration
 abstract class AppDatabase : RoomDatabase() {
     abstract fun showDao(): ShowDao
     abstract fun songDao(): SongDao
+    abstract fun reviewDao(): ReviewDao
+    abstract fun concertDao(): ConcertDao
+    abstract fun chaseDao(): ChaseDao
 
     companion object {
         /** Current schema version. Bump it, add a Migration, and commit the new schemas/N.json. */
-        const val VERSION = 6
+        const val VERSION = 10
 
         /** First version with an exported schema; every version from here on must be migratable. */
         const val BASELINE_VERSION = 3
@@ -33,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Every schema migration, in order. Add new ones here whenever [Database.version] is
          * bumped, together with the exported `schemas/.../N.json`.
          */
-        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
 
         /**
          * Versions released before schema export existed (step 1.1). Their exact schemas are
@@ -47,13 +54,11 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     DATABASE_NAME
-                ).applyMigrationPolicy().build()
-                INSTANCE = instance
-                instance
+                ).applyMigrationPolicy().build().also { INSTANCE = it }
             }
         }
 
