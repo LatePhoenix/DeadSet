@@ -36,7 +36,7 @@ Copy `.env.example` to `.env` (never commit it). Both values are optional; witho
 | Variable | What it's for |
 |---|---|
 | `TICKETMASTER_API_KEY` | Ticketmaster Discovery API key for upcoming tribute dates |
-| `BANDSINTOWN_APP_ID` | Registered Bandsintown app ID (the placeholder value is rejected) |
+| `BANDSINTOWN_APP_ID` | Registered Bandsintown app ID (`YOUR_BANDSINTOWN_APP_ID` / blank skips requests) |
 
 ## Data sources and credits
 
