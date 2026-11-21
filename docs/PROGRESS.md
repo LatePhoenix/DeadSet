@@ -21,12 +21,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1 is complete** (DB is now **v6**): steps 1.1–1.9 are merged or in the 1.6–1.9 PR. Next is **Phase 2 (full catalog)**, which needs an owner decision on the dataset and license (step 2.1). Inside migrations, use `rewriteSetlistJson()` or raw SQL, never the app model classes.
+**Phases 1, 3 and most of 4 are built** (DB **v9**), on a stack of branches waiting for review: PR #4 (1.6–1.9) → `phase-3-transitions-c` → `phase-4-tribute-d`. **Waiting on the owner:** see Open decisions below (seed attendance, Phase 2 dataset, 4.3 API keys). Unblocked work left: 4.8, Phase 5 (except fact-checking against sources), Phase 6.
 
 **Open decisions for the owner**
-- [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
-- [ ] Phase 2 dataset source and license (see step 2.1).
-- [ ] Ticketmaster API key / Bandsintown registered app ID (needed for Phase 4).
+- [ ] **Seeded attendance and reviews (wider than first thought).** The seed data marks **6 shows as attended** (5 Grateful Dead incl. Soldier Field '95, plus Terrapin Flyer at Martyrs' 2024), each with an invented first-person review, rating and companions. These show up in My Shows, stats and the chase list as if you went. Options: (a) reset all seed shows to unattended with blank reviews, leaving the shows themselves (recommended; your own edits on a device are kept); (b) keep as demo data; (c) tell me which of these you really attended.
+- [ ] **Phase 2 dataset** (step 2.1). Research so far: setlist.fm forbids keeping a copy of its data (non-commercial, short-term caching only), so it can't be bundled. `grateful-dead-live/fifteen-songs-dataset` covers only 15 songs and has no license. `jaysooner/grateful-dead-metadata` (Hugging Face, CC-BY-4.0) lists **recordings**, not setlists. gdsets.com / CMU lists / GratefulStats are HTML, unlicensed, or permission-only. No clean, licensed, complete setlist dataset with segues was found. Options: (a) fetch a show's setlist on demand from Archive.org track listings (no bundling); (b) ask a source (e.g. GratefulStats, gdsets) for permission; (c) stay with the curated catalog + user-entered shows.
+- [ ] **4.3 API keys.** Confirmed on device: Bandsintown rejects the placeholder `app_id`, so the Tickets tab gets no dates. You'd need to register a Bandsintown app ID and/or a free Ticketmaster Discovery key (put them in `.env` as `BANDSINTOWN_APP_ID` / `TICKETMASTER_API_KEY`), or tell me to drop Bandsintown.
 
 ---
 
@@ -188,6 +188,13 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (Phases 3–4, autonomous run)
+- **Branch stack** (each builds on the last; open PRs in order, each after the previous merges): PR #4 `phase-1-step-1.6-single-setlist` (awaiting CodeRabbit; it was rate-limited) → `phase-3-transitions-a` (3.1–3.3) → `-b` (3.4–3.5) → `-c` (3.6) → `phase-4-tribute-a` (4.1/4.2/4.4/4.5) → `-b` (4.7) → `-c` (4.9) → `-d` (4.6). Plan: one PR for all of Phase 3 (from `-c`) and one for Phase 4 (from `-d`), because CodeRabbit's free tier allows ~1 review/hour.
+- DB is **v9**; every step's migration is covered by `MigrationTest` and was run for real on the emulator. 81/81 tests pass.
+- Every feature was checked on the emulator (see Environment notes for the commands). Bugs found that way and fixed: unreachable Add Show button; upcoming shows needing a setlist; "Era era" wording; chase "+" creating junk songs; "Live Songs Seen" capped at 15; editing a show wiping hidden fields.
+- **Blocked on owner:** Open decisions (seed attendance/reviews, Phase 2 dataset, 4.3 keys).
+- **Next unblocked:** 4.8 (DSO recreation link), Phase 5 (5.1, 5.3–5.7), Phase 6.
 
 ### 2026-11-21 · Claude Code (steps 1.6–1.9)
 - PR #3 (1.5) merged as `44ac50b` after CodeRabbit's review; its 2 findings were fixed in `8efc907`.
