@@ -23,11 +23,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (PR #5 merged as `4604ad0`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset. DB **v10**.
-- A1: PR [#6](https://github.com/LatePhoenix/DeadSet/pull/6). A2: this branch `phase-1b-a2-ai-studio-cleanup`.
+- **`main` is the working line** (PR #5 merged as `4604ad0`; A1 merged as PR #6 / `e8ef86c`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, dep trim. DB **v10**.
+- A2 on `phase-1b-a2-ai-studio-cleanup` (PR #7).
 
 **Next up (in order):**
-1. Merge A1/A2 when green → **A3 GitHub Actions CI**. A5 needs owner package/app IDs.
+1. Merge A2 → **A3 GitHub Actions CI**. A5 needs owner package/app IDs.
 2. **Phase 2, catalog importer from gdshowsdb** (C1–C7).
 3. **Phase 4 follow-ups D1/D2**, Phase 5, Phase 6.
 
@@ -128,7 +128,7 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 
 Do these after the working-line PR merges, one per PR (or batch A1–A3).
 
-- [ ] **A1 Trim unused dependencies.** Firebase AI and App Check are already commented out (5.7). Also remove `logging-interceptor` (no `HttpLoggingInterceptor` reference in `app/src/main`), and drop the Firebase BoM + `google-services` plugin if no Firebase library remains (nothing uses Firebase; AI Studio no longer builds this project). Confirm with `git grep`, then `testDebugUnitTest` + `assembleDebug`.
+- [x] **A1 Trim unused dependencies.** (`d9a971a`, PR #6) Removed unused `logging-interceptor`, Firebase BoM, all Firebase library catalog entries, and the `google-services` plugin. Confirmed no `HttpLoggingInterceptor` / Firebase references in `app/src`. `.env.example` uses `YOUR_BANDSINTOWN_APP_ID` sentinel (empty BuildConfig values break javac). `testDebugUnitTest` + `assembleDebug` green.
 - [x] **A2 Remove AI Studio leftovers + README.** Deleted tracked `.aistudio/` and `public/` media plus `metadata.json`; added `.aistudio/`, `public/`, `metadata.json` to `.gitignore` (`.idea/` already ignored). README already covered build/JDK/keystore/credits/env vars from the Phase 3–5 docs work; lightly updated Bandsintown env note.
 - [ ] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR, `concurrency` with cancel-in-progress, JDK 17+, cache Gradle, **generate `debug.keystore` with `keytool` in a step** (never commit one, never edit `signingConfigs`), run `testDebugUnitTest`. Add a release-shrink check later with D2 (`:app:minifyReleaseWithR8`; `assembleRelease` needs a signing secret).
 - [x] **A4 Demo seed data.** Done on the working line: all 16 seeds ship unattended with no invented review/rating/companions/favorite; existing installs are cleaned only where data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`).
@@ -212,7 +212,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
-  _Decision:_ removed (commented out, per the build file's AI Studio convention) `firebase-ai` and both App Check libraries; no code used them. The Firebase BoM and google-services plugin stay so AI Studio builds keep working. Re-enable if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2). App launches cleanly on the emulator.
+  _Decision:_ removed (commented out in 5.7, then fully dropped in A1) `firebase-ai`, App Check, Firebase BoM and google-services. No code used them. Re-add only if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2).
 
 ## Phase 6: Polish & architecture
 
@@ -231,8 +231,13 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
 ### 2026-11-21 · Cursor (A2 AI Studio cleanup)
-- PR #5 merged (`4604ad0`). A1 open as PR #6. A2 on `phase-1b-a2-ai-studio-cleanup`: removed tracked `.aistudio/` + `public/` + `metadata.json`, gitignored them. README already present.
-- **Next:** merge A1/A2 when CodeRabbit green, then A3 CI.
+- PR #5 merged (`4604ad0`). A1 merged as PR #6 (`e8ef86c` / `d9a971a`). A2 on `phase-1b-a2-ai-studio-cleanup`: removed tracked `.aistudio/` + `public/` + `metadata.json`, gitignored them. README already present.
+- Remote delete of old stacked phase branches was blocked by sandbox; owner can prune when ready.
+- **Next:** merge A2 (PR #7), then A3 CI.
+
+### 2026-11-21 · Cursor (PR #5 merged; A1)
+- Merged PR #5 → `main` (`4604ad0`) after CodeRabbit review + `f2812e0` fixes. Deferred heavy lifts noted on the PR.
+- **A1** (`d9a971a`, PR #6): dropped logging-interceptor, Firebase BoM/libs, google-services. Tests + assembleDebug pass.
 
 ### 2026-11-21 · Cursor (PR #5 CodeRabbit fixes)
 - Addressed clear CodeRabbit findings on PR #5 (`phase-5-coderabbit-fixes`): exact invented-review fingerprint, setlist/review mutexes, chase card when attendance empty, live-tracker set-scoped predictions + SET_3, same-set analytics, chain distractor exclusions, tonight-reminder only when notify posts, home-city stale-lookup guard, ISO date validation, followed-band alert query, Bandsintown skipped when unset (no placeholder), MigrationTest 6→10 seeded cases, README/AGENTS docs.
