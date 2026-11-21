@@ -40,6 +40,37 @@ class TransitionTypeTest {
     }
 
     @Test
+    fun `vault trivia only calls true segues seamless`() {
+        val converters = Converters()
+        fun questionFor(type: TransitionType): com.example.data.seed.TriviaQuestion {
+            val setlist = listOf(
+                SongEntry(name = "Estimated Prophet", setType = SetType.SET_2, transitionOut = type),
+                SongEntry(name = "Eyes of the World", setType = SetType.SET_2),
+                SongEntry(name = "Drums", setType = SetType.SET_2),
+                SongEntry(name = "Space", setType = SetType.SET_2),
+                SongEntry(name = "Morning Dew", setType = SetType.SET_2)
+            )
+            val base = com.example.data.seed.CuratedShows.getInitialShows()
+                .filter { it.bandName == "Grateful Dead" }
+            val shows = base.take(3).mapIndexed { i, s ->
+                s.copy(id = "t$i", setlistJson = converters.fromSongList(setlist))
+            }
+            return com.example.data.seed.DeadTriviaSeed.generateDynamicVaultQuestions(shows) {
+                converters.toSongList(it.setlistJson)
+            }.first { it.id.startsWith("vault_segue_t0") }
+        }
+
+        val transition = questionFor(TransitionType.TRANSITION)
+        assertFalse(transition.question, transition.question.contains("seamless", ignoreCase = true))
+        assertFalse(transition.linerNoteFact, transition.linerNoteFact.contains("seamless", ignoreCase = true))
+        assertTrue(transition.question.contains("(>)"))
+
+        val segue = questionFor(TransitionType.SEGUE)
+        assertTrue(segue.question.contains("seamlessly (->)"))
+        assertTrue(segue.linerNoteFact.contains("seamless segue"))
+    }
+
+    @Test
     fun `old JSON without transitionOut reads as NONE`() {
         val songs = Converters().toSongList("""[{"name":"Ripple","setType":"ENCORE"}]""")
         assertEquals(TransitionType.NONE, songs.single().transitionOut)

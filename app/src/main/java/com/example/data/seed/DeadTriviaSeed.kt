@@ -5,6 +5,7 @@ import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
+import com.example.data.model.TransitionType
 import com.example.ui.theme.*
 import java.util.Calendar
 import kotlin.random.Random
@@ -603,10 +604,10 @@ object DeadTriviaSeed {
                                 category = TriviaCategory.VAULT_CHALLENGE,
                                 difficulty = TriviaDifficulty.ARCHIVIST_GURU,
                                 era = era,
-                                question = "At ${show.venue} on ${show.date}, '${songA.name}' seamlessly transitioned (➔) into which song?",
+                                question = "At ${show.venue} on ${show.date}, '${songA.name}' ${transitionVerb(songA.transitionOut)} into which song?",
                                 options = options,
                                 correctIndex = correctIdx,
-                                linerNoteFact = "During ${songA.setType.label} on ${show.date} (${show.venue}, ${show.city}), the band executed a seamless '${songA.name} ➔ ${songB.name}' transition.",
+                                linerNoteFact = "During ${songA.setType.label} on ${show.date} (${show.venue}, ${show.city}), the band went '${songA.name} ${songA.transitionOut.symbol} ${songB.name}' (${songA.transitionOut.description}).",
                                 relatedShowId = show.id,
                                 isVaultGenerated = true
                             )
@@ -642,6 +643,14 @@ object DeadTriviaSeed {
         }
 
         return generated
+    }
+
+    /** Question phrasing that matches the transition type, so only true segues are called seamless. */
+    internal fun transitionVerb(type: TransitionType): String = when (type) {
+        TransitionType.SEGUE -> "segued seamlessly (->)"
+        TransitionType.TRANSITION -> "transitioned (>)"
+        TransitionType.JAM -> "jammed (~>)"
+        TransitionType.NONE -> "was followed"
     }
 
     private fun shuffleQuestionOptions(q: TriviaQuestion): TriviaQuestion {
