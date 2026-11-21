@@ -148,10 +148,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "Sunshine Daydream! 100 degrees out in the Oregon dust. The 31-minute Dark Star is an absolute trip to outer space.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Dark Star",
+                favoriteSong = "",
                 archiveIdentifier = "gd72-08-27.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "16-track Master Reel Soundboard",
                 tags = "Sunshine Daydream,Dark Star,Bird Song,China->Rider",
@@ -184,10 +184,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "The purest essence of primal Dead. The Dark Star -> Saint Stephen -> The Eleven -> Lovelight is the defining sequence of 1960s San Francisco music.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "The Eleven",
+                favoriteSong = "",
                 archiveIdentifier = "gd69-02-27.sbd.16trk.flac",
                 tapeQuality = "16-Track Bear Recording",
                 tags = "Live/Dead,Pigpen,Dark Star,The Eleven,Primal",
@@ -228,10 +228,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "Dick's Picks Vol. 8. The intimate acoustic first set followed by two soaring electric sets makes this one of the most complete shows in existence.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Uncle John's Band",
+                favoriteSong = "",
                 archiveIdentifier = "gd70-05-02.sbd.miller.88500.sbeok.flac16",
                 tapeQuality = "Soundboard Reel",
                 tags = "Dick's Picks 8,Acoustic Set,Dancin->Other One",
@@ -273,10 +273,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "Wall of Sound in full glory. The Weather Report Suite -> The Other One -> Stella Blue segment is peak jazz-fusion Dead.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Weather Report Suite",
+                favoriteSong = "",
                 archiveIdentifier = "gd74-06-18.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Wall of Sound Multi-Mic SBD",
                 tags = "Wall of Sound,Road Trips 2.3,Eyes->China Doll",
@@ -320,10 +320,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "The night after Cornell and many think it equals or beats it! Opening Help -> Slip -> Franklin's is blistering, and Comes a Time is pure magic.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Help on the Way",
+                favoriteSong = "",
                 archiveIdentifier = "gd77-05-09.sbd.unknown.1234.sbeok.shnf",
                 tapeQuality = "Betty Board SBD",
                 tags = "Help->Slip->Frank,Spring 77,Comes a Time",
@@ -413,10 +413,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "Red Rocks under the stars. The Wharf Rat -> Franklin's Tower is unique and uplifting, and Jerry howling Werewolves of London was legendary.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Wharf Rat",
+                favoriteSong = "",
                 archiveIdentifier = "gd78-07-08.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard Master",
                 tags = "Red Rocks,Wharf->Franklin,Werewolves,Colorado",
@@ -460,10 +460,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 4.5f,
-                userReview = "Early Brent era at its peak in the Fox Theatre's pristine acoustics. The Scarlet -> Fire has incredible synthesizer and B3 textures.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Bird Song",
+                favoriteSong = "",
                 archiveIdentifier = "gd80-11-30.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard SBD",
                 tags = "Brent Era,Fox Theatre,Bird Song,Scarlet->Fire",
@@ -601,10 +601,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "The Warlocks shows at Hampton. When Jerry struck the opening notes to Dark Star for the first time in 5 years, the mothership practically lifted off the ground. Attics of My Life encore brought grown Deadheads to tears.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Dark Star",
+                favoriteSong = "",
                 archiveIdentifier = "gd89-10-09.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "UltraMatrix Soundboard",
                 tags = "Warlocks,Dark Star Bustout,Attics,Hampton Mothership",
@@ -644,10 +644,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 5f,
-                userReview = "Without Ever Having Seen the Grateful Dead, Branford Marsalis sat in and played the most transcendent jazz-rock set ever captured. Eyes of the World is peak musical telepathy.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Eyes of the World",
+                favoriteSong = "",
                 archiveIdentifier = "gd90-03-29.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "24-Track Digital Master SBD",
                 tags = "Branford Marsalis,Wake Up to Find Out,Eyes,Spring 90",
@@ -691,10 +691,10 @@ object CuratedShows {
                     )
                 ),
                 isAttended = false,
-                userRating = 4.5f,
-                userReview = "Bruce Hornsby's grand piano brought unbelievable energy to Boston Garden in September '91. The Help -> Slip -> Franklin's opener set the arena on fire.",
+                userRating = 0f,
+                userReview = "",
                 attendedWith = "",
-                favoriteSong = "Crazy Fingers",
+                favoriteSong = "",
                 archiveIdentifier = "gd91-09-25.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Digital DAT SBD",
                 tags = "Bruce Hornsby,Boston Garden,Crazy Fingers",
@@ -796,21 +796,41 @@ object CuratedShows {
     )
 
     /**
-     * Earlier builds shipped these six shows pre-marked as attended, with an invented first-person
-     * review, rating, companions and favorite song. New installs no longer do. On existing installs
-     * [com.example.data.repository.ShowRepository.checkAndSeedDatabase] clears them, but only where
-     * the companions and review opening still match exactly what the app invented, so anything the
-     * user changed is left alone.
+     * Earlier builds shipped all 16 seed shows with an invented first-person review, rating and
+     * favorite song; six were also pre-marked attended with invented companions. New installs no
+     * longer do. On existing installs
+     * [com.example.data.repository.ShowRepository.checkAndSeedDatabase] clears these, but only
+     * where the rating, favorite song, companions and review opening all still match exactly what
+     * the app invented, so anything the user changed is left alone. Attendance is reset only for
+     * the six where it was invented, never for a show the user marked attended themselves.
      */
     val legacySeedPersonalData = listOf(
-        LegacySeedPersonalData("1977-05-08-cornell", "College tape traders", "The Barton Hall holy grail. The Scarlet "),
-        LegacySeedPersonalData("1977-09-03-englishtown", "Jersey Shore Deadheads", "100,000 Deadheads on a hot racetrack in "),
-        LegacySeedPersonalData("1980-10-31-radio-city", "Costumed Deadhead crew", "The Halloween night finale of the 15th a"),
-        LegacySeedPersonalData("1989-07-04-rich-stadium", "Tour bus traveling crew", "4th of July at Rich Stadium! The entire "),
-        LegacySeedPersonalData("1995-07-09-soldier-field", "Tour family", "The final Grateful Dead show at Soldier "),
-        LegacySeedPersonalData("2024-05-18-terrapin-flyer-martyrs", "Local Deadhead friends", "Terrapin Flyer tore the roof off Martyrs")
+        LegacySeedPersonalData("1977-05-08-cornell", 5f, "Morning Dew", "College tape traders", "The Barton Hall holy grail. The Scarlet ", inventedAttendance = true),
+        LegacySeedPersonalData("1972-08-27-veneta", 5f, "Dark Star", "", "Sunshine Daydream! 100 degrees out in th", inventedAttendance = false),
+        LegacySeedPersonalData("1969-02-27-fillmore-west", 5f, "The Eleven", "", "The purest essence of primal Dead. The D", inventedAttendance = false),
+        LegacySeedPersonalData("1970-05-02-harpur", 5f, "Uncle John's Band", "", "Dick's Picks Vol. 8. The intimate acoust", inventedAttendance = false),
+        LegacySeedPersonalData("1974-06-18-louisville", 5f, "Weather Report Suite", "", "Wall of Sound in full glory. The Weather", inventedAttendance = false),
+        LegacySeedPersonalData("1977-05-09-buffalo", 5f, "Help on the Way", "", "The night after Cornell and many think i", inventedAttendance = false),
+        LegacySeedPersonalData("1977-09-03-englishtown", 5f, "Mississippi Half-Step", "Jersey Shore Deadheads", "100,000 Deadheads on a hot racetrack in ", inventedAttendance = true),
+        LegacySeedPersonalData("1978-07-08-red-rocks", 5f, "Wharf Rat", "", "Red Rocks under the stars. The Wharf Rat", inventedAttendance = false),
+        LegacySeedPersonalData("1980-11-30-fox-atlanta", 4.5f, "Bird Song", "", "Early Brent era at its peak in the Fox T", inventedAttendance = false),
+        LegacySeedPersonalData("1980-10-31-radio-city", 5f, "Ripple", "Costumed Deadhead crew", "The Halloween night finale of the 15th a", inventedAttendance = true),
+        LegacySeedPersonalData("1989-07-04-rich-stadium", 5f, "Morning Dew", "Tour bus traveling crew", "4th of July at Rich Stadium! The entire ", inventedAttendance = true),
+        LegacySeedPersonalData("1989-10-09-hampton", 5f, "Dark Star", "", "The Warlocks shows at Hampton. When Jerr", inventedAttendance = false),
+        LegacySeedPersonalData("1990-03-29-nassau", 5f, "Eyes of the World", "", "Without Ever Having Seen the Grateful De", inventedAttendance = false),
+        LegacySeedPersonalData("1991-09-25-boston", 4.5f, "Crazy Fingers", "", "Bruce Hornsby's grand piano brought unbe", inventedAttendance = false),
+        LegacySeedPersonalData("1995-07-09-soldier-field", 5f, "So Many Roads", "Tour family", "The final Grateful Dead show at Soldier ", inventedAttendance = true),
+        LegacySeedPersonalData("2024-05-18-terrapin-flyer-martyrs", 5f, "Mississippi Half-Step", "Local Deadhead friends", "Terrapin Flyer tore the roof off Martyrs", inventedAttendance = true)
     )
 }
 
 /** Fingerprint of invented personal data a seed show used to ship with (see [CuratedShows.legacySeedPersonalData]). */
-data class LegacySeedPersonalData(val showId: String, val attendedWith: String, val reviewPrefix: String)
+data class LegacySeedPersonalData(
+    val showId: String,
+    val rating: Float,
+    val favoriteSong: String,
+    val attendedWith: String,
+    val reviewPrefix: String,
+    /** True only for the six shows that shipped pre-marked attended. */
+    val inventedAttendance: Boolean
+)

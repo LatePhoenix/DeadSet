@@ -136,11 +136,49 @@ class SeedingTest {
         for (seed in TestSeeds.seeds) {
             val s = seed.show
             assertTrue(s.id, !s.isAttended)
-            if (seed.id in com.example.data.seed.CuratedShows.legacySeedPersonalData.map { it.showId }) {
-                assertEquals(s.id, listOf("", "", ""), listOf(s.userReview, s.attendedWith, s.favoriteSong))
-                assertEquals(s.id, 0f, s.userRating)
-            }
+            assertEquals(s.id, listOf("", "", ""), listOf(s.userReview, s.attendedWith, s.favoriteSong))
+            assertEquals(s.id, 0f, s.userRating)
         }
+        // Every seed has a fingerprint, so existing installs get cleaned up too.
+        assertEquals(
+            TestSeeds.seeds.map { it.id }.toSet(),
+            com.example.data.seed.CuratedShows.legacySeedPersonalData.map { it.showId }.toSet()
+        )
+    }
+
+    @Test
+    fun `cleanup keeps attendance the user set on a show whose review was invented`() = runBlocking {
+        val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        // Old build's invented review/rating/favorite, but the user marked it attended themselves.
+        dao.insertShow(
+            veneta.copy(
+                isAttended = true, userRating = 5f, favoriteSong = "Dark Star",
+                userReview = "Sunshine Daydream! 100 degrees out in the field and the band was on fire."
+            )
+        )
+
+        repository.checkAndSeedDatabase()
+
+        val after = dao.getShowById(veneta.id).first()!!
+        assertTrue("user-set attendance must survive", after.isAttended)
+        assertEquals(listOf(0f, "", ""), listOf(after.userRating, after.userReview, after.favoriteSong))
+    }
+
+    @Test
+    fun `cleanup leaves a show alone if the user changed any invented field`() = runBlocking {
+        val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        // Same invented review, but the user re-rated it: treat it as theirs.
+        val rerated = veneta.copy(
+            userRating = 3f, favoriteSong = "Dark Star",
+            userReview = "Sunshine Daydream! 100 degrees out in the field and the band was on fire."
+        )
+        dao.insertShow(rerated)
+
+        repository.checkAndSeedDatabase()
+
+        val after = dao.getShowById(veneta.id).first()!!
+        assertEquals(3f, after.userRating)
+        assertEquals(rerated.userReview, after.userReview)
     }
 
     @Test

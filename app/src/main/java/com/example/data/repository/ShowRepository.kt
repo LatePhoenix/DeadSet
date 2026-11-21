@@ -61,7 +61,14 @@ class ShowRepository(
         ensureSongCatalog()
         showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
         for (legacy in CuratedShows.legacySeedPersonalData) {
-            showDao.clearInventedPersonalData(legacy.showId, legacy.attendedWith, legacy.reviewPrefix)
+            showDao.clearInventedPersonalData(
+                id = legacy.showId,
+                inventedRating = legacy.rating,
+                inventedFavorite = legacy.favoriteSong,
+                inventedCompanions = legacy.attendedWith,
+                inventedReviewPrefix = legacy.reviewPrefix,
+                clearAttendance = legacy.inventedAttendance
+            )
         }
         if (showDao.getShowsCount() == 0) {
             showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
