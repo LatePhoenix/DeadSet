@@ -712,6 +712,12 @@ object DeadTriviaSeed {
             allPool.filter { category == TriviaCategory.ALL || it.category == category }.ifEmpty { allPool }
         }
 
-        return filtered.shuffled(Random(seed)).take(mode.questionCount.coerceAtLeast(5))
+        // Per-question history (step 5.1): unseen and weak/due questions first, mastered ones that
+        // are not due yet last, so a round rarely repeats what you already know. Shuffled first so
+        // ties stay random.
+        val byId = filtered.shuffled(Random(seed)).associateBy { it.id }
+        val ordered = com.example.data.review.Leitner.order(byId.keys.toList(), reviewStates, today)
+            .let { ids -> ids.filter { it !in reviewStates } + ids.filter { it in reviewStates } }
+        return ordered.take(mode.questionCount.coerceAtLeast(5)).map { byId.getValue(it) }
     }
 }

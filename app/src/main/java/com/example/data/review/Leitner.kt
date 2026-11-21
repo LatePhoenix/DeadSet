@@ -59,3 +59,21 @@ object Leitner {
         return ((b - a) / 86_400_000L).toInt()
     }
 }
+
+/** Answer accuracy per trivia category (step 5.1), from per-question review history. */
+data class CategoryAccuracy(val label: String, val answered: Int, val correct: Int) {
+    val percent: Int get() = if (answered == 0) 0 else correct * 100 / answered
+}
+
+object AnswerHistory {
+    /**
+     * Groups per-question history by category. [categoryOf] maps a question id to its category
+     * label (null for ids no longer in the pool); categories never answered are omitted.
+     */
+    fun byCategory(states: Map<String, ReviewState>, categoryOf: (String) -> String?): List<CategoryAccuracy> =
+        states.entries.mapNotNull { (id, s) -> categoryOf(id)?.let { it to s } }
+            .groupBy({ it.first }, { it.second })
+            .map { (label, list) -> CategoryAccuracy(label, list.sumOf { it.timesSeen }, list.sumOf { it.timesCorrect }) }
+            .filter { it.answered > 0 }
+            .sortedBy { it.label }
+}

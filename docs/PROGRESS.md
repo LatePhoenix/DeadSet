@@ -165,7 +165,8 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 
 ## Phase 5: Almanac (trivia + articles)
 
-- [ ] **5.1 Per-question answer history.** Stop repeating questions the user has mastered; show accuracy by category.
+- [x] **5.1 Per-question answer history.** Stop repeating questions the user has mastered; show accuracy by category.
+  _As built (branch `phase-5-almanac-a`):_ every quiz answer, in every mode, now updates the per-question Leitner state in `review_cards` (previously Segue School only). Classic/Blitz/category decks lead with **unseen** questions, then due/weak ones, then mastered-not-due ones (Segue School keeps due-first for review). The Trivia hub shows "Your accuracy by category" (`AnswerHistory.byCategory`). A test enforces that question ids are unique, since they key the history.
 - [ ] **5.2 Fact-check pass** on `DeadTriviaSeed` and `historicTrivia`. Add a `sourceUrl` to `TriviaQuestion`.
 - [ ] **5.3 New question types.** True/false, order-the-dates, who-sang-it, venue→city, lyric→song (paraphrase only, never quoted lyrics).
 - [ ] **5.4 Article format.** Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
