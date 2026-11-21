@@ -1,0 +1,37 @@
+# DeadSet
+
+An Android companion for Grateful Dead fans: browse setlists and segues, learn common song transitions (Segue School with spaced repetition), play trivia, track the shows you've been to, and follow tribute bands like Terrapin Flyer, with alerts when they announce dates near you.
+
+Built with Kotlin, Jetpack Compose and Room. minSdk 24.
+
+## Status
+
+The plan and its progress are in [docs/PROGRESS.md](docs/PROGRESS.md); the reasoning is in [docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md). Agents (Cursor, Claude Code) follow [AGENTS.md](AGENTS.md).
+
+## Build
+
+1. Use Android Studio's bundled JDK:
+   - PowerShell: `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"`
+   - bash: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`
+2. Create a local debug keystore once (it's git-ignored; the build's `signingConfigs` expect it in the project root):
+   ```
+   keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+   ```
+3. Run the tests: `./gradlew :app:testDebugUnitTest`
+4. Build and install: `./gradlew :app:installDebug`
+
+## Configuration
+
+Copy `.env.example` to `.env` (never commit it). Both values are optional; without them the Tickets tab shows an honest empty state.
+
+| Variable | What it's for |
+|---|---|
+| `TICKETMASTER_API_KEY` | Ticketmaster Discovery API key for upcoming tribute dates |
+| `BANDSINTOWN_APP_ID` | Registered Bandsintown app ID (the placeholder value is rejected) |
+
+## Data sources and credits
+
+- Curated show data in the app comes from public sources; nothing user-visible is invented.
+- Full catalog (planned, Phase 2): [gdshowsdb](https://github.com/jefmsmit/gdshowsdb) by Jeff Smith, MIT license. Its setlists appear to derive from Deadlists, which is credited too.
+- Upcoming concerts: Ticketmaster and Bandsintown, when keys are configured.
+- "Listen" links open the [Internet Archive](https://archive.org/details/GratefulDead) Grateful Dead collection.
