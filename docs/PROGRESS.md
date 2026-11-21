@@ -128,8 +128,14 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **3.3 deviation:** a "Setlist at a glance" card in standard notation (`Scarlet Begonias -> Fire on the Mountain, Estimated Prophet`), one line per set. The pre-Drums / Drums-Space / post-Space split was skipped: it only works once Drums/Space are reliably present (Phase 2 data).
   - The pill and the ribbon below a song now share one color per transition type (`transitionAccent()`).
   - **Checked on the emulator** (Medium_Phone_API_37.0): Segues tab, flow explorer, family → filtered show list (3 Scarlet > Fire shows), pill cycling on Cornell.
-- [ ] **3.4 Quiz modes.** "What comes next?" (distractors = real exits from song A), "Complete the suite," "Fill the sandwich," "Name that era," "Build Set Two."
-- [ ] **3.5 Spaced repetition.** A Leitner box per transition pair, stored in Room.
+- [x] **3.4 Quiz modes.** "What comes next?" (distractors = real exits from song A), "Complete the suite," "Fill the sandwich," "Name that era," "Build Set Two."
+- [x] **3.5 Spaced repetition.** A Leitner box per transition pair, stored in Room.
+  _As built (3.4–3.5, branch `phase-3-transitions-b`, DB v6→v7):_
+  - New **Segue School** mode (`TriviaGameMode.SEGUE_SCHOOL`, 10 questions) on the Trivia tab. Generators live in `data/setlist/TransitionQuiz.kt`: complete-the-chain (from `SegueFamilies`), most-often-next, fill-the-sandwich, and name-that-era. Each question exists only if it has exactly one defensible answer, and its liner note cites the catalog evidence.
+  - **Deviation from plan:** "What comes next?" became "which song does X **most often** flow into", with distractors = songs that **never** followed X. The plan's "distractors = real exits" would have made wrong options also correct. It's skipped when the top exits tie.
+  - **Deferred:** "Build Set Two" (drag-to-order) needs a reorder UI; revisit with Phase 6 UI work.
+  - **3.5:** `data/review/Leitner.kt` (5 boxes; intervals 0/1/3/7/14 days; a miss goes back to box 1). The `review_cards` table (`MIGRATION_6_7`, additive) is keyed by question id, which is stable per card. The deck orders due cards (weakest first), then new cards, then not-due cards. `DeadSetViewModel.recordCardAnswer()` is called per answer in Segue School only.
+  - **Checked on the emulator:** an upgrade from a real v6 DB to v7 opened cleanly; Segue School runs; a wrong answer shows the evidence note. A bug found there and fixed: "Brent Mydland Era era" (now guarded by a test).
 - [ ] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.
 
 ## Phase 4: Tribute band tracking

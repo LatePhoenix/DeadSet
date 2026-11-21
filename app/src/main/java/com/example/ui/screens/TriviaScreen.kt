@@ -69,6 +69,8 @@ fun TriviaScreen(
         mode: TriviaGameMode
     ) -> Unit,
     onOpenShowDetail: (String) -> Unit,
+    reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
+    onCardAnswered: (cardId: String, correct: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var stage by remember { mutableStateOf(TriviaStage.HUB) }
@@ -126,7 +128,8 @@ fun TriviaScreen(
             category = selectedCategory,
             difficultyFilter = selectedDifficulty,
             shows = shows,
-            parseSongs = parseSongs
+            parseSongs = parseSongs,
+            reviewStates = reviewStates
         )
         activeDeck = deck
         currentIndex = 0
@@ -265,6 +268,9 @@ fun TriviaScreen(
                             if (selectedOptionIndex == null) {
                                 selectedOptionIndex = idx
                                 val isCorrect = idx == currentQ.correctIndex
+                                if (activeMode == TriviaGameMode.SEGUE_SCHOOL) {
+                                    onCardAnswered(currentQ.id, isCorrect)
+                                }
                                 val newStreak = if (isCorrect) sessionStreak + 1 else 0
                                 sessionStreak = newStreak
                                 if (newStreak > maxSessionStreak) {
@@ -650,6 +656,19 @@ private fun TriviaHubContent(
                 buttonText = "Open Archivist Flashcard Deck 📜",
                 testTag = "open_flashcards_btn",
                 onClick = { onStartMode(TriviaGameMode.LORE_FLASHCARDS) }
+            )
+        }
+
+        // Segue School (transition training with spaced repetition)
+        item {
+            TriviaModeCard(
+                title = TriviaGameMode.SEGUE_SCHOOL.title,
+                subtitle = TriviaGameMode.SEGUE_SCHOOL.subtitle,
+                badgeText = "🎶 ->  >  ~>  Spaced repetition",
+                accentColor = StealieCrimsonLight,
+                buttonText = "Start Segue School ->",
+                testTag = "start_segue_school_btn",
+                onClick = { onStartMode(TriviaGameMode.SEGUE_SCHOOL) }
             )
         }
 

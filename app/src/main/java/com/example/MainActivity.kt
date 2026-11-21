@@ -193,7 +193,9 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     parseSongs = viewModel::songsFor,
                                     triviaProgress = uiState.triviaProgress,
                                     onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
-                                    onOpenShowDetail = viewModel::openShowDetail
+                                    onOpenShowDetail = viewModel::openShowDetail,
+                                    reviewStates = uiState.reviewStates,
+                                    onCardAnswered = viewModel::recordCardAnswer
                                 )
                             }
                             MainTab.PROFILE -> {

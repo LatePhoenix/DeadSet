@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
+import com.example.data.local.ReviewCardEntity
+import com.example.data.review.Leitner
+import com.example.data.review.ReviewState
 import com.example.data.local.ShowEntity
 import com.example.data.local.isUpcoming
 import com.example.data.setlist.FamilyStat
@@ -74,6 +77,8 @@ data class UiState(
     val familyStats: List<FamilyStat> = emptyList(),
     val userProfile: UserProfileData = UserProfileData(),
     val triviaProgress: TriviaUserProgress = TriviaUserProgress(),
+    /** Segue School spaced-repetition state by card (question) id. */
+    val reviewStates: Map<String, ReviewState> = emptyMap(),
     val userFeedbackMessage: String? = null
 )
 
@@ -107,7 +112,15 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private val reviewDao = database.reviewDao()
+
     init {
+        viewModelScope.launch {
+            reviewDao.observeAll().collect { cards ->
+                _uiState.update { s -> s.copy(reviewStates = cards.associate { it.cardId to it.toState() }) }
+            }
+        }
+
         viewModelScope.launch {
             repository.checkAndSeedDatabase()
         }
@@ -437,6 +450,15 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
         // Persist outside update{}, whose lambda may re-run under contention.
         userPrefs.saveTriviaProgress(_uiState.value.triviaProgress)
+    }
+
+    /** Records a Segue School answer and moves the card between Leitner boxes. */
+    fun recordCardAnswer(cardId: String, correct: Boolean) {
+        viewModelScope.launch {
+            val previous = reviewDao.get(cardId)?.toState()
+            val next = Leitner.afterAnswer(previous, correct, com.example.data.todayIsoDate())
+            reviewDao.upsert(ReviewCardEntity.from(cardId, next))
+        }
     }
 
     fun clearFeedbackMessage() {

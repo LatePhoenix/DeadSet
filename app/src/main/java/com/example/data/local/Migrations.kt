@@ -312,3 +312,17 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         }
     }
 }
+
+/**
+ * 6 → 7: add `review_cards` for Segue School spaced repetition (step 3.5). Additive only.
+ * SQL below is copied from schemas/.../7.json; keep them identical.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `review_cards` (`cardId` TEXT NOT NULL, `box` INTEGER NOT NULL, " +
+                "`lastReviewedDate` TEXT NOT NULL, `timesSeen` INTEGER NOT NULL, `timesCorrect` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`cardId`))"
+        )
+    }
+}
