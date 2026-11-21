@@ -23,14 +23,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- `main` has Phases 0–1 (DB v6), merged through PR #4 (`04da9bb`).
-- **Branch `phase-5-seed-reset` is the working line.** It has everything else: Phases 3, 4 (except 4.3), steps 5.1 and 5.7, and the seed reset. DB is **v10**, `main` is merged into it (`aae31a4`), and **97/97 tests pass**. All the earlier stacked branches (`phase-3-transitions-*`, `phase-4-tribute-*`, `phase-5-almanac-a`) are ancestors of it and need no separate PRs. **Next action: PR [#5](https://github.com/LatePhoenix/DeadSet/pull/5) (`phase-5-seed-reset` → `main`) is open**; let CodeRabbit review it, fix findings, merge. Then delete the old stacked branches.
-- After that, work in the order of the **Next up** list below.
+- **`main` is the working line** (PR #5 merged as `4604ad0`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset. DB **v10**.
+- A1: PR [#6](https://github.com/LatePhoenix/DeadSet/pull/6). A2: this branch `phase-1b-a2-ai-studio-cleanup`.
 
-**Next up (in order), after the working-line PR merges:**
-1. **Part A, cleanup & safety** (section "Phase 1b" below): A1 trim deps → A2 delete AI Studio leftovers + README → A3 GitHub Actions CI. A5 (package rename) needs the owner's IDs first.
-2. **Phase 2, catalog importer from gdshowsdb** (C1–C7). This unblocks most of the remaining plan.
-3. **Phase 4 follow-ups D1/D2** (key proxy, R8 + drop Retrofit/Moshi), Phase 5, Phase 6.
+**Next up (in order):**
+1. Merge A1/A2 when green → **A3 GitHub Actions CI**. A5 needs owner package/app IDs.
+2. **Phase 2, catalog importer from gdshowsdb** (C1–C7).
+3. **Phase 4 follow-ups D1/D2**, Phase 5, Phase 6.
 
 **Open decisions for the owner**
 - [ ] **A5 package/app IDs.** What should the Kotlin package and `applicationId` be (e.g. `app.deadset` / `app.deadset.android`)? Don't change them until the owner answers: changing the app ID orphans existing installs.
@@ -130,7 +129,7 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 Do these after the working-line PR merges, one per PR (or batch A1–A3).
 
 - [ ] **A1 Trim unused dependencies.** Firebase AI and App Check are already commented out (5.7). Also remove `logging-interceptor` (no `HttpLoggingInterceptor` reference in `app/src/main`), and drop the Firebase BoM + `google-services` plugin if no Firebase library remains (nothing uses Firebase; AI Studio no longer builds this project). Confirm with `git grep`, then `testDebugUnitTest` + `assembleDebug`.
-- [ ] **A2 Remove AI Studio leftovers + README.** Delete tracked `.aistudio/` (~1.5 MB temp media) and `public/` (~0.6 MB web scaffolding) and `metadata.json`; add them and `.idea/` to `.gitignore`. Write `README.md`: what the app is, how to build (JDK path, keystore), data sources + credits, env vars (`TICKETMASTER_API_KEY`, `BANDSINTOWN_APP_ID`).
+- [x] **A2 Remove AI Studio leftovers + README.** Deleted tracked `.aistudio/` and `public/` media plus `metadata.json`; added `.aistudio/`, `public/`, `metadata.json` to `.gitignore` (`.idea/` already ignored). README already covered build/JDK/keystore/credits/env vars from the Phase 3–5 docs work; lightly updated Bandsintown env note.
 - [ ] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR, `concurrency` with cancel-in-progress, JDK 17+, cache Gradle, **generate `debug.keystore` with `keytool` in a step** (never commit one, never edit `signingConfigs`), run `testDebugUnitTest`. Add a release-shrink check later with D2 (`:app:minifyReleaseWithR8`; `assembleRelease` needs a signing secret).
 - [x] **A4 Demo seed data.** Done on the working line: all 16 seeds ship unattended with no invented review/rating/companions/favorite; existing installs are cleaned only where data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`).
 - [ ] ⏸ **A5 Package + applicationId rename** (= 6.6). **Ask the owner for the IDs first.** Rename `com.example` → owner's package (namespace + directories + Room schema dir name changes with the package!) and `applicationId`. Note: the Room schema folder is named after the DB class's package; move `app/schemas/com.example.data.local.AppDatabase/` accordingly and keep `MigrationTest` green.
@@ -230,6 +229,10 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (A2 AI Studio cleanup)
+- PR #5 merged (`4604ad0`). A1 open as PR #6. A2 on `phase-1b-a2-ai-studio-cleanup`: removed tracked `.aistudio/` + `public/` + `metadata.json`, gitignored them. README already present.
+- **Next:** merge A1/A2 when CodeRabbit green, then A3 CI.
 
 ### 2026-11-21 · Cursor (PR #5 CodeRabbit fixes)
 - Addressed clear CodeRabbit findings on PR #5 (`phase-5-coderabbit-fixes`): exact invented-review fingerprint, setlist/review mutexes, chase card when attendance empty, live-tracker set-scoped predictions + SET_3, same-set analytics, chain distractor exclusions, tonight-reminder only when notify posts, home-city stale-lookup guard, ISO date validation, followed-band alert query, Bandsintown skipped when unset (no placeholder), MigrationTest 6→10 seeded cases, README/AGENTS docs.

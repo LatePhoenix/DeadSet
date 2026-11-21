@@ -19,5 +19,8 @@ debug.keystore
 
 # Local IDE state and build-time importer data
 .idea/
+.aistudio/
+public/
+metadata.json
 tools/importer/cache/
 tools/importer/out/
