@@ -166,7 +166,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     onRefresh = viewModel::refreshConcerts,
                                     onAddBand = { viewModel.addBand(it) },
                                     onSetFollowed = { id, f -> viewModel.setBandFollowed(id, f) },
-                                    onRemoveBand = { viewModel.removeBand(it) }
+                                    onRemoveBand = { viewModel.removeBand(it) },
+                                    onSetAlerts = viewModel::setAlertsEnabled
                                 )
                             }
                             MainTab.ATTENDANCE -> {

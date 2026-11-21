@@ -180,6 +180,15 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     fun removeBand(bandId: String) = viewModelScope.launch { concertRepository.removeBand(bandId) }
 
+    /** Turns background date checks + notifications on or off (step 4.6). */
+    fun setAlertsEnabled(enabled: Boolean) {
+        userPrefs.setAlertsEnabled(enabled)
+        val ctx = getApplication<Application>()
+        if (enabled) com.example.notifications.ConcertAlertsWorker.schedule(ctx)
+        else com.example.notifications.ConcertAlertsWorker.cancel(ctx)
+        _concerts.update { it.copy(alertsEnabled = enabled) }
+    }
+
     /** Geocodes the profile's home city for "near me" (no network key needed; may be unavailable). */
     private fun locateHome(homeCity: String) {
         viewModelScope.launch {
@@ -215,6 +224,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
             concertRepository.upcomingEvents().collect { events -> _concerts.update { it.copy(events = events) } }
         }
         locateHome(_uiState.value.userProfile.homeCity)
+        if (userPrefs.alertsEnabled()) setAlertsEnabled(true) // re-schedules (KEEP) and syncs UI state
 
         viewModelScope.launch {
             repository.allShowsWithSongs.collect { rows ->

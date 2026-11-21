@@ -54,7 +54,9 @@ data class ConcertsUiState(
     val lastOutcome: RefreshOutcome? = null,
     /** Home location from the profile's home city, if it could be geocoded. */
     val home: LatLon? = null,
-    val homeLabel: String = ""
+    val homeLabel: String = "",
+    /** Background checks + notifications for new dates and day-of shows (step 4.6). */
+    val alertsEnabled: Boolean = false
 )
 
 /** Radius choices for "near me", in miles; null means any distance. */
@@ -67,6 +69,7 @@ fun LiveConcertsScreen(
     onAddBand: (String) -> Unit,
     onSetFollowed: (bandId: String, followed: Boolean) -> Unit,
     onRemoveBand: (bandId: String) -> Unit,
+    onSetAlerts: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -75,6 +78,12 @@ fun LiveConcertsScreen(
     var radiusMiles by remember { mutableStateOf<Int?>(null) }
     var showApiInfoDialog by remember { mutableStateOf(false) }
     var showBandsDialog by remember { mutableStateOf(false) }
+    val notificationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) onSetAlerts(true)
+        else Toast.makeText(context, "Alerts need notification permission", Toast.LENGTH_SHORT).show()
+    }
     val now = remember(state.events) { System.currentTimeMillis() }
 
     LaunchedEffect(Unit) { onRefresh() }
@@ -221,6 +230,39 @@ fun LiveConcertsScreen(
                             leadingIconContentColor = StealieCyan
                         ),
                         modifier = Modifier.testTag("manage_bands_chip")
+                    )
+                    FilterChip(
+                        selected = state.alertsEnabled,
+                        onClick = {
+                            if (state.alertsEnabled) {
+                                onSetAlerts(false)
+                            } else if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context, android.Manifest.permission.POST_NOTIFICATIONS
+                                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                onSetAlerts(true)
+                            }
+                        },
+                        label = { Text(if (state.alertsEnabled) "Alerts on" else "Alerts off", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        leadingIcon = {
+                            Icon(
+                                if (state.alertsEnabled) Icons.Filled.NotificationsActive else Icons.Filled.NotificationsOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = StealieGreen.copy(alpha = 0.22f),
+                            selectedLabelColor = StealieGreen,
+                            selectedLeadingIconColor = StealieGreen,
+                            containerColor = StealieCardDark,
+                            labelColor = TextSecondaryDark,
+                            iconColor = TextSecondaryDark
+                        ),
+                        modifier = Modifier.testTag("alerts_chip")
                     )
                     ConcertChip(label = "All followed", selected = selectedBand == null, tag = "band_chip_all") {
                         selectedBand = null
