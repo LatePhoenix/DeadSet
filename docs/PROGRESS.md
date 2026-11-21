@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation.** Start with step 1.1, the schema baseline. Every later step depends on it.
+**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Step 1.1 is done; next is **1.2** (stop destructive migration). 1.2 needs network to download `androidx.room:room-testing`.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -66,8 +66,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 Goal: user data survives schema changes; one source of truth for setlists; transitions modelled properly.
 
-- [ ] **1.1 Schema baseline.** In `app/build.gradle.kts`, add `ksp { arg("room.schemaLocation", "$projectDir/schemas") }`. Set `exportSchema = true` in `AppDatabase.kt`. Build once at **version 3** so `app/schemas/.../3.json` is generated, then commit it.
-  _Done when:_ `3.json` is committed and the DB version is still 3.
+- [x] **1.1 Schema baseline.** In `app/build.gradle.kts`, add `ksp { arg("room.schemaLocation", "$projectDir/schemas") }`. Set `exportSchema = true` in `AppDatabase.kt`. Build once at **version 3** so `app/schemas/.../3.json` is generated, then commit it.
+  _Done when:_ `3.json` is committed and the DB version is still 3. (_see commit "Export Room schema v3 baseline"_)
+  _Note:_ `ShowEntity`/`SongPerformanceEntity` are unchanged since `84e62cb`, so `3.json` (identityHash `2b2e24c2…`, 31 columns, 7 indices) matches the v3 DBs already on devices. Every future entity change must bump `version` and commit the new `N.json`.
 - [ ] **1.2 Stop destructive migration.** Remove `fallbackToDestructiveMigration()`. Add the `androidx.room:room-testing` dependency (needs network). Add a `MigrationTestHelper` test scaffold (Robolectric or androidTest).
   _Done when:_ the app opens an existing v3 DB with no data loss and the migration test infrastructure runs.
 - [ ] **1.3 Fix seeding foreign-key edge case.** In `ShowRepository.checkAndSeedDatabase()`, the branch where `count > 0` but `perfCount == 0` inserts performances for curated shows that may not exist, which throws `SQLiteConstraintException`. Insert or ignore the curated shows first, or sync only the shows that exist. Add a test.
@@ -134,6 +135,11 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (step 1.1)
+- Room schema export enabled; `app/schemas/com.example.data.local.AppDatabase/3.json` committed on `phase-1-data-foundation` (not yet merged to `main`). 12/12 tests pass.
+- Regenerate schemas with `./gradlew --offline :app:kspDebugKotlin`.
+- **Next:** step 1.2. Add `room-testing` (online), then remove `fallbackToDestructiveMigration()`.
 
 ### 2026-11-21 · Claude Code
 - Wrote `IMPROVEMENT_PLAN.md` and this tracker. Completed all of Phase 0 (`4762086`, fast-forwarded into `main`). 12/12 unit tests pass. Not yet run on a device.

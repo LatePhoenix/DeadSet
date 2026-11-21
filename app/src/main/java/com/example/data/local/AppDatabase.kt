@@ -12,7 +12,7 @@ import androidx.room.TypeConverters
         SongPerformanceEntity::class
     ],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
