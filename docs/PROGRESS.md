@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Step 1.1 is done; next is **1.2** (stop destructive migration). 1.2 needs network to download `androidx.room:room-testing`.
+**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.2 are done; next is **1.3** (fix the seeding foreign-key edge case). It's small, offline, and needs no schema change.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -69,8 +69,13 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 - [x] **1.1 Schema baseline.** In `app/build.gradle.kts`, add `ksp { arg("room.schemaLocation", "$projectDir/schemas") }`. Set `exportSchema = true` in `AppDatabase.kt`. Build once at **version 3** so `app/schemas/.../3.json` is generated, then commit it.
   _Done when:_ `3.json` is committed and the DB version is still 3. (_see commit "Export Room schema v3 baseline"_)
   _Note:_ `ShowEntity`/`SongPerformanceEntity` are unchanged since `84e62cb`, so `3.json` (identityHash `2b2e24c2…`, 31 columns, 7 indices) matches the v3 DBs already on devices. Every future entity change must bump `version` and commit the new `N.json`.
-- [ ] **1.2 Stop destructive migration.** Remove `fallbackToDestructiveMigration()`. Add the `androidx.room:room-testing` dependency (needs network). Add a `MigrationTestHelper` test scaffold (Robolectric or androidTest).
-  _Done when:_ the app opens an existing v3 DB with no data loss and the migration test infrastructure runs.
+- [x] **1.2 Stop destructive migration.** Remove `fallbackToDestructiveMigration()`. Add the `androidx.room:room-testing` dependency (needs network). Add a `MigrationTestHelper` test scaffold (Robolectric or androidTest).
+  _Done when:_ the app opens an existing v3 DB with no data loss and the migration test infrastructure runs. (_see commit "Stop destructive migrations"_)
+  _How it works now:_
+  - `AppDatabase.applyMigrationPolicy()` is the single builder config; the app and the tests both use it.
+  - Only versions 1–2 (pre-baseline, schemas unknown) are rebuilt. From v3 on, a missing migration **crashes instead of wiping data**. Checked by temporarily bumping to v4 with no migration: `IllegalStateException`.
+  - **Recipe for every future schema change:** bump `AppDatabase.VERSION`, write `Migration(N, N+1)`, add it to `ALL_MIGRATIONS`, run `:app:kspDebugKotlin` to export `N+1.json`, commit it, and add a seeded-data test in `app/src/test/.../data/local/MigrationTest.kt`.
+  - Schemas are exposed as **debug** assets (Robolectric can't see `src/test` assets); release APKs don't include them.
 - [ ] **1.3 Fix seeding foreign-key edge case.** In `ShowRepository.checkAndSeedDatabase()`, the branch where `count > 0` but `perfCount == 0` inserts performances for curated shows that may not exist, which throws `SQLiteConstraintException`. Insert or ignore the curated shows first, or sync only the shows that exist. Add a test.
 - [ ] **1.4 `songs` table + name normalization.** Columns: `id`, `canonicalName`, `aliases` (JSON or a child table), `writers`, `debutDate`. Seed canonical names for every song in `CuratedShows`, with aliases such as St. Stephen/Saint Stephen, Lovelight/Turn On Your Love Light, Slipknot!/Slipknot. Add `normalizeSongName()` and route all setlist writes through it.
   _Migration 3→4._
@@ -135,6 +140,10 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (step 1.2)
+- Removed blanket `fallbackToDestructiveMigration()`. Added `room-testing` 2.7.0 (now cached, so `--offline` works again) and `MigrationTest` (3 tests). 15/15 tests pass. On `phase-1-data-foundation`, not merged.
+- **Next:** step 1.3. Then 1.4 is the first real migration (3→4); follow the recipe under 1.2.
 
 ### 2026-11-21 · Claude Code (step 1.1)
 - Room schema export enabled; `app/schemas/com.example.data.local.AppDatabase/3.json` committed on `phase-1-data-foundation` (not yet merged to `main`). 12/12 tests pass.
