@@ -354,6 +354,35 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `5 to 6 keeps a segue edit that only reached the JSON`() {
+        // v5 wrote setlistJson before the rows; an interrupted edit left the row stale.
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('scarlet begonias', 'Scarlet Begonias')")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('fire on the mountain', 'Fire on the Mountain')")
+            insertV5Show(
+                this, "stale",
+                """[{"name":"Scarlet Begonias","transitionOut":"SEGUE"},{"name":"Fire on the Mountain","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(31, 'stale', 'scarlet begonias', 'Scarlet Begonias', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(32, 'stale', 'fire on the mountain', 'Fire on the Mountain', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, transitionOut FROM song_performances WHERE showId = 'stale' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            assertEquals(listOf(31L to "SEGUE", 32L to "NONE"), got)
+        }
+        db.close()
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,

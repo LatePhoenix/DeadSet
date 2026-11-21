@@ -94,8 +94,12 @@ class ShowRepository(
 
     /** Saves a show and its setlist, normalizing song titles (e.g. "St. Stephen" → "Saint Stephen"). */
     suspend fun saveShow(show: ShowEntity, songs: List<SongEntry>) = withContext(Dispatchers.IO) {
-        showDao.insertShow(show)
-        writeSetlist(show.id, songs, loadSongResolver())
+        val resolver = loadSongResolver()
+        val entities = buildPerformances(show.id, songs, resolver)
+        // Songs must exist before performance rows reference them.
+        persistNewSongs(resolver)
+        // Show + setlist in one transaction, so an interruption can't leave the show without its setlist.
+        showDao.saveShowWithSetlist(show, entities)
     }
 
     /** Inserts catalog songs and aliases; existing rows are left untouched. */
@@ -167,7 +171,18 @@ class ShowRepository(
 
     /** Replaces a show's setlist, resolving each title to its canonical song. */
     private suspend fun writeSetlist(showId: String, songs: List<SongEntry>, resolver: SongResolver) {
-        val entities = songs.mapIndexed { index, entry ->
+        val entities = buildPerformances(showId, songs, resolver)
+        // Songs must exist before performance rows reference them.
+        persistNewSongs(resolver)
+        showDao.replaceSongPerformances(showId, entities)
+    }
+
+    private fun buildPerformances(
+        showId: String,
+        songs: List<SongEntry>,
+        resolver: SongResolver
+    ): List<SongPerformanceEntity> =
+        songs.mapIndexed { index, entry ->
             val resolved = resolver.resolve(entry.name)
             SongPerformanceEntity.fromSongEntry(
                 showId = showId,
@@ -176,10 +191,6 @@ class ShowRepository(
                 songId = resolved.songId
             )
         }
-        // Songs must exist before performance rows reference them.
-        persistNewSongs(resolver)
-        showDao.replaceSongPerformances(showId, entities)
-    }
 
     fun computeOverallStats(
         shows: List<ShowEntity>,

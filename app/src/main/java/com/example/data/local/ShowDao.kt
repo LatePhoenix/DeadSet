@@ -73,8 +73,19 @@ interface ShowDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertShows(shows: List<ShowEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert-or-update in place. REPLACE would delete the existing row first, and with foreign
+     * keys on that cascade-deletes its whole setlist.
+     */
+    @Upsert
     suspend fun insertShow(show: ShowEntity)
+
+    /** Saves a show and its full setlist atomically; an interruption leaves the old version intact. */
+    @Transaction
+    suspend fun saveShowWithSetlist(show: ShowEntity, performances: List<SongPerformanceEntity>) {
+        insertShow(show)
+        replaceSongPerformances(show.id, performances)
+    }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongPerformances(performances: List<SongPerformanceEntity>)

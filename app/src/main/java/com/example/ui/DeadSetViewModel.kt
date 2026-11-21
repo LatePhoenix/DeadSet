@@ -119,11 +119,26 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                         repository.computeOverallStats(allShowsList) { songsByShow[it.id].orEmpty() }
                 }
                 val (allShowsList, songsByShow, filtered) = snapshot
-                _uiState.update {
-                    it.copy(
+                _uiState.update { latest ->
+                    // A filter setter may have run while we were off the main thread; if so, the
+                    // precomputed list is for old filters, so re-filter with the latest ones.
+                    val filtersUnchanged = latest.searchQuery == current.searchQuery &&
+                        latest.selectedEra == current.selectedEra &&
+                        latest.attendanceFilter == current.attendanceFilter &&
+                        latest.sortOrder == current.sortOrder &&
+                        latest.selectedSegueFilter == current.selectedSegueFilter
+                    latest.copy(
                         shows = allShowsList,
                         songsByShow = songsByShow,
-                        filteredShows = filtered,
+                        filteredShows = if (filtersUnchanged) filtered else applyFilters(
+                            shows = allShowsList,
+                            query = latest.searchQuery,
+                            era = latest.selectedEra,
+                            attendance = latest.attendanceFilter,
+                            sort = latest.sortOrder,
+                            segueFilter = latest.selectedSegueFilter,
+                            songsByShow = songsByShow
+                        ),
                         stats = stats
                     )
                 }
