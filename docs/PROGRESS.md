@@ -23,11 +23,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (PR #5 merged as `4604ad0`; A1 merged as PR #6 / `e8ef86c`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, dep trim. DB **v10**.
-- A2 on `phase-1b-a2-ai-studio-cleanup` (PR #7).
+- **`main` is the working line** (through PR #7): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1/A2 cleanup. DB **v10**.
+- A3 on `phase-1b-a3-github-ci`.
 
 **Next up (in order):**
-1. Merge A2 → **A3 GitHub Actions CI**. A5 needs owner package/app IDs.
+1. Merge A3 → **Phase 2 C1** (unless blocked). A5 needs owner package/app IDs; 4.3 needs Ticketmaster key.
 2. **Phase 2, catalog importer from gdshowsdb** (C1–C7).
 3. **Phase 4 follow-ups D1/D2**, Phase 5, Phase 6.
 
@@ -55,7 +55,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
 | GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
 | Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Don't merge while its status is "Review in progress"**: PRs #1 and #2 merged too early and got no review. Free tier ≈ 1 review/hour; "Review rate limited" means it skipped. Trigger a review manually with a PR comment `@coderabbitai review` once the limit lifts. Reply to each finding on its thread and resolve it. |
-| CI | None yet (step A3 adds GitHub Actions). Until then, local `testDebugUnitTest` is the gate. |
+| CI | GitHub Actions workflow `.github/workflows/ci.yml` (step A3): unit tests on push/PR to `main`. |
 
 ## Conventions
 
@@ -130,7 +130,7 @@ Do these after the working-line PR merges, one per PR (or batch A1–A3).
 
 - [x] **A1 Trim unused dependencies.** (`d9a971a`, PR #6) Removed unused `logging-interceptor`, Firebase BoM, all Firebase library catalog entries, and the `google-services` plugin. Confirmed no `HttpLoggingInterceptor` / Firebase references in `app/src`. `.env.example` uses `YOUR_BANDSINTOWN_APP_ID` sentinel (empty BuildConfig values break javac). `testDebugUnitTest` + `assembleDebug` green.
 - [x] **A2 Remove AI Studio leftovers + README.** Deleted tracked `.aistudio/` and `public/` media plus `metadata.json`; added `.aistudio/`, `public/`, `metadata.json` to `.gitignore` (`.idea/` already ignored). README already covered build/JDK/keystore/credits/env vars from the Phase 3–5 docs work; lightly updated Bandsintown env note.
-- [ ] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR, `concurrency` with cancel-in-progress, JDK 17+, cache Gradle, **generate `debug.keystore` with `keytool` in a step** (never commit one, never edit `signingConfigs`), run `testDebugUnitTest`. Add a release-shrink check later with D2 (`:app:minifyReleaseWithR8`; `assembleRelease` needs a signing secret).
+- [x] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR (path-filtered), `concurrency` with cancel-in-progress, JDK 17 Temurin + Gradle cache, generates `debug.keystore` with `keytool` in a step (never committed; `signingConfigs` untouched), runs `:app:testDebugUnitTest`, uploads results with 3-day retention. Release-shrink check deferred to D2.
 - [x] **A4 Demo seed data.** Done on the working line: all 16 seeds ship unattended with no invented review/rating/companions/favorite; existing installs are cleaned only where data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`).
 - [ ] ⏸ **A5 Package + applicationId rename** (= 6.6). **Ask the owner for the IDs first.** Rename `com.example` → owner's package (namespace + directories + Room schema dir name changes with the package!) and `applicationId`. Note: the Room schema folder is named after the DB class's package; move `app/schemas/com.example.data.local.AppDatabase/` accordingly and keep `MigrationTest` green.
 - [x] **B1 = 1.6/1.7** (single source of truth + exact segue match). Done in Phase 1. The external review asked for a DAO "song X segued into Y" query; the app uses the in-memory `SegueMatcher` (fine at ~2,400 shows). **Add the DAO query in C6** so importer tests can check segues straight against the built DB.
@@ -229,6 +229,10 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (A3 CI)
+- A1 (PR #6) and A2 (PR #7) merged. A3 adds `.github/workflows/ci.yml` (JDK 17, Gradle cache, keytool debug.keystore, testDebugUnitTest, 3-day artifacts).
+- **Next:** merge A3, then C1 importer/`shared` module. Blocked on owner: A5 IDs, 4.3 keys.
 
 ### 2026-11-21 · Cursor (A2 AI Studio cleanup)
 - PR #5 merged (`4604ad0`). A1 merged as PR #6 (`e8ef86c` / `d9a971a`). A2 on `phase-1b-a2-ai-studio-cleanup`: removed tracked `.aistudio/` + `public/` + `metadata.json`, gitignored them. README already present.
