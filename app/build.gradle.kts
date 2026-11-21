@@ -81,6 +81,7 @@ secrets {
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 dependencies {
+  implementation(project(":shared"))
   implementation(platform(libs.androidx.compose.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)

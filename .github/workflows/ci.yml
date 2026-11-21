@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "shared/**"
+      - "tools/**"
       - "gradle/**"
       - "gradlew"
       - "gradlew.bat"
@@ -17,6 +19,8 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "shared/**"
+      - "tools/**"
       - "gradle/**"
       - "gradlew"
       - "gradlew.bat"
@@ -58,13 +62,16 @@ jobs:
       - name: Unit tests
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest
+          ./gradlew --no-daemon :app:testDebugUnitTest :shared:test :tools:importer:test
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: app/build/test-results/testDebugUnitTest/
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            shared/build/test-results/test/
+            tools/importer/build/test-results/test/
           retention-days: 3
           if-no-files-found: ignore

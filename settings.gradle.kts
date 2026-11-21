@@ -25,3 +25,5 @@ dependencyResolutionManagement {
 rootProject.name = "DeadSet"
 
 include(":app")
+include(":shared")
+include(":tools:importer")
