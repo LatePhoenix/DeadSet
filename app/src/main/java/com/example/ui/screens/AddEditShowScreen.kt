@@ -26,7 +26,6 @@ import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
-import com.example.data.repository.ShowRepository
 import com.example.ui.components.SegueIndicatorPill
 import com.example.ui.theme.*
 import java.util.UUID
@@ -35,9 +34,9 @@ import java.util.UUID
 @Composable
 fun AddEditShowScreen(
     existingShow: ShowEntity?,
-    repository: ShowRepository,
+    existingSongs: List<SongEntry> = emptyList(),
     onBack: () -> Unit,
-    onSave: (ShowEntity) -> Unit,
+    onSave: (ShowEntity, List<SongEntry>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -58,7 +57,7 @@ fun AddEditShowScreen(
     val songList = remember {
         mutableStateListOf<SongEntry>().apply {
             if (existingShow != null) {
-                addAll(repository.parseSongs(existingShow))
+                addAll(existingSongs)
             }
         }
     }
@@ -524,7 +523,6 @@ fun AddEditShowScreen(
                             stateOrCountry = stateText.trim().ifEmpty { "CA" },
                             eraId = selectedEra.id,
                             tourName = tourText.trim().ifEmpty { "Tour Run" },
-                            setlistJson = repository.serializeSongs(songList),
                             isAttended = existingShow?.isAttended ?: true,
                             userRating = existingShow?.userRating ?: 5f,
                             userReview = existingShow?.userReview ?: "",
@@ -533,7 +531,7 @@ fun AddEditShowScreen(
                             isCustomShow = true,
                             tags = "Custom Show,Setlist Builder"
                         )
-                        onSave(show)
+                        onSave(show, songList.toList())
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = StealieGold),
                     shape = RoundedCornerShape(12.dp),

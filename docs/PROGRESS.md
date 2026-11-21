@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.5 are done (DB is now **v5**). Next is **1.6** (single source of truth, migration 5→6), the highest-risk step. Write the migration test first, and use `rewriteSetlistJson()` / raw SQL, never `Converters`, inside migrations.
+**Phase 1 is complete** (DB is now **v6**): steps 1.1–1.9 are merged or in the 1.6–1.9 PR. Next is **Phase 2 (full catalog)**, which needs an owner decision on the dataset and license (step 2.1). Inside migrations, use `rewriteSetlistJson()` or raw SQL, never the app model classes.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -96,11 +96,17 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - `SongEntry.isConnected` (computed, not serialized) replaces boolean reads in stats, trivia, profile, and the setlist ribbon.
   - **Deviation:** no `TEASE` value. A tease is inside one song, not a junction between two; it gets its own field later. Also `JAM_INTO` is named `JAM`.
   - **Rule learned (applies to every future migration):** migrations must not parse setlists through `Converters`/`SongEntry` (they change over time). Use `rewriteSetlistJson()` (raw org.json) in `Migrations.kt`. `MIGRATION_3_4` was switched to this; the old version would have erased segue tags on v3 installs upgrading to v5. Covered by "a v3 install upgraded all the way keeps its segue tags".
-- [ ] **1.6 Single source of truth.** Make `song_performances` the canonical setlist store: search, stats, and the trivia generator all read from it. Drop `ShowEntity.setlistJson` (SQLite needs a table rebuild in the migration). Keep `position`, which `toSongEntry()` currently drops.
+- [x] **1.6 Single source of truth.** Make `song_performances` the canonical setlist store: search, stats, and the trivia generator all read from it. Drop `ShowEntity.setlistJson` (SQLite needs a table rebuild in the migration). Keep `position`, which `toSongEntry()` currently drops.
   _Migration 5→6. Highest-risk step: write the migration test first._
-- [ ] **1.7 Exact segue query.** Add a DAO query that matches adjacent rows: `a.songId = :from AND b.songId = :to AND b.trackOrder = a.trackOrder + 1 [AND a.transitionOut = 'SEGUE']`. Replace the word-matching segue filter in `DeadSetViewModel.applyFilters`. Add a test showing that "Playing in the Band ➔ Uncle John's Band" no longer matches unrelated shows.
-- [ ] **1.8 Upcoming is computed, not stored.** Replace reads of `ShowEntity.isUpcoming` with `date > todayIsoDate()`. Drop the column in the 1.6 migration.
-- [ ] **1.9 Move stats off the main thread.** Run `computeOverallStats` on `Dispatchers.Default` (or as SQL aggregates once 1.6 lands).
+- [x] **1.7 Exact segue query.** Add a DAO query that matches adjacent rows: `a.songId = :from AND b.songId = :to AND b.trackOrder = a.trackOrder + 1 [AND a.transitionOut = 'SEGUE']`. Replace the word-matching segue filter in `DeadSetViewModel.applyFilters`. Add a test showing that "Playing in the Band ➔ Uncle John's Band" no longer matches unrelated shows.
+- [x] **1.8 Upcoming is computed, not stored.** Replace reads of `ShowEntity.isUpcoming` with `date > todayIsoDate()`. Drop the column in the 1.6 migration.
+- [x] **1.9 Move stats off the main thread.** Run `computeOverallStats` on `Dispatchers.Default` (or as SQL aggregates once 1.6 lands).
+  _As built (1.6–1.9 in one PR, all migration 5→6):_
+  - **1.6:** `setlistJson` is gone; `song_performances` is the only setlist store. `ShowRepository.saveShow(show, songs)`, `getSetlist(showId)`, `toggleSongTransition(showId, i)`. The ViewModel builds `UiState.songsByShow` from `allShowsWithSongs`; screens get setlists from it (`viewModel.songsFor`). Seeds are `SeedShow(show, songs)`. `Converters` (Moshi JSON) was deleted as dead code. `position` is derived per set in `ShowWithSongs.orderSongs()` (no column). Repair and restore now fill only curated shows that have **no** setlist rows, so edits are never overwritten; a custom show that somehow lost its rows can't be rebuilt (there is no second copy anymore).
+  - **Migration gotcha:** rebuilding a parent table (`shows`) means DROP TABLE, which with FKs on would CASCADE-delete child rows. `MIGRATION_5_6` parks `song_performances` in a constraint-free temp table first. Reuse this pattern for any future parent-table rebuild. It also backfills rows from JSON for any show that had JSON but no rows.
+  - **1.7:** done in memory (`data/setlist/SegueMatcher.kt`), not as a DAO query: the ViewModel already holds every setlist, and a pure function is easy to test. It matches adjacent songs, in order, with every link connected (any `TransitionType` but NONE), titles resolved through catalog aliases.
+  - **1.8:** `ShowEntity.isUpcoming` is an extension property: `date >= today` (a show dated today counts as upcoming). Import `com.example.data.local.isUpcoming`.
+  - **1.9:** ViewModel filtering and stats run on `Dispatchers.Default`.
 
 ## Phase 2: Full catalog
 
@@ -155,6 +161,13 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (steps 1.6–1.9)
+- PR #3 (1.5) merged as `44ac50b` after CodeRabbit's review; its 2 findings were fixed in `8efc907`.
+- Branch `phase-1-step-1.6-single-setlist`: DB v5→v6, setlist JSON removed, `isUpcoming` computed, exact `SegueMatcher`, stats off the main thread. 42/42 tests pass (new: 5→6 migration test, SegueMatcherTest ×7, 3 more SeedingTest cases).
+- Bug found and fixed while testing: the matcher didn't link "St. Stephen" to "Saint Stephen" (aliases need the catalog, not just `songKey`).
+- Not run on a device.
+- **Next:** PR, CodeRabbit, merge. Then Phase 2 needs the owner (dataset/license).
 
 ### 2026-11-21 · Claude Code (step 1.5)
 - Step 1.4 merged as PR #2 (`64399d3`). Step 1.5 is on `phase-1-step-1.5-transitions`: DB v4→v5, `isSegue` → `transitionOut` (`TransitionType`), and the pill cycles 4 states with a color per type. `MIGRATION_3_4` decoupled from the model classes (see the rule under 1.5).

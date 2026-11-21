@@ -1,6 +1,5 @@
 package com.example.data.songs
 
-import com.example.data.local.Converters
 import com.example.data.seed.CuratedShows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -68,9 +67,8 @@ class SongNamesTest {
     @Test
     fun `every seeded song title is already canonical`() {
         val resolver = SongResolver.fromCatalog()
-        val converters = Converters()
         val names = CuratedShows.getInitialShows()
-            .flatMap { converters.toSongList(it.setlistJson) }
+            .flatMap { it.songs }
             .map { it.name }
             .distinct()
         val changed = names.filter { resolver.resolve(it).canonicalName != it }

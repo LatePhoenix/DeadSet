@@ -29,7 +29,10 @@ interface ShowDao {
            OR venue LIKE '%' || :query || '%'
            OR city LIKE '%' || :query || '%'
            OR stateOrCountry LIKE '%' || :query || '%'
-           OR setlistJson LIKE '%' || :query || '%'
+           OR EXISTS (
+               SELECT 1 FROM song_performances sp
+               WHERE sp.showId = shows.id AND sp.songName LIKE '%' || :query || '%'
+           )
         ORDER BY date DESC
         """
     )
@@ -82,6 +85,19 @@ interface ShowDao {
     @Query("SELECT * FROM song_performances WHERE showId = :showId ORDER BY trackOrder ASC")
     fun getSongsForShow(showId: String): Flow<List<SongPerformanceEntity>>
 
+    @Query("SELECT * FROM song_performances WHERE showId = :showId ORDER BY trackOrder ASC")
+    suspend fun getSongsForShowOnce(showId: String): List<SongPerformanceEntity>
+
+    @Query("SELECT DISTINCT showId FROM song_performances")
+    suspend fun getShowIdsWithPerformances(): List<String>
+
+    /** Replaces a show's whole setlist atomically. */
+    @Transaction
+    suspend fun replaceSongPerformances(showId: String, performances: List<SongPerformanceEntity>) {
+        deleteSongPerformancesForShow(showId)
+        if (performances.isNotEmpty()) insertSongPerformances(performances)
+    }
+
     @Update
     suspend fun updateShow(show: ShowEntity)
 
@@ -107,7 +123,4 @@ interface ShowDao {
         favoriteSong: String,
         timestamp: Long = System.currentTimeMillis()
     )
-
-    @Query("UPDATE shows SET setlistJson = :setlistJson WHERE id = :id")
-    suspend fun updateSetlist(id: String, setlistJson: String)
 }

@@ -3,11 +3,13 @@ package com.example.data.local
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.data.model.SongEntry
+import com.example.data.todayIsoDate
 
 /**
  * Room Entity storing historical Grateful Dead and tribute concerts for offline browsing.
  * Indexed by [date], [venue], [city], and [eraId] for instantaneous local SQLite queries.
+ *
+ * The setlist lives only in `song_performances` (see [ShowWithSongs]); there is no copy here.
  */
 @Entity(
     tableName = "shows",
@@ -27,7 +29,6 @@ data class ShowEntity(
     val stateOrCountry: String,
     val eraId: String,
     val tourName: String,
-    val setlistJson: String,
     val isAttended: Boolean = false,
     val userRating: Float = 0f,
     val userReview: String = "",       // User's personal thoughts, memories, or review of the performance
@@ -39,18 +40,13 @@ data class ShowEntity(
     val tags: String = "",
     val historicTrivia: String = "",   // Notable historical lore & trivia for Today in Dead History
     val bandName: String = "Grateful Dead", // "Grateful Dead", "Terrapin Flyer", etc.
-    val isUpcoming: Boolean = false,   // True if upcoming tour date
     val venueAddress: String = "",     // Optional specific street address for Google Maps navigation
     val lastUpdatedTimestamp: Long = System.currentTimeMillis()
-) {
-    /**
-     * Convenience accessor to read the typed list of songs performed at this show offline.
-     */
-    fun getSongsPerformed(): List<SongEntry> {
-        return sharedConverters.toSongList(setlistJson)
-    }
+)
 
-    companion object {
-        private val sharedConverters = Converters()
-    }
-}
+/**
+ * True when the show hasn't happened yet. Computed from [ShowEntity.date] (never stored, so it
+ * can't go stale); a show dated today still counts as upcoming until the day is over.
+ */
+val ShowEntity.isUpcoming: Boolean
+    get() = date >= todayIsoDate()

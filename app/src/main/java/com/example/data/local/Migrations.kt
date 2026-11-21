@@ -195,3 +195,120 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+/**
+ * 5 → 6: `song_performances` becomes the only copy of each setlist. Drops `shows.setlistJson`,
+ * and drops `shows.isUpcoming` (now computed from the date, see [isUpcoming]).
+ *
+ * 1. Backfill: any show with setlist JSON but no performance rows gets rows from its JSON first,
+ *    so dropping the column can't lose a setlist. Titles resolve through the existing
+ *    `song_aliases`, like a normal save.
+ * 2. Rebuild `shows` without the two columns. Dropping a parent table with foreign keys enabled
+ *    would CASCADE-delete every performance row, so performances are parked in a constraint-free
+ *    temp table first and restored after.
+ *
+ * SQL below is copied from schemas/.../6.json; keep them identical.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        backfillPerformancesFromJson(db)
+
+        db.execSQL("CREATE TABLE `song_performances_backup` AS SELECT * FROM `song_performances`")
+        db.execSQL("DROP TABLE `song_performances`")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `shows_new` (`id` TEXT NOT NULL, `date` TEXT NOT NULL, `venue` TEXT NOT NULL, " +
+                "`city` TEXT NOT NULL, `stateOrCountry` TEXT NOT NULL, `eraId` TEXT NOT NULL, `tourName` TEXT NOT NULL, " +
+                "`isAttended` INTEGER NOT NULL, `userRating` REAL NOT NULL, `userReview` TEXT NOT NULL, " +
+                "`attendedWith` TEXT NOT NULL, `favoriteSong` TEXT NOT NULL, `archiveIdentifier` TEXT NOT NULL, " +
+                "`tapeQuality` TEXT NOT NULL, `isCustomShow` INTEGER NOT NULL, `tags` TEXT NOT NULL, " +
+                "`historicTrivia` TEXT NOT NULL, `bandName` TEXT NOT NULL, `venueAddress` TEXT NOT NULL, " +
+                "`lastUpdatedTimestamp` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        val showColumns = "id, date, venue, city, stateOrCountry, eraId, tourName, isAttended, userRating, " +
+            "userReview, attendedWith, favoriteSong, archiveIdentifier, tapeQuality, isCustomShow, tags, " +
+            "historicTrivia, bandName, venueAddress, lastUpdatedTimestamp"
+        db.execSQL("INSERT INTO `shows_new` ($showColumns) SELECT $showColumns FROM `shows`")
+        db.execSQL("DROP TABLE `shows`")
+        db.execSQL("ALTER TABLE `shows_new` RENAME TO `shows`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_date` ON `shows` (`date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_venue` ON `shows` (`venue`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_city` ON `shows` (`city`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_eraId` ON `shows` (`eraId`)")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `song_performances` (`performanceId` INTEGER PRIMARY KEY " +
+                "AUTOINCREMENT NOT NULL, `showId` TEXT NOT NULL, `songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`setType` TEXT NOT NULL, `trackOrder` INTEGER NOT NULL, `transitionOut` TEXT NOT NULL, " +
+                "`durationMinutes` INTEGER, `notes` TEXT, `isJamHighlight` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`showId`) REFERENCES `shows`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )"
+        )
+        val perfColumns = "performanceId, showId, songId, songName, setType, trackOrder, transitionOut, " +
+            "durationMinutes, notes, isJamHighlight"
+        db.execSQL(
+            "INSERT INTO `song_performances` ($perfColumns) SELECT $perfColumns FROM `song_performances_backup`"
+        )
+        db.execSQL("DROP TABLE `song_performances_backup`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_showId` ON `song_performances` (`showId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songName` ON `song_performances` (`songName`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songId` ON `song_performances` (`songId`)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_song_performances_showId_trackOrder` " +
+                "ON `song_performances` (`showId`, `trackOrder`)"
+        )
+    }
+
+    private fun backfillPerformancesFromJson(db: SupportSQLiteDatabase) {
+        val orphans = mutableListOf<Pair<String, String>>()
+        db.query(
+            "SELECT id, setlistJson FROM shows WHERE NOT EXISTS " +
+                "(SELECT 1 FROM song_performances sp WHERE sp.showId = shows.id)"
+        ).use { c -> while (c.moveToNext()) orphans += c.getString(0) to c.getString(1) }
+        if (orphans.isEmpty()) return
+
+        val aliases = mutableMapOf<String, String>()
+        db.query("SELECT aliasKey, songId FROM song_aliases").use { c ->
+            while (c.moveToNext()) aliases[c.getString(0)] = c.getString(1)
+        }
+        val names = mutableMapOf<String, String>()
+        db.query("SELECT id, canonicalName FROM songs").use { c ->
+            while (c.moveToNext()) names[c.getString(0)] = c.getString(1)
+        }
+        val resolver = SongResolver(aliases, names)
+
+        val rows = mutableListOf<Array<Any?>>()
+        for ((showId, json) in orphans) {
+            val array = runCatching { JSONArray(json) }.getOrNull() ?: continue
+            for (i in 0 until array.length()) {
+                val song = array.optJSONObject(i) ?: continue
+                val rawName = song.optString("name").ifBlank { continue }
+                val resolved = resolver.resolve(rawName)
+                rows += arrayOf(
+                    showId,
+                    resolved.songId,
+                    resolved.canonicalName,
+                    song.optString("setType", "SET_1").ifBlank { "SET_1" },
+                    i,
+                    song.optString("transitionOut", "NONE").ifBlank { "NONE" },
+                    if (song.has("durationMinutes") && !song.isNull("durationMinutes")) song.optInt("durationMinutes") else null,
+                    if (song.has("notes") && !song.isNull("notes")) song.optString("notes") else null,
+                    if (song.optBoolean("isJamHighlight", false)) 1 else 0
+                )
+            }
+        }
+        for ((id, name) in resolver.newSongs) {
+            db.execSQL("INSERT OR IGNORE INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+        }
+        for ((key, id) in resolver.newAliases) {
+            db.execSQL("INSERT OR IGNORE INTO song_aliases (aliasKey, songId) VALUES (?, ?)", arrayOf<Any?>(key, id))
+        }
+        for (row in rows) {
+            db.execSQL(
+                "INSERT INTO song_performances (showId, songId, songName, setType, trackOrder, transitionOut, " +
+                    "durationMinutes, notes, isJamHighlight) VALUES (?,?,?,?,?,?,?,?,?)",
+                row
+            )
+        }
+    }
+}

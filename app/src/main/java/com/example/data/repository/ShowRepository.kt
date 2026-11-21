@@ -1,6 +1,5 @@
 package com.example.data.repository
 
-import com.example.data.local.Converters
 import com.example.data.local.ShowDao
 import com.example.data.local.ShowEntity
 import com.example.data.local.ShowWithSongs
@@ -39,8 +38,6 @@ class ShowRepository(
     private val songDao: SongDao
 ) {
 
-    private val converters = Converters()
-
     val allShows: Flow<List<ShowEntity>> = showDao.getAllShows()
     val allShowsWithSongs: Flow<List<ShowWithSongs>> = showDao.getAllShowsWithSongs()
     val attendedShows: Flow<List<ShowEntity>> = showDao.getAttendedShows()
@@ -64,47 +61,41 @@ class ShowRepository(
         ensureSongCatalog()
         showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
         if (showDao.getShowsCount() == 0) {
-            showDao.insertShows(CuratedShows.getInitialShows())
-            rebuildSongPerformancesFromStoredShows()
-        } else if (showDao.getSongPerformancesCount() == 0) {
-            // Repair: performance rows are missing. Rebuild them from the shows actually stored
-            // (including custom shows), never from seed data — that would hit the foreign key for
-            // absent shows and overwrite the user's segue edits.
-            rebuildSongPerformancesFromStoredShows()
+            showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
         }
+        // Covers a fresh install and repairs built-in shows whose setlist rows went missing.
+        insertSeedSetlistsWhereMissing()
     }
 
     /**
-     * Re-adds any curated shows that are missing. Existing rows (and the user's edits to them)
-     * are kept because insertShows() ignores conflicts.
+     * Re-adds any curated shows that are missing. Existing rows (and the user's edits to them,
+     * setlists included) are kept: insertShows() ignores conflicts and only empty setlists are filled.
      */
     suspend fun restoreCuratedOfflineCatalog() = withContext(Dispatchers.IO) {
         ensureSongCatalog()
-        showDao.insertShows(CuratedShows.getInitialShows())
-        rebuildSongPerformancesFromStoredShows()
+        showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
+        insertSeedSetlistsWhereMissing()
     }
 
     /**
-     * Re-derives song_performances from each stored show's setlistJson (the user's version),
-     * normalizing titles and writing them back so both copies agree.
+     * Writes the built-in setlist for each curated show that exists but has no setlist rows.
+     * Never touches a show that already has a setlist, so user edits survive.
      */
-    private suspend fun rebuildSongPerformancesFromStoredShows() {
+    private suspend fun insertSeedSetlistsWhereMissing() {
+        val storedIds = showDao.getAllShowsOnce().map { it.id }.toSet()
+        val withSetlist = showDao.getShowIdsWithPerformances().toSet()
         val resolver = loadSongResolver()
-        for (show in showDao.getAllShowsOnce()) {
-            val stored = parseSongs(show)
-            val normalized = normalizeSongs(stored, resolver)
-            if (normalized != stored) showDao.updateSetlist(show.id, serializeSongs(normalized))
-            syncSongPerformancesForShow(show.id, normalized, resolver)
+        for (seed in CuratedShows.getInitialShows()) {
+            if (seed.id in storedIds && seed.id !in withSetlist) {
+                writeSetlist(seed.id, seed.songs, resolver)
+            }
         }
     }
 
-    /** Saves a show, normalizing its song titles (e.g. "St. Stephen" → "Saint Stephen"). */
-    suspend fun saveShow(show: ShowEntity) = withContext(Dispatchers.IO) {
-        val resolver = loadSongResolver()
-        val normalized = normalizeSongs(parseSongs(show), resolver)
-        persistNewSongs(resolver)
-        showDao.insertShow(show.copy(setlistJson = serializeSongs(normalized)))
-        syncSongPerformancesForShow(show.id, normalized, resolver)
+    /** Saves a show and its setlist, normalizing song titles (e.g. "St. Stephen" → "Saint Stephen"). */
+    suspend fun saveShow(show: ShowEntity, songs: List<SongEntry>) = withContext(Dispatchers.IO) {
+        showDao.insertShow(show)
+        writeSetlist(show.id, songs, loadSongResolver())
     }
 
     /** Inserts catalog songs and aliases; existing rows are left untouched. */
@@ -123,9 +114,6 @@ class ShowRepository(
         aliasToSongId = songDao.getAllAliases().associate { it.aliasKey to it.songId },
         songNames = songDao.getAllSongs().associate { it.id to it.canonicalName }
     )
-
-    private fun normalizeSongs(songs: List<SongEntry>, resolver: SongResolver): List<SongEntry> =
-        songs.map { it.copy(name = resolver.resolve(it.name).canonicalName) }
 
     private suspend fun persistNewSongs(resolver: SongResolver) {
         if (resolver.newSongs.isNotEmpty()) {
@@ -163,23 +151,22 @@ class ShowRepository(
     }
 
     /** Cycles the song's transition into the next one: Stop → Segue → Transition → Jam → Stop. */
-    suspend fun toggleSongTransition(show: ShowEntity, songIndex: Int) = withContext(Dispatchers.IO) {
-        val songs = converters.toSongList(show.setlistJson).toMutableList()
+    suspend fun toggleSongTransition(showId: String, songIndex: Int) = withContext(Dispatchers.IO) {
+        val songs = getSetlist(showId).toMutableList()
         if (songIndex in songs.indices) {
             val current = songs[songIndex]
             songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
-            val updatedJson = converters.fromSongList(songs)
-            showDao.updateSetlist(show.id, updatedJson)
-            syncSongPerformancesForShow(show.id, songs, loadSongResolver())
+            writeSetlist(showId, songs, loadSongResolver())
         }
     }
 
-    private suspend fun syncSongPerformancesForShow(
-        showId: String,
-        songs: List<SongEntry>,
-        resolver: SongResolver
-    ) {
-        showDao.deleteSongPerformancesForShow(showId)
+    /** A show's setlist in performance order. */
+    suspend fun getSetlist(showId: String): List<SongEntry> = withContext(Dispatchers.IO) {
+        ShowWithSongs.orderSongs(showDao.getSongsForShowOnce(showId))
+    }
+
+    /** Replaces a show's setlist, resolving each title to its canonical song. */
+    private suspend fun writeSetlist(showId: String, songs: List<SongEntry>, resolver: SongResolver) {
         val entities = songs.mapIndexed { index, entry ->
             val resolved = resolver.resolve(entry.name)
             SongPerformanceEntity.fromSongEntry(
@@ -191,20 +178,13 @@ class ShowRepository(
         }
         // Songs must exist before performance rows reference them.
         persistNewSongs(resolver)
-        if (entities.isNotEmpty()) {
-            showDao.insertSongPerformances(entities)
-        }
+        showDao.replaceSongPerformances(showId, entities)
     }
 
-    fun parseSongs(show: ShowEntity): List<SongEntry> {
-        return converters.toSongList(show.setlistJson)
-    }
-
-    fun serializeSongs(songs: List<SongEntry>): String {
-        return converters.fromSongList(songs)
-    }
-
-    fun computeOverallStats(shows: List<ShowEntity>): OverallStats {
+    fun computeOverallStats(
+        shows: List<ShowEntity>,
+        songsFor: (ShowEntity) -> List<SongEntry>
+    ): OverallStats {
         val attendedList = shows.filter { it.isAttended }
         val songPlayMap = mutableMapOf<String, Int>()
         val attendedSongMap = mutableMapOf<String, Int>()
@@ -220,7 +200,7 @@ class ShowRepository(
         for (show in shows) {
             eraCountMap[show.eraId] = (eraCountMap[show.eraId] ?: 0) + 1
             val resolvedEra = DeadEra.fromId(show.eraId)
-            val songs = parseSongs(show)
+            val songs = songsFor(show)
             totalPerformancesCount += songs.size
             eraSongTotalMap[show.eraId] = (eraSongTotalMap[show.eraId] ?: 0) + songs.size
 

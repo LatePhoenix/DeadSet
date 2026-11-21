@@ -48,6 +48,7 @@ fun UserProfileScreen(
     onShowClick: (String) -> Unit,
     onToggleAttendance: (ShowEntity) -> Unit,
     onExploreCatalogClick: () -> Unit,
+    songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -55,24 +56,24 @@ fun UserProfileScreen(
     // Aggregated attendance metrics
     val totalAttendedCount = attendedShows.size
     val totalCatalogCount = allShows.size.coerceAtLeast(1)
-    val totalLiveSongsHeard = remember(attendedShows) {
-        attendedShows.sumOf { it.getSongsPerformed().size }
+    val totalLiveSongsHeard = remember(attendedShows, songsByShow) {
+        attendedShows.sumOf { songsByShow[it.id].orEmpty().size }
     }
-    val uniqueLiveSongsCount = remember(attendedShows) {
-        attendedShows.flatMap { it.getSongsPerformed() }.map { it.name }.distinct().size
+    val uniqueLiveSongsCount = remember(attendedShows, songsByShow) {
+        attendedShows.flatMap { songsByShow[it.id].orEmpty() }.map { it.name }.distinct().size
     }
-    val totalLiveSeguesCount = remember(attendedShows) {
+    val totalLiveSeguesCount = remember(attendedShows, songsByShow) {
         attendedShows.sumOf { show ->
-            show.getSongsPerformed().count { it.isConnected }
+            songsByShow[show.id].orEmpty().count { it.isConnected }
         }
     }
-    val uniqueCitiesVisited = remember(attendedShows) {
+    val uniqueCitiesVisited = remember(attendedShows, songsByShow) {
         attendedShows.map { it.city }.distinct()
     }
-    val uniqueVenuesVisited = remember(attendedShows) {
+    val uniqueVenuesVisited = remember(attendedShows, songsByShow) {
         attendedShows.map { it.venue }.distinct()
     }
-    val terrapinFlyerAttended = remember(attendedShows) {
+    val terrapinFlyerAttended = remember(attendedShows, songsByShow) {
         attendedShows.count { it.bandName.contains("Terrapin Flyer", ignoreCase = true) }
     }
 

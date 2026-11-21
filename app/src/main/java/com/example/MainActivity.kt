@@ -141,6 +141,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 ShowsListScreen(
                                     shows = uiState.filteredShows,
                                     allCatalogShows = uiState.shows,
+                                    songsByShow = uiState.songsByShow,
                                     searchQuery = uiState.searchQuery,
                                     onSearchChange = viewModel::setSearchQuery,
                                     selectedEra = uiState.selectedEra,
@@ -186,7 +187,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             MainTab.TRIVIA -> {
                                 TriviaScreen(
                                     shows = uiState.shows,
-                                    parseSongs = viewModel.repository::parseSongs,
+                                    parseSongs = viewModel::songsFor,
                                     triviaProgress = uiState.triviaProgress,
                                     onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
                                     onOpenShowDetail = viewModel::openShowDetail
@@ -196,6 +197,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 val attended = uiState.shows.filter { it.isAttended }
                                 UserProfileScreen(
                                     allShows = uiState.shows,
+                                    songsByShow = uiState.songsByShow,
                                     attendedShows = attended,
                                     stats = uiState.stats,
                                     profileData = uiState.userProfile,
@@ -211,9 +213,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                     is ScreenState.ShowDetail -> {
                         val show = uiState.shows.firstOrNull { it.id == screen.showId }
                         if (show != null) {
-                            val songs = remember(show.setlistJson) {
-                                viewModel.repository.parseSongs(show)
-                            }
+                            val songs = uiState.songsByShow[show.id].orEmpty()
                             ShowDetailScreen(
                                 show = show,
                                 songs = songs,
@@ -240,7 +240,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         }
                         AddEditShowScreen(
                             existingShow = existing,
-                            repository = viewModel.repository,
+                            existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
                             onBack = { viewModel.navigateBack() },
                             onSave = viewModel::saveCustomShow
                         )

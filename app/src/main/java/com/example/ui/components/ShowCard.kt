@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ShowEntity
+import com.example.data.local.isUpcoming
 import com.example.data.model.DeadEra
 import com.example.ui.theme.*
 import com.example.ui.util.ConcertIntentHelper

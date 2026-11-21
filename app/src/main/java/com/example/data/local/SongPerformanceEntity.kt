@@ -101,8 +101,19 @@ data class ShowWithSongs(
     )
     val songsPerformed: List<SongPerformanceEntity>
 ) {
+    /** The setlist in performance order, with [SongEntry.position] = 1-based slot within its set. */
     val orderedSongs: List<SongEntry>
-        get() = songsPerformed
-            .sortedBy { it.trackOrder }
-            .map { it.toSongEntry() }
+        get() = orderSongs(songsPerformed)
+
+    companion object {
+        fun orderSongs(rows: List<SongPerformanceEntity>): List<SongEntry> {
+            val perSet = mutableMapOf<SetType, Int>()
+            return rows.sortedBy { it.trackOrder }.map { row ->
+                val entry = row.toSongEntry()
+                val slot = (perSet[entry.setType] ?: 0) + 1
+                perSet[entry.setType] = slot
+                entry.copy(position = slot)
+            }
+        }
+    }
 }
