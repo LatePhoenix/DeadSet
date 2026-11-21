@@ -110,6 +110,18 @@ class ShowRepository(
         )
     }
 
+    /** Resolves a typed title to its canonical song (creating it if new); null for blank input. */
+    suspend fun resolveSong(name: String): SongResolver.Resolved? = withContext(Dispatchers.IO) {
+        if (name.isBlank()) return@withContext null
+        val resolver = loadSongResolver()
+        resolver.resolve(name).also { persistNewSongs(resolver) }
+    }
+
+    /** All known song names (catalog + user-entered), for autocomplete. */
+    suspend fun allSongNames(): List<String> = withContext(Dispatchers.IO) {
+        songDao.getAllSongs().map { it.canonicalName }.sorted()
+    }
+
     private suspend fun loadSongResolver(): SongResolver = SongResolver(
         aliasToSongId = songDao.getAllAliases().associate { it.aliasKey to it.songId },
         songNames = songDao.getAllSongs().associate { it.id to it.canonicalName }

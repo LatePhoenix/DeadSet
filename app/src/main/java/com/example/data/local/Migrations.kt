@@ -348,3 +348,16 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_bandName` ON `events` (`bandName`)")
     }
 }
+
+/**
+ * 8 → 9: add `chase_songs` (songs the user wants to hear live), step 4.7. Additive only.
+ * SQL below is copied from schemas/.../9.json; keep them identical.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `chase_songs` (`songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`addedDate` TEXT NOT NULL, PRIMARY KEY(`songId`))"
+        )
+    }
+}

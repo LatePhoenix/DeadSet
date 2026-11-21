@@ -26,6 +26,7 @@ import com.example.ui.components.BerthaRose
 import com.example.ui.components.DancingBearsMarchRow
 import com.example.ui.components.RatingStars
 import com.example.ui.components.ShowCard
+import com.example.ui.components.SongChaseCard
 import com.example.ui.components.StatMetricCard
 import com.example.ui.components.StealieEmblem
 import com.example.ui.theme.*
@@ -36,6 +37,11 @@ fun AttendanceScreen(
     stats: OverallStats?,
     onShowClick: (String) -> Unit,
     onExploreShowsClick: () -> Unit,
+    songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
+    chaseStatuses: List<com.example.data.setlist.ChaseStatus> = emptyList(),
+    allSongNames: List<String> = emptyList(),
+    onAddChase: (String) -> Unit = {},
+    onRemoveChase: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showLiveSongsSheet by remember { mutableStateOf(false) }
@@ -189,7 +195,7 @@ fun AttendanceScreen(
                             modifier = Modifier.weight(1f)
                         )
                         StatMetricCard(
-                            value = "${stats?.topSongsAttended?.size ?: 0}",
+                            value = "${com.example.data.setlist.ChaseProgress.distinctSongsHeard(attendedShows) { songsByShow[it.id].orEmpty() }}",
                             label = "Live Songs Seen",
                             icon = Icons.Filled.MusicNote,
                             accentColor = StealieCyan,
@@ -202,6 +208,40 @@ fun AttendanceScreen(
                             accentColor = StealiePurple,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+
+                // Song chase list (step 4.7)
+                item {
+                    SongChaseCard(
+                        statuses = chaseStatuses,
+                        allSongNames = allSongNames,
+                        onAdd = onAddChase,
+                        onRemove = onRemoveChase,
+                        onOpenShow = onShowClick
+                    )
+                }
+
+                // Attended shows by band (any band counts)
+                val byBand = com.example.data.setlist.ChaseProgress.showsByBand(attendedShows)
+                if (byBand.size > 1) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Shows by band", color = StealieCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                for ((band, count) in byBand) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(band, color = TextPrimaryDark, fontSize = 13.sp)
+                                        Text("$count", color = StealieGold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -153,7 +153,10 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **4.5:** venue coordinates come from both APIs. The home city is geocoded on device with Android `Geocoder` (no key). Radius chips: any / ≤100 / ≤250 / ≤500 mi, replacing the Midwest toggle. Events without coordinates show only under "Any distance".
   - **Checked on the emulator:** real v7→v8 upgrade; Chicago geocoded; with no keys the honest empty state appears (Bandsintown rejects the placeholder `app_id`, which confirms 4.3 needs the owner).
 - [ ] **4.6 Notifications.** New-date alerts for followed bands; day-of reminder.
-- [ ] **4.7 Song chase list** ("heard 112/180 live") and cross-band stats.
+- [x] **4.7 Song chase list** ("heard 112/180 live") and cross-band stats.
+  _As built (branch `phase-4-tribute-b`, DB v8→v9):_ a Song Chase card on the My Shows tab (`ui/components/SongChaseCard.kt`, `data/setlist/ChaseProgress.kt`, `chase_songs` table). Chased songs resolve to canonical songs, so "St Stephen" and "Saint Stephen" count once. Each song shows where you first heard it (any band); unheard songs are listed first. Plus a "Shows by band" card.
+  - **Bug fixed:** the "Live Songs Seen" tile used `topSongsAttended.size`, which is capped at 15; it now counts distinct songs heard (80 on the seed data).
+  - **Bug found on device and fixed:** "+" used to add any typed text as a new song (e.g. "Mississippi Half"). It's now enabled only for a known title (aliases included); otherwise you pick a suggestion or tap an explicit "Add 'X' as a new song" chip.
 - [ ] **4.8 DSO recreation link.** Match a tribute setlist to the original GD date and show them side by side.
 - [ ] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
 

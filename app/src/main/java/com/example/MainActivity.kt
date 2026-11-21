@@ -169,11 +169,23 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             }
                             MainTab.ATTENDANCE -> {
                                 val attended = uiState.shows.filter { it.isAttended }
+                                val chased by viewModel.chaseSongs.collectAsStateWithLifecycle()
+                                val songNames by viewModel.songNames.collectAsStateWithLifecycle()
+                                LaunchedEffect(Unit) { viewModel.loadSongNames() }
                                 AttendanceScreen(
                                     attendedShows = attended,
                                     stats = uiState.stats,
                                     onShowClick = viewModel::openShowDetail,
-                                    onExploreShowsClick = { viewModel.setTab(MainTab.SHOWS) }
+                                    onExploreShowsClick = { viewModel.setTab(MainTab.SHOWS) },
+                                    songsByShow = uiState.songsByShow,
+                                    chaseStatuses = remember(chased, attended, uiState.songsByShow) {
+                                        com.example.data.setlist.ChaseProgress.statuses(
+                                            chased.map { it.songId to it.songName }, attended
+                                        ) { uiState.songsByShow[it.id].orEmpty() }
+                                    },
+                                    allSongNames = songNames,
+                                    onAddChase = viewModel::addChaseSong,
+                                    onRemoveChase = { viewModel.removeChaseSong(it) }
                                 )
                             }
                             MainTab.TRANSITIONS -> {

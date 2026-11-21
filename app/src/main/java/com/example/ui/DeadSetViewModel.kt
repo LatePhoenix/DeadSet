@@ -117,6 +117,30 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     private val reviewDao = database.reviewDao()
 
+    // --- Song chase list (step 4.7) ---
+    private val chaseDao = database.chaseDao()
+    val chaseSongs: StateFlow<List<com.example.data.local.ChaseSongEntity>> =
+        chaseDao.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _songNames = MutableStateFlow<List<String>>(emptyList())
+    /** Every known song title, for chase-list autocomplete. */
+    val songNames: StateFlow<List<String>> = _songNames.asStateFlow()
+
+    fun loadSongNames() {
+        viewModelScope.launch { _songNames.value = repository.allSongNames() }
+    }
+
+    fun addChaseSong(name: String) {
+        viewModelScope.launch {
+            val song = repository.resolveSong(name) ?: return@launch
+            chaseDao.add(
+                com.example.data.local.ChaseSongEntity(song.songId, song.canonicalName, com.example.data.todayIsoDate())
+            )
+        }
+    }
+
+    fun removeChaseSong(songId: String) = viewModelScope.launch { chaseDao.remove(songId) }
+
     // --- Tickets tab (Phase 4): followed bands + cached upcoming dates ---
     private val concertRepository = ConcertRepository(database.concertDao())
     private val _concerts = MutableStateFlow(ConcertsUiState())
