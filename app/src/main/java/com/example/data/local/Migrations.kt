@@ -264,7 +264,8 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
      * v5 wrote `setlistJson` first and `song_performances` second, so an interrupted edit could
      * leave a row with an older transition than the JSON the app displayed. Before the JSON goes,
      * copy each JSON `transitionOut` onto the matching row (same `trackOrder`) where they differ.
-     * Same length: matched by position. Different length: matched in order by song, so a
+     * Same length: matched by position. Different length: an order-aware alignment by song that
+     * skips any pairing it would have to guess (see [unambiguousAlignment]), so a
      * transition is only copied onto a row for the same song.
      * `performanceId`s are untouched.
      */
@@ -292,11 +293,8 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             if (rows.size == json.size) {
                 rows.forEachIndexed { i, row -> pairs += row to json[i].second }
             } else {
-                var r = 0
-                for ((key, transition) in json) {
-                    val match = (r until rows.size).firstOrNull { rows[it].songKey == key } ?: continue
-                    pairs += rows[match] to transition
-                    r = match + 1
+                for ((ji, ri) in unambiguousAlignment(json.map { it.first }, rows.map { it.songKey })) {
+                    pairs += rows[ri] to json[ji].second
                 }
             }
             for ((row, jsonTransition) in pairs) {
@@ -308,6 +306,34 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
                 }
             }
         }
+    }
+
+    /**
+     * Order-aware pairing of two song-key sequences that never guesses. Uses the longest common
+     * subsequence: (i, j) is a candidate when it lies on some optimal alignment
+     * (prefix LCS + 1 + suffix LCS == total). A pair is kept only if it is the sole candidate for
+     * both its JSON index and its row index, so a repeated song with more than one plausible
+     * partner is left alone.
+     */
+    internal fun unambiguousAlignment(a: List<String>, b: List<String>): List<Pair<Int, Int>> {
+        val n = a.size
+        val m = b.size
+        val pre = Array(n + 1) { IntArray(m + 1) }   // LCS of a[0, i) and b[0, j)
+        for (i in 1..n) for (j in 1..m) {
+            pre[i][j] = if (a[i - 1] == b[j - 1]) pre[i - 1][j - 1] + 1 else maxOf(pre[i - 1][j], pre[i][j - 1])
+        }
+        val suf = Array(n + 1) { IntArray(m + 1) }   // LCS of a[i, n) and b[j, m)
+        for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
+            suf[i][j] = if (a[i] == b[j]) suf[i + 1][j + 1] + 1 else maxOf(suf[i + 1][j], suf[i][j + 1])
+        }
+        val total = pre[n][m]
+        val candidates = mutableListOf<Pair<Int, Int>>()
+        for (i in 0 until n) for (j in 0 until m) {
+            if (a[i] == b[j] && pre[i][j] + 1 + suf[i + 1][j + 1] == total) candidates += i to j
+        }
+        val perA = candidates.groupingBy { it.first }.eachCount()
+        val perB = candidates.groupingBy { it.second }.eachCount()
+        return candidates.filter { (i, j) -> perA[i] == 1 && perB[j] == 1 }
     }
 
     private fun backfillPerformancesFromJson(db: SupportSQLiteDatabase) {

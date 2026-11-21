@@ -419,6 +419,50 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `5 to 6 aligns repeated songs by order and never guesses ambiguous ones`() {
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('playing in the band', 'Playing in the Band')")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('uncle johns band', 'Uncle John''s Band')")
+            // CodeRabbit's case: JSON [A, B, A(SEGUE)] vs rows [B, A] -> the row A is the second JSON A.
+            insertV5Show(
+                this, "sandwich",
+                """[{"name":"Playing in the Band","transitionOut":"NONE"},{"name":"Uncle John's Band","transitionOut":"NONE"},""" +
+                    """{"name":"Playing in the Band","transitionOut":"SEGUE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(51, 'sandwich', 'uncle johns band', 'Uncle John''s Band', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(52, 'sandwich', 'playing in the band', 'Playing in the Band', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            // Truly ambiguous: JSON [A(SEGUE), A] vs one row A -> either could be it, so leave it alone.
+            insertV5Show(
+                this, "ambiguous",
+                """[{"name":"Playing in the Band","transitionOut":"SEGUE"},{"name":"Playing in the Band","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(61, 'ambiguous', 'playing in the band', 'Playing in the Band', 'SET_2', 0, 'JAM', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        fun transitions(showId: String) = db.query(
+            "SELECT performanceId, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
+            arrayOf<Any?>(showId)
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) } }
+
+        assertEquals(listOf(51L to "NONE", 52L to "SEGUE"), transitions("sandwich"))
+        assertEquals(listOf(61L to "JAM"), transitions("ambiguous"))
+        db.close()
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,
