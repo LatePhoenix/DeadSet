@@ -58,6 +58,9 @@ interface ShowDao {
     @Query("SELECT DISTINCT venue FROM shows ORDER BY venue ASC")
     fun getDistinctVenues(): Flow<List<String>>
 
+    @Query("SELECT * FROM shows")
+    suspend fun getAllShowsOnce(): List<ShowEntity>
+
     @Query("SELECT COUNT(*) FROM shows")
     suspend fun getShowsCount(): Int
 

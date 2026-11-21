@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.2 are done; next is **1.3** (fix the seeding foreign-key edge case). It's small, offline, and needs no schema change.
+**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.3 are done; next is **1.4** (`songs` table + name normalization). It's the first real migration (3→4); follow the recipe under 1.2.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -76,7 +76,8 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - Only versions 1–2 (pre-baseline, schemas unknown) are rebuilt. From v3 on, a missing migration **crashes instead of wiping data**. Checked by temporarily bumping to v4 with no migration: `IllegalStateException`.
   - **Recipe for every future schema change:** bump `AppDatabase.VERSION`, write `Migration(N, N+1)`, add it to `ALL_MIGRATIONS`, run `:app:kspDebugKotlin` to export `N+1.json`, commit it, and add a seeded-data test in `app/src/test/.../data/local/MigrationTest.kt`.
   - Schemas are exposed as **debug** assets (Robolectric can't see `src/test` assets); release APKs don't include them.
-- [ ] **1.3 Fix seeding foreign-key edge case.** In `ShowRepository.checkAndSeedDatabase()`, the branch where `count > 0` but `perfCount == 0` inserts performances for curated shows that may not exist, which throws `SQLiteConstraintException`. Insert or ignore the curated shows first, or sync only the shows that exist. Add a test.
+- [x] **1.3 Fix seeding foreign-key edge case.** In `ShowRepository.checkAndSeedDatabase()`, the branch where `count > 0` but `perfCount == 0` inserts performances for curated shows that may not exist, which throws `SQLiteConstraintException`. Insert or ignore the curated shows first, or sync only the shows that exist. Add a test. (_see commit "Rebuild song performances from stored shows"_)
+  _Also fixed:_ that branch and `restoreCuratedOfflineCatalog()` rebuilt song rows from **seed** setlists, overwriting user segue edits and leaving `setlistJson` and `song_performances` out of sync. Both now rebuild from the stored rows, custom shows included. Tests are in `app/src/test/.../data/repository/SeedingTest.kt`.
 - [ ] **1.4 `songs` table + name normalization.** Columns: `id`, `canonicalName`, `aliases` (JSON or a child table), `writers`, `debutDate`. Seed canonical names for every song in `CuratedShows`, with aliases such as St. Stephen/Saint Stephen, Lovelight/Turn On Your Love Light, Slipknot!/Slipknot. Add `normalizeSongName()` and route all setlist writes through it.
   _Migration 3→4._
 - [ ] **1.5 `TransitionType`.** Add an enum (`NONE`, `SEGUE "->"`, `TRANSITION ">"`, `JAM_INTO "~>"`, `TEASE`). Replace `SongEntry.isSegue` / `SongPerformanceEntity.isSegue` with `transitionOut`. The migration maps `isSegue=1 → SEGUE`. Update `SegueIndicatorPill` to cycle through the types and `ShowDetailScreen` to show them.
@@ -140,6 +141,10 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (step 1.3)
+- Seeding repair and "restore catalog" now rebuild `song_performances` from the stored shows (no FK crash, user segue edits kept). Added `ShowDao.getAllShowsOnce()` and `SeedingTest` (3 tests); 18/18 pass. On `phase-1-data-foundation`, not merged.
+- **Next:** step 1.4, schema 3→4 (`songs` table). Write the migration test first.
 
 ### 2026-11-21 · Claude Code (step 1.2)
 - Removed blanket `fallbackToDestructiveMigration()`. Added `room-testing` 2.7.0 (now cached, so `--offline` works again) and `MigrationTest` (3 tests). 15/15 tests pass. On `phase-1-data-foundation`, not merged.
