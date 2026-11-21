@@ -26,7 +26,7 @@ class SeedingTest {
     @Before
     fun setUp() {
         db = AppDatabase.createInMemoryDatabase(ApplicationProvider.getApplicationContext<Context>())
-        repository = ShowRepository(dao)
+        repository = ShowRepository(dao, db.songDao())
     }
 
     @After
@@ -68,6 +68,43 @@ class SeedingTest {
         assertEquals(!firstSongWasSegue, dao.getSongsForShow(cornell.id).first().first().isSegue)
         val storedJson = repository.parseSongs(dao.getShowById(cornell.id).first()!!)
         assertEquals(!firstSongWasSegue, storedJson.first().isSegue)
+    }
+
+    @Test
+    fun `saving a show normalizes titles in both setlist copies and registers new songs`() = runBlocking {
+        repository.checkAndSeedDatabase()
+        val template = CuratedShows.getInitialShows().first()
+        val custom = template.copy(
+            id = "custom-normalize",
+            isCustomShow = true,
+            setlistJson = repository.serializeSongs(
+                listOf(
+                    com.example.data.model.SongEntry(name = "St Stephen", isSegue = true),
+                    com.example.data.model.SongEntry(name = "Samson & Delilah"),
+                    com.example.data.model.SongEntry(name = "Brand New Tune")
+                )
+            )
+        )
+
+        repository.saveShow(custom)
+
+        val expected = listOf("Saint Stephen", "Samson and Delilah", "Brand New Tune")
+        val stored = dao.getShowById(custom.id).first()!!
+        assertEquals(expected, repository.parseSongs(stored).map { it.name })
+        val rows = dao.getSongsForShow(custom.id).first()
+        assertEquals(expected, rows.map { it.songName })
+        assertEquals(listOf("saint stephen", "samson and delilah", "brand new tune"), rows.map { it.songId })
+        assertEquals("Brand New Tune", db.songDao().getSong("brand new tune")?.canonicalName)
+        assertTrue(rows.first().isSegue)
+    }
+
+    @Test
+    fun `every stored performance links to an existing song`() = runBlocking {
+        repository.checkAndSeedDatabase()
+        val songIds = db.songDao().getAllSongs().map { it.id }.toSet()
+        val perfs = dao.getAllShows().first().flatMap { dao.getSongsForShow(it.id).first() }
+        assertTrue(perfs.isNotEmpty())
+        assertTrue(perfs.all { it.songId in songIds })
     }
 
     @Test

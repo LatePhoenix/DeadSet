@@ -70,7 +70,7 @@ data class UiState(
 class DeadSetViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = AppDatabase.getInstance(application)
-    val repository = ShowRepository(database.showDao())
+    val repository = ShowRepository(database.showDao(), database.songDao())
     private val userPrefs = UserPrefsStore(application)
 
     private val _uiState = MutableStateFlow(

@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.3 are done; next is **1.4** (`songs` table + name normalization). It's the first real migration (3→4); follow the recipe under 1.2.
+**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.4 are done (DB is now **v4**). Next is **1.5** (`TransitionType`, migration 4→5); follow the recipe under 1.2 and reuse the table-rebuild pattern in `data/local/Migrations.kt`.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -78,8 +78,15 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - Schemas are exposed as **debug** assets (Robolectric can't see `src/test` assets); release APKs don't include them.
 - [x] **1.3 Fix seeding foreign-key edge case.** In `ShowRepository.checkAndSeedDatabase()`, the branch where `count > 0` but `perfCount == 0` inserts performances for curated shows that may not exist, which throws `SQLiteConstraintException`. Insert or ignore the curated shows first, or sync only the shows that exist. Add a test. (_see commit "Rebuild song performances from stored shows"_)
   _Also fixed:_ that branch and `restoreCuratedOfflineCatalog()` rebuilt song rows from **seed** setlists, overwriting user segue edits and leaving `setlistJson` and `song_performances` out of sync. Both now rebuild from the stored rows, custom shows included. Tests are in `app/src/test/.../data/repository/SeedingTest.kt`.
-- [ ] **1.4 `songs` table + name normalization.** Columns: `id`, `canonicalName`, `aliases` (JSON or a child table), `writers`, `debutDate`. Seed canonical names for every song in `CuratedShows`, with aliases such as St. Stephen/Saint Stephen, Lovelight/Turn On Your Love Light, Slipknot!/Slipknot. Add `normalizeSongName()` and route all setlist writes through it.
-  _Migration 3→4._
+- [x] **1.4 `songs` table + name normalization.** Columns: `id`, `canonicalName`, `aliases` (JSON or a child table), `writers`, `debutDate`. Seed canonical names for every song in `CuratedShows`, with aliases such as St. Stephen/Saint Stephen, Lovelight/Turn On Your Love Light, Slipknot!/Slipknot. Add `normalizeSongName()` and route all setlist writes through it.
+  _Migration 3→4._ (_see commit "Add songs table and song-name normalization"_)
+  _As built:_
+  - `data/songs/SongNames.kt`: `songKey()` (case/punctuation/`&`/hyphen/leading-"The" insensitive; doubles as `songs.id`), `SongCatalog` (canonical names + shorthand aliases like GDTRFB, Playin', Lovelight), and `SongResolver`, which the repository **and** the migration share.
+  - Tables: `songs(id, canonicalName)`, `song_aliases(aliasKey → songId)`. `song_performances` gains a `songId` FK and index (the table is rebuilt in the migration).
+  - Canonical names = the existing seed spellings (e.g. "Saint Stephen"), so nothing visible changed and the old segue filter still works until 1.7. A test enforces that every seed title is already canonical.
+  - **Deviation:** `writers`/`debutDate` were left out. They'd ship empty, and those facts need sources (add them with 5.5, in their own migration).
+  - Not normalized: free-text fields like `favoriteSong`, and trivia text.
+  - Changing a canonical name later needs a migration; `ensureSongCatalog()` uses INSERT IGNORE and won't rename existing rows.
 - [ ] **1.5 `TransitionType`.** Add an enum (`NONE`, `SEGUE "->"`, `TRANSITION ">"`, `JAM_INTO "~>"`, `TEASE`). Replace `SongEntry.isSegue` / `SongPerformanceEntity.isSegue` with `transitionOut`. The migration maps `isSegue=1 → SEGUE`. Update `SegueIndicatorPill` to cycle through the types and `ShowDetailScreen` to show them.
   _Migration 4→5._
 - [ ] **1.6 Single source of truth.** Make `song_performances` the canonical setlist store: search, stats, and the trivia generator all read from it. Drop `ShowEntity.setlistJson` (SQLite needs a table rebuild in the migration). Keep `position`, which `toSongEntry()` currently drops.
@@ -141,6 +148,12 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (step 1.4)
+- DB v3→v4: `songs` + `song_aliases` tables, `song_performances.songId`, titles normalized everywhere setlists are written (save, seed, restore, repair) and in existing data via `MIGRATION_3_4`. `ShowRepository` now takes `(showDao, songDao)`.
+- 27/27 tests pass. New: `SongNamesTest` (6); the 3→4 data test in `MigrationTest`; 2 more in `SeedingTest`. Mutation check: disabling the migration's JSON normalization fails the 3→4 test.
+- On branch `phase-1-step-1.4-songs`, not merged. Not run on a device.
+- **Next:** step 1.5 (`TransitionType`, 4→5).
 
 ### 2026-11-21 · Claude Code (step 1.3)
 - Seeding repair and "restore catalog" now rebuild `song_performances` from the stored shows (no FK crash, user segue edits kept). Added `ShowDao.getAllShowsOnce()` and `SeedingTest` (3 tests); 18/18 pass. On `phase-1-data-foundation`, not merged.

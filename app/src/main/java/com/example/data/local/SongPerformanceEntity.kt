@@ -10,9 +10,9 @@ import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 
 /**
- * Normalized Room entity storing individual song performances for each Grateful Dead show.
- * Linked via a ForeignKey to [ShowEntity] with CASCADE delete, and indexed by [showId] and
- * [songName] for fast offline SQLite lookups across historical concert setlists.
+ * Normalized Room entity storing individual song performances for each show.
+ * Linked to [ShowEntity] (CASCADE delete) and to [SongEntity] via [songId]. [songName] holds the
+ * song's canonical name at write time, kept for display and existing LIKE queries.
  */
 @Entity(
     tableName = "song_performances",
@@ -22,11 +22,17 @@ import com.example.data.model.SongEntry
             parentColumns = ["id"],
             childColumns = ["showId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = SongEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["songId"]
         )
     ],
     indices = [
         Index(value = ["showId"]),
         Index(value = ["songName"]),
+        Index(value = ["songId"]),
         Index(value = ["showId", "trackOrder"], unique = true)
     ]
 )
@@ -34,6 +40,7 @@ data class SongPerformanceEntity(
     @PrimaryKey(autoGenerate = true)
     val performanceId: Long = 0L,
     val showId: String,
+    val songId: String,
     val songName: String,
     val setType: String = SetType.SET_1.name,
     val trackOrder: Int,
@@ -55,9 +62,15 @@ data class SongPerformanceEntity(
     }
 
     companion object {
-        fun fromSongEntry(showId: String, index: Int, entry: SongEntry): SongPerformanceEntity {
+        fun fromSongEntry(
+            showId: String,
+            index: Int,
+            entry: SongEntry,
+            songId: String
+        ): SongPerformanceEntity {
             return SongPerformanceEntity(
                 showId = showId,
+                songId = songId,
                 songName = entry.name,
                 setType = entry.setType.name,
                 trackOrder = index,

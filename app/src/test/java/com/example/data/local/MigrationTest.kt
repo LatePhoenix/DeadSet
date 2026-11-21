@@ -112,4 +112,91 @@ class MigrationTest {
             db.close()
         }
     }
+
+    @Test
+    fun `3 to 4 normalizes song titles, links songIds, and keeps user data`() {
+        val setlistJson = """[{"name":"St. Stephen","setType":"SET_2","isSegue":true},""" +
+            """{"name":"Lovelight","setType":"SET_2"},{"name":"  My Own   Jam ","setType":"ENCORE"}]"""
+        helper.createDatabase(dbName, 3).apply {
+            execSQL(
+                """
+                INSERT INTO shows (id, date, venue, city, stateOrCountry, eraId, tourName, setlistJson,
+                    isAttended, userRating, userReview, attendedWith, favoriteSong, archiveIdentifier,
+                    tapeQuality, isCustomShow, tags, historicTrivia, bandName, isUpcoming, venueAddress,
+                    lastUpdatedTimestamp)
+                VALUES ('my-show', '1969-02-27', 'Fillmore West', 'San Francisco', 'CA', 'primal_60s', 'Primal',
+                    ?, 1, 5.0, 'Unreal', 'Pals', 'St. Stephen', '', '', 1, '', '', 'Grateful Dead', 0, '', 42)
+                """.trimIndent(),
+                arrayOf<Any?>(setlistJson)
+            )
+            val rows = listOf(
+                arrayOf<Any?>(10, "St. Stephen", "SET_2", 0, 1, 6, "William Tell bridge", 1),
+                arrayOf<Any?>(11, "Lovelight", "SET_2", 1, 0, null, null, 0),
+                arrayOf<Any?>(12, "  My Own   Jam ", "ENCORE", 2, 0, null, null, 0)
+            )
+            for (r in rows) {
+                execSQL(
+                    "INSERT INTO song_performances (performanceId, showId, songName, setType, trackOrder, " +
+                        "isSegue, durationMinutes, notes, isJamHighlight) VALUES (?, 'my-show', ?, ?, ?, ?, ?, ?, ?)",
+                    r
+                )
+            }
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 4, true, MIGRATION_3_4)
+
+        db.query(
+            "SELECT performanceId, songId, songName, isSegue, durationMinutes, notes, isJamHighlight " +
+                "FROM song_performances ORDER BY trackOrder"
+        ).use { c ->
+            val got = buildList {
+                while (c.moveToNext()) {
+                    add(
+                        listOf(
+                            c.getLong(0), c.getString(1), c.getString(2), c.getInt(3),
+                            if (c.isNull(4)) null else c.getInt(4),
+                            if (c.isNull(5)) null else c.getString(5), c.getInt(6)
+                        )
+                    )
+                }
+            }
+            assertEquals(
+                listOf(
+                    listOf(10L, "saint stephen", "Saint Stephen", 1, 6, "William Tell bridge", 1),
+                    listOf(11L, "turn on your love light", "Turn On Your Love Light", 0, null, null, 0),
+                    listOf(12L, "my own jam", "My Own Jam", 0, null, null, 0)
+                ),
+                got
+            )
+        }
+
+        db.query("SELECT canonicalName FROM songs WHERE id = 'my own jam'").use { c ->
+            assertTrue("User-entered song should become a songs row", c.moveToFirst())
+            assertEquals("My Own Jam", c.getString(0))
+        }
+        db.query("SELECT songId FROM song_aliases WHERE aliasKey = 'st stephen'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("saint stephen", c.getString(0))
+        }
+
+        db.query(
+            "SELECT setlistJson, isAttended, userRating, userReview, attendedWith, favoriteSong, " +
+                "isCustomShow, lastUpdatedTimestamp FROM shows WHERE id = 'my-show'"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            val songs = Converters().toSongList(c.getString(0))
+            assertEquals(listOf("Saint Stephen", "Turn On Your Love Light", "My Own Jam"), songs.map { it.name })
+            assertEquals(listOf(true, false, false), songs.map { it.isSegue })
+            assertEquals(1, c.getInt(1))
+            assertEquals(5.0f, c.getFloat(2))
+            assertEquals("Unreal", c.getString(3))
+            assertEquals("Pals", c.getString(4))
+            assertEquals("St. Stephen", c.getString(5)) // free-text field, intentionally untouched
+            assertEquals(1, c.getInt(6))
+            assertEquals(42L, c.getLong(7))
+        }
+        db.query("PRAGMA foreign_key_check").use { c -> assertEquals("FK violations", 0, c.count) }
+        db.close()
+    }
 }

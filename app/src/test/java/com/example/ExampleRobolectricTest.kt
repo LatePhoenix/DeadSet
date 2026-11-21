@@ -73,7 +73,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = AppDatabase.createInMemoryDatabase(context)
         val dao = db.showDao()
-        val repository = ShowRepository(dao)
+        val repository = ShowRepository(dao, db.songDao())
         // Simulate an existing install: seeded catalog plus the old placeholder rows.
         repository.checkAndSeedDatabase()
         val template = CuratedShows.getInitialShows().first()
@@ -95,7 +95,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = AppDatabase.createInMemoryDatabase(context)
         val dao = db.showDao()
-        val repository = ShowRepository(dao)
+        val repository = ShowRepository(dao, db.songDao())
 
         repository.checkAndSeedDatabase()
 
