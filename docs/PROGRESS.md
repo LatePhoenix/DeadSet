@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through C1): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1** (`:shared` + `tools:importer`). DB **v10**. CI runs `:app`, `:shared`, and `:tools:importer` unit tests.
-- Next branch: cut `phase-2-c2-fetch-cache` from `main` for C2.
+- **`main` is the working line** (through C2): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, C1–C2. DB **v10**. CI runs `:app`, `:shared`, and `:tools:importer` unit tests.
+- Next branch: cut `phase-2-c3-normalize` from `main` for C3.
 
 **Next up (in order):**
-1. **C2** Fetch + cache gdshowsdb year files + `song_refs.yaml` + provenance.json.
-2. C3–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
+1. **C3** Normalize titles via `SongResolver`; write `out/unmatched.csv`.
+2. C4–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
 
 **Open decisions for the owner**
 - [x] **Importer set-type heuristic (C1).** _Decided (agent, reversible):_ 1–2 sets → `SET_1`/`SET_2`; 3+ sets → last is `ENCORE`, earlier `SET_1`…`SET_3` (capped). gdshowsdb has no set labels. Revisit when C5 maps into Room if real encores are mislabeled.
@@ -142,7 +142,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **2.1 Choose dataset.** gdshowsdb (see above).
 - [x] **C1 / 2.2 `tools/importer` module.** (`d7d1543`) Pure-Kotlin `:shared` holds `songKey` / `SongCatalog` / `SongResolver`; `:app` and `:tools:importer` depend on it. Hand YAML parser (`GdshowsYamlParser`) for gdshowsdb list-of-maps shape (`:sets` → `- :uuid:` → `:songs` → `:name`/`:segued`); skips `---` markers. Cornell fixture + year smoke (1977: 60 shows / 1233 songs / 398 segued). CI paths include `shared/**` and `tools/**`.
   _Note:_ set-type heuristic documented under Open decisions (last of 3+ = ENCORE).
-- [ ] **C2 Fetch + cache.** Download the 31 year files + `song_refs.yaml` once into `tools/importer/cache/` (gitignored). Write `tools/importer/provenance.json` with the gdshowsdb commit SHA and fetch date.
+- [x] **C2 Fetch + cache.** (`6756615`) `GdshowsFetcher` (`--fetch` / `--force`) downloads 31 year YAMLs + `song_refs.yaml` into gitignored `tools/importer/cache/`, pins tip SHA via GitHub API, writes committed `tools/importer/provenance.json`. Verified full parse: **2358 shows / 39774 songs / 16577 segued / 282 empty** (matches plan figures). Parser follow-up: same-day keys `YYYY/MM/DD/N:`.
 - [ ] **C3 Normalize.** Resolve every title through `SongResolver`. Write unmatched titles to `tools/importer/out/unmatched.csv` with counts. The owner (or the agent, with the owner's OK) adds aliases to `SongCatalog` **by hand**. Never auto-insert guessed matches.
 - [ ] **C4 Cross-check (optional `--crosscheck` flag).** Free Relisten API (no key; ~2,000 calls; cache every response; one request at a time with a delay; honest User-Agent). Compare dates/venues/segues, write `out/discrepancies.csv`, and **mark disagreeing shows uncertain** (a flag column) rather than picking a winner. Archive.org's GratefulDead collection is a second free option; its item identifiers can power a per-show "Listen" link (today's link searches by date).
 - [ ] **C5 / 2.3 Build `app/src/main/assets/catalog.db`.** Create tables from the Room exported schema JSON for the current version, so `createFromAsset` passes Room's validation (same identity hash; set `user_version`; include `room_master_table`). Populate songs, song_aliases, shows, song_performances (set, position, transitionOut). **Move user data (attended, rating, review, companions, favorite) out of `shows` into a separate user table first** (its own migration + test), so a catalog refresh can never wipe it. Decide how a newer bundled catalog merges into an existing install (likely: upsert catalog rows by id, never touch user tables).
@@ -228,6 +228,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (C2 fetch + cache)
+- Branch `phase-2-c2-fetch-cache`: `GdshowsFetcher` + `--fetch`; provenance at `tools/importer/provenance.json` (sha `2ccd86c1…`). Cache gitignored.
+- Full-corpus parse matches external-review counts. Fixed same-day show keys (`/N` suffix) in the YAML parser.
+- **Next:** C3 normalize → `out/unmatched.csv` (aliases still hand-added).
 
 ### 2026-11-21 · Cursor (C1 :shared + importer)
 - Branch `phase-2-c1-importer-shared`: moved song normalization into `:shared`; added `tools:importer` with hand YAML parser + Cornell/empty-setlist/document-marker tests; app seed-title check stays in `:app`.
