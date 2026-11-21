@@ -102,6 +102,24 @@ class SetlistAnalyticsTest {
     }
 
     @Test
+    fun `transition graph keeps the busiest songs and only connected links`() {
+        val graph = SetlistAnalytics.transitionGraph(shows, songsFor)
+        // Show c's Scarlet/Fire stop is not a link; show b's Scarlet > Fire is.
+        assertEquals(2, graph.edges.single { it.label == "Scarlet Begonias ➔ Fire on the Mountain" }.count)
+        assertEquals(2, graph.edges.single { it.label == "Drums ➔ Space" }.count)
+        assertTrue(graph.edges.none { it.from == "Fire on the Mountain" })
+        assertTrue(graph.edges.all { it.from in graph.nodes && it.to in graph.nodes })
+        assertEquals(graph.edges.sortedByDescending { it.count }.map { it.count }, graph.edges.map { it.count })
+
+        val small = SetlistAnalytics.transitionGraph(shows, songsFor, maxNodes = 3)
+        assertEquals(3, small.nodes.size)
+        assertTrue(small.edges.all { it.from in small.nodes && it.to in small.nodes })
+        assertEquals(listOf("Drums ➔ Space", "Space ➔ Morning Dew", "Space ➔ The Wheel").toSet().intersect(
+            small.edgesOf("Space").map { it.label }.toSet()
+        ), small.edgesOf("Space").map { it.label }.toSet())
+    }
+
+    @Test
     fun `seed catalog contains the families its curated notes rely on`() {
         val stats = SetlistAnalytics.familyStats(TestSeeds.shows, TestSeeds::songsFor).associateBy { it.family.id }
         assertTrue(stats.getValue("scarlet-fire").occurrences > 0)

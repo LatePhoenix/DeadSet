@@ -182,3 +182,55 @@ object SetlistAnalytics {
             if (inSet.isEmpty()) null else set to notation(inSet)
         }
 }
+
+/** One directed, connected transition between two songs and how often it happened. */
+data class GraphEdge(val from: String, val to: String, val count: Int) {
+    val label: String get() = "$from ➔ $to"
+}
+
+/** Songs (nodes) and the connected transitions among them (edges), for the transition graph. */
+data class TransitionGraph(val nodes: List<String>, val edges: List<GraphEdge>) {
+    fun edgesOf(node: String): List<GraphEdge> =
+        edges.filter { it.from == node || it.to == node }.sortedByDescending { it.count }
+}
+
+/**
+ * Builds the transition graph (step 3.6): the [maxNodes] songs with the most connected
+ * transitions, and every connected transition between two of them. Titles resolve through
+ * catalog aliases; each node shows the first spelling seen.
+ */
+fun SetlistAnalytics.transitionGraph(
+    shows: List<ShowEntity>,
+    songsFor: (ShowEntity) -> List<SongEntry>,
+    maxNodes: Int = 14
+): TransitionGraph {
+    val counts = mutableMapOf<Pair<String, String>, Int>()
+    val display = mutableMapOf<String, String>()
+    for (show in shows) {
+        val songs = songsFor(show)
+        for (i in 0 until songs.size - 1) {
+            if (!songs[i].isConnected) continue
+            val a = canonicalKey(songs[i].name)
+            val b = canonicalKey(songs[i + 1].name)
+            if (a == b) continue
+            display.putIfAbsent(a, songs[i].name)
+            display.putIfAbsent(b, songs[i + 1].name)
+            counts[a to b] = (counts[a to b] ?: 0) + 1
+        }
+    }
+    val degree = mutableMapOf<String, Int>()
+    for ((pair, n) in counts) {
+        degree[pair.first] = (degree[pair.first] ?: 0) + n
+        degree[pair.second] = (degree[pair.second] ?: 0) + n
+    }
+    val keep = degree.entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .take(maxNodes)
+        .map { it.key }
+        .toSet()
+    val nodes = keep.sortedBy { display.getValue(it) }
+    val edges = counts.filterKeys { (a, b) -> a in keep && b in keep }
+        .map { (pair, n) -> GraphEdge(display.getValue(pair.first), display.getValue(pair.second), n) }
+        .sortedWith(compareByDescending<GraphEdge> { it.count }.thenBy { it.label })
+    return TransitionGraph(nodes.map { display.getValue(it) }, edges)
+}

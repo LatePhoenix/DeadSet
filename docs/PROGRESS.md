@@ -136,7 +136,8 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **Deferred:** "Build Set Two" (drag-to-order) needs a reorder UI; revisit with Phase 6 UI work.
   - **3.5:** `data/review/Leitner.kt` (5 boxes; intervals 0/1/3/7/14 days; a miss goes back to box 1). The `review_cards` table (`MIGRATION_6_7`, additive) is keyed by question id, which is stable per card. The deck orders due cards (weakest first), then new cards, then not-due cards. `DeadSetViewModel.recordCardAnswer()` is called per answer in Segue School only.
   - **Checked on the emulator:** an upgrade from a real v6 DB to v7 opened cleanly; Segue School runs; a wrong answer shows the evidence note. A bug found there and fixed: "Brent Mydland Era era" (now guarded by a test).
-- [ ] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.
+- [x] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.
+  _As built (branch `phase-3-transitions-c`):_ a "Transition map" card on the Segues tab (`ui/components/TransitionGraphCard.kt`), built by `SetlistAnalytics.transitionGraph()`. The 14 most-connected songs sit on a circle, with a curved chord per connected transition (width/opacity = count). **Deviation:** you tap a **song** (not an edge) to highlight its links; tapping thin curves on a phone is unreliable, so the song's transitions are listed below as rows, and tapping a row filters the show list. Labels go beside side nodes and above/below top/bottom nodes. Checked on the emulator.
 
 ## Phase 4: Tribute band tracking
 

@@ -27,6 +27,8 @@ import com.example.data.setlist.FamilyStat
 import com.example.data.setlist.SetlistAnalytics
 import com.example.data.setlist.SongFlow
 import com.example.data.setlist.SongLink
+import com.example.data.setlist.transitionGraph
+import com.example.ui.components.TransitionGraphCard
 import com.example.ui.components.BerthaRose
 import com.example.ui.components.StealieEmblem
 import com.example.ui.theme.*
@@ -46,6 +48,10 @@ fun TransitionsScreen(
     val activeSong = selectedSong ?: explorableSongs.firstOrNull()
     val flow = remember(activeSong, shows, songsByShow) {
         activeSong?.let { name -> SetlistAnalytics.songFlow(name, shows) { songsByShow[it.id].orEmpty() } }
+    }
+
+    val graph = remember(shows, songsByShow) {
+        SetlistAnalytics.transitionGraph(shows, { songsByShow[it.id].orEmpty() })
     }
 
     Scaffold(
@@ -131,6 +137,11 @@ fun TransitionsScreen(
                     }
                 }
                 item { SongFlowCard(flow) }
+            }
+
+            if (graph.edges.isNotEmpty()) {
+                item { SectionLabel("TRANSITION MAP") }
+                item { TransitionGraphCard(graph = graph, onFilterBySegue = onFilterBySegue) }
             }
 
             item { SectionLabel("SEGUE FAMILIES") }
