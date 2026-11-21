@@ -185,9 +185,10 @@ class MigrationTest {
                 "isCustomShow, lastUpdatedTimestamp FROM shows WHERE id = 'my-show'"
         ).use { c ->
             assertTrue(c.moveToFirst())
-            val songs = Converters().toSongList(c.getString(0))
-            assertEquals(listOf("Saint Stephen", "Turn On Your Love Light", "My Own Jam"), songs.map { it.name })
-            assertEquals(listOf(true, false, false), songs.map { it.isSegue })
+            // Read raw: at v4 the JSON must still carry `isSegue` for the 4→5 migration to convert.
+            val songs = org.json.JSONArray(c.getString(0)).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+            assertEquals(listOf("Saint Stephen", "Turn On Your Love Light", "My Own Jam"), songs.map { it.getString("name") })
+            assertEquals(listOf(true, false, false), songs.map { it.optBoolean("isSegue", false) })
             assertEquals(1, c.getInt(1))
             assertEquals(5.0f, c.getFloat(2))
             assertEquals("Unreal", c.getString(3))
@@ -198,5 +199,100 @@ class MigrationTest {
         }
         db.query("PRAGMA foreign_key_check").use { c -> assertEquals("FK violations", 0, c.count) }
         db.close()
+    }
+
+    @Test
+    fun `4 to 5 turns isSegue into transitionOut in both setlist copies`() {
+        val json = """[{"name":"Scarlet Begonias","isSegue":true,"notes":"into Fire"},""" +
+            """{"name":"Fire on the Mountain","isSegue":false,"isJamHighlight":true}]"""
+        helper.createDatabase(dbName, 4).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('scarlet begonias', 'Scarlet Begonias')")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('fire on the mountain', 'Fire on the Mountain')")
+            insertV3Show(this, json)
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "isSegue, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(7, 'my-show', 'scarlet begonias', 'Scarlet Begonias', 'SET_2', 0, 1, 11, 'into Fire', 0), " +
+                    "(8, 'my-show', 'fire on the mountain', 'Fire on the Mountain', 'SET_2', 1, 0, NULL, NULL, 1)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 5, true, MIGRATION_4_5)
+
+        db.query(
+            "SELECT performanceId, transitionOut, durationMinutes, notes, isJamHighlight " +
+                "FROM song_performances ORDER BY trackOrder"
+        ).use { c ->
+            assertTrue(c.moveToNext())
+            assertEquals(listOf<Any?>(7L, "SEGUE", 11, "into Fire", 0),
+                listOf(c.getLong(0), c.getString(1), c.getInt(2), c.getString(3), c.getInt(4)))
+            assertTrue(c.moveToNext())
+            assertEquals(listOf<Any?>(8L, "NONE", true, true, 1),
+                listOf(c.getLong(0), c.getString(1), c.isNull(2), c.isNull(3), c.getInt(4)))
+        }
+        db.query("SELECT setlistJson FROM shows WHERE id = 'my-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            val songs = org.json.JSONArray(c.getString(0)).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+            assertEquals(listOf("SEGUE", "NONE"), songs.map { it.getString("transitionOut") })
+            assertTrue("isSegue key should be gone", songs.none { it.has("isSegue") })
+            // Keys the migration doesn't know about are preserved.
+            assertEquals("into Fire", songs[0].getString("notes"))
+            assertTrue(songs[1].getBoolean("isJamHighlight"))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `a v3 install upgraded all the way keeps its segue tags`() = runBlocking {
+        // The chain that a coupled 3→4 migration would have broken: segues must survive 3→4→5.
+        val json = """[{"name":"Help on the Way","isSegue":true},{"name":"Slipknot","isSegue":true},""" +
+            """{"name":"Franklin's Tower","isSegue":false}]"""
+        helper.createDatabase(dbName, 3).apply {
+            insertV3Show(this, json)
+            execSQL(
+                "INSERT INTO song_performances (showId, songName, setType, trackOrder, isSegue, isJamHighlight) VALUES " +
+                    "('my-show', 'Help on the Way', 'SET_2', 0, 1, 0), " +
+                    "('my-show', 'Slipknot', 'SET_2', 1, 1, 0), " +
+                    "('my-show', 'Franklin''s Tower', 'SET_2', 2, 0, 0)"
+            )
+            close()
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+            .applyMigrationPolicy()
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val expectedNames = listOf("Help on the Way", "Slipknot!", "Franklin's Tower")
+            val expectedTransitions = listOf(
+                com.example.data.model.TransitionType.SEGUE,
+                com.example.data.model.TransitionType.SEGUE,
+                com.example.data.model.TransitionType.NONE
+            )
+            val stored = db.showDao().getShowWithSongsById("my-show").first()!!
+            assertEquals(expectedNames, stored.orderedSongs.map { it.name })
+            assertEquals(expectedTransitions, stored.orderedSongs.map { it.transitionOut })
+            val fromJson = Converters().toSongList(stored.show.setlistJson)
+            assertEquals(expectedNames, fromJson.map { it.name })
+            assertEquals(expectedTransitions, fromJson.map { it.transitionOut })
+        } finally {
+            db.close()
+        }
+    }
+
+    private fun insertV3Show(db: androidx.sqlite.db.SupportSQLiteDatabase, setlistJson: String) {
+        // The shows table is identical in v3, v4 and v5.
+        db.execSQL(
+            """
+            INSERT INTO shows (id, date, venue, city, stateOrCountry, eraId, tourName, setlistJson,
+                isAttended, userRating, userReview, attendedWith, favoriteSong, archiveIdentifier,
+                tapeQuality, isCustomShow, tags, historicTrivia, bandName, isUpcoming, venueAddress,
+                lastUpdatedTimestamp)
+            VALUES ('my-show', '1976-06-09', 'Boston Music Hall', 'Boston', 'MA', 'wall_of_sound', 'Summer',
+                ?, 1, 5.0, 'Mine', '', '', '', '', 1, '', '', 'Grateful Dead', 0, '', 0)
+            """.trimIndent(),
+            arrayOf<Any?>(setlistJson)
+        )
     }
 }

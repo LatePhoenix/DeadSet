@@ -32,15 +32,46 @@ enum class SetType(val label: String, val shortLabel: String) {
     ENCORE("Encore", "Encore")
 }
 
+/**
+ * How a song flows into the next one, using common setlist notation.
+ * Stored by [name] in both `setlistJson` and `song_performances.transitionOut`, so never rename
+ * a constant without a migration.
+ *
+ * Teases (another song quoted inside this one) aren't a junction between two songs, so they are
+ * deliberately not a value here; they'll get their own field when needed.
+ */
+enum class TransitionType(val symbol: String, val label: String, val description: String) {
+    /** The song ends; a pause, tuning or applause before the next one. */
+    NONE("", "Stop", "stop"),
+    /** Seamless, no break: `->`. */
+    SEGUE("->", "Segue", "seamless segue"),
+    /** Connected but not seamless (a brief pause or count-in): `>`. */
+    TRANSITION(">", "Transition", "transition"),
+    /** An extended jam bridges the two songs: `~>`. */
+    JAM("~>", "Jam", "jams into");
+
+    /** True for anything that carries the music into the next song. */
+    val connects: Boolean get() = this != NONE
+
+    /** Next value when tapping the setlist pill: Stop → Segue → Transition → Jam → Stop. */
+    fun next(): TransitionType = entries[(ordinal + 1) % entries.size]
+}
+
 data class SongEntry(
     val name: String,
     val setType: SetType = SetType.SET_1,
     val position: Int = 0,
-    val isSegue: Boolean = false, // True if transitions seamlessly `->` to next song!
+    val transitionOut: TransitionType = TransitionType.NONE,
     val durationMinutes: Int? = null,
     val notes: String? = null,
     val isJamHighlight: Boolean = false
-)
+) {
+    /**
+     * True if this song flows into the next one in any way (segue, transition or jam).
+     * Computed, so Moshi doesn't serialize it.
+     */
+    val isConnected: Boolean get() = transitionOut.connects
+}
 
 data class LegendarySegue(
     val songA: String,

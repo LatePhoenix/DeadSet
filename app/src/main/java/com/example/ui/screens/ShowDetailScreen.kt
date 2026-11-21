@@ -579,7 +579,7 @@ fun ShowDetailScreen(
 
                                     // Toggleable Segue Pill
                                     SegueIndicatorPill(
-                                        isSegue = song.isSegue,
+                                        transition = song.transitionOut,
                                         onToggle = {
                                             onToggleSongTransition(show, globalIndex)
                                         },
@@ -590,7 +590,7 @@ fun ShowDetailScreen(
                         }
 
                         // Connecting visual transition line/ribbon if segue is active
-                        if (song.isSegue && !isLastInSet) {
+                        if (song.isConnected && !isLastInSet) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -605,7 +605,7 @@ fun ShowDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "➔ seamless transition",
+                                    text = "${song.transitionOut.symbol} ${song.transitionOut.description}",
                                     color = StealieCrimsonLight,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold

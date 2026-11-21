@@ -40,7 +40,7 @@ class ExampleRobolectricTest {
 
         val scarlet = songs.firstOrNull { it.name == "Scarlet Begonias" }
         assertNotNull("Scarlet Begonias should exist", scarlet)
-        assertTrue("Scarlet Begonias should have seamless transition flag", scarlet?.isSegue == true)
+        assertTrue("Scarlet Begonias should have seamless transition flag", scarlet?.transitionOut == com.example.data.model.TransitionType.SEGUE)
 
         val fire = songs.firstOrNull { it.name == "Fire on the Mountain" }
         assertNotNull("Fire on the Mountain should exist", fire)

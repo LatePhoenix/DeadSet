@@ -5,6 +5,35 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.songs.SongCatalog
 import com.example.data.songs.SongResolver
 import com.example.data.songs.songKey
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * Rewrites every `shows.setlistJson` entry in place with [transform].
+ *
+ * Migrations must not parse setlists through the app's current model classes (`SongEntry` via
+ * `Converters`): those classes change over time, so an old migration would silently drop fields
+ * that a later migration still needs to read (e.g. `isSegue` before 4→5). Raw org.json keeps
+ * every key that [transform] doesn't touch. Unparseable JSON is left as is.
+ */
+internal fun rewriteSetlistJson(db: SupportSQLiteDatabase, transform: (JSONObject) -> Unit) {
+    val updates = mutableListOf<Pair<String, String>>()
+    db.query("SELECT id, setlistJson FROM shows").use { c ->
+        while (c.moveToNext()) {
+            val id = c.getString(0)
+            val original = c.getString(1)
+            val array = runCatching { JSONArray(original) }.getOrNull() ?: continue
+            for (i in 0 until array.length()) {
+                array.optJSONObject(i)?.let(transform)
+            }
+            val rewritten = array.toString()
+            if (rewritten != original) updates += id to rewritten
+        }
+    }
+    for ((id, json) in updates) {
+        db.execSQL("UPDATE shows SET setlistJson = ? WHERE id = ?", arrayOf<Any?>(json, id))
+    }
+}
 
 /**
  * 3 → 4: add `songs` + `song_aliases`, normalize every stored song title, and give each
@@ -36,20 +65,9 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         val resolver = SongResolver.fromCatalog()
         insertCatalog(db)
 
-        // Normalize titles inside each show's setlistJson.
-        val converters = Converters()
-        val showUpdates = mutableListOf<Pair<String, String>>()
-        db.query("SELECT id, setlistJson FROM shows").use { c ->
-            while (c.moveToNext()) {
-                val id = c.getString(0)
-                val json = c.getString(1)
-                val songs = converters.toSongList(json)
-                val normalized = songs.map { it.copy(name = resolver.resolve(it.name).canonicalName) }
-                if (normalized != songs) showUpdates += id to converters.fromSongList(normalized)
-            }
-        }
-        for ((id, json) in showUpdates) {
-            db.execSQL("UPDATE shows SET setlistJson = ? WHERE id = ?", arrayOf<Any?>(json, id))
+        // Normalize titles inside each show's setlistJson. Only the "name" key is touched.
+        rewriteSetlistJson(db) { song ->
+            if (song.has("name")) song.put("name", resolver.resolve(song.optString("name")).canonicalName)
         }
 
         // Rebuild song_performances with songId.
@@ -129,5 +147,51 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         }
         resolver.newSongs.clear()
         resolver.newAliases.clear()
+    }
+}
+
+/**
+ * 4 → 5: replace the `isSegue` boolean with `transitionOut` ([com.example.data.model.TransitionType]
+ * name) in both `song_performances` and `shows.setlistJson`.
+ *
+ * Every existing `isSegue = true` becomes `SEGUE`: the app has always described the flag as a
+ * seamless `->`. Finer distinctions (`>` transition, `~>` jam) are new and start from `NONE`.
+ *
+ * SQL below is copied from schemas/.../5.json; keep them identical.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        rewriteSetlistJson(db) { song ->
+            if (song.has("isSegue")) {
+                val wasSegue = song.optBoolean("isSegue", false)
+                song.remove("isSegue")
+                if (!song.has("transitionOut")) song.put("transitionOut", if (wasSegue) "SEGUE" else "NONE")
+            }
+        }
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `song_performances_new` (`performanceId` INTEGER PRIMARY KEY " +
+                "AUTOINCREMENT NOT NULL, `showId` TEXT NOT NULL, `songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`setType` TEXT NOT NULL, `trackOrder` INTEGER NOT NULL, `transitionOut` TEXT NOT NULL, " +
+                "`durationMinutes` INTEGER, `notes` TEXT, `isJamHighlight` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`showId`) REFERENCES `shows`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )"
+        )
+        db.execSQL(
+            "INSERT INTO song_performances_new (performanceId, showId, songId, songName, setType, trackOrder, " +
+                "transitionOut, durationMinutes, notes, isJamHighlight) " +
+                "SELECT performanceId, showId, songId, songName, setType, trackOrder, " +
+                "CASE WHEN isSegue != 0 THEN 'SEGUE' ELSE 'NONE' END, durationMinutes, notes, isJamHighlight " +
+                "FROM song_performances"
+        )
+        db.execSQL("DROP TABLE song_performances")
+        db.execSQL("ALTER TABLE song_performances_new RENAME TO song_performances")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_showId` ON `song_performances` (`showId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songName` ON `song_performances` (`songName`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songId` ON `song_performances` (`songId`)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_song_performances_showId_trackOrder` " +
+                "ON `song_performances` (`showId`, `trackOrder`)"
+        )
     }
 }

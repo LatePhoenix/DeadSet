@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
+import com.example.data.model.TransitionType
 
 /**
  * Normalized Room entity storing individual song performances for each show.
@@ -44,17 +45,20 @@ data class SongPerformanceEntity(
     val songName: String,
     val setType: String = SetType.SET_1.name,
     val trackOrder: Int,
-    val isSegue: Boolean = false,
+    /** [TransitionType] name into the next song; text (like [setType]) so rows stay readable. */
+    val transitionOut: String = TransitionType.NONE.name,
     val durationMinutes: Int? = null,
     val notes: String? = null,
     val isJamHighlight: Boolean = false
 ) {
     fun toSongEntry(): SongEntry {
         val resolvedSetType = runCatching { SetType.valueOf(setType) }.getOrDefault(SetType.SET_1)
+        val resolvedTransition = runCatching { TransitionType.valueOf(transitionOut) }
+            .getOrDefault(TransitionType.NONE)
         return SongEntry(
             name = songName,
             setType = resolvedSetType,
-            isSegue = isSegue,
+            transitionOut = resolvedTransition,
             durationMinutes = durationMinutes,
             notes = notes,
             isJamHighlight = isJamHighlight
@@ -74,7 +78,7 @@ data class SongPerformanceEntity(
                 songName = entry.name,
                 setType = entry.setType.name,
                 trackOrder = index,
-                isSegue = entry.isSegue,
+                transitionOut = entry.transitionOut.name,
                 durationMinutes = entry.durationMinutes,
                 notes = entry.notes,
                 isJamHighlight = entry.isJamHighlight

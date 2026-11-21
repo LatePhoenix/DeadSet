@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DeadEra
+import com.example.data.model.TransitionType
 import com.example.ui.theme.*
 
 import androidx.compose.foundation.Image
@@ -158,13 +159,19 @@ fun RatingStars(
 
 @Composable
 fun SegueIndicatorPill(
-    isSegue: Boolean,
+    transition: TransitionType,
     onToggle: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isSegue) StealieCrimson.copy(alpha = 0.22f) else StealieCardDark
-    val border = if (isSegue) StealieCrimsonLight else BorderSubtle
-    val textColor = if (isSegue) StealieCrimsonLight else TextTertiaryDark
+    val accent = when (transition) {
+        TransitionType.NONE -> null
+        TransitionType.SEGUE -> StealieCrimsonLight
+        TransitionType.TRANSITION -> StealieGold
+        TransitionType.JAM -> StealieCyan
+    }
+    val bg = accent?.copy(alpha = 0.18f) ?: StealieCardDark
+    val border = accent ?: BorderSubtle
+    val textColor = accent ?: TextTertiaryDark
 
     Surface(
         color = bg,
@@ -181,7 +188,8 @@ fun SegueIndicatorPill(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
-                text = if (isSegue) "➔ SEGUE" else "STOP",
+                text = if (transition == TransitionType.NONE) "STOP"
+                else "${transition.symbol} ${transition.label.uppercase()}",
                 color = textColor,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,

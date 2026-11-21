@@ -587,7 +587,7 @@ object DeadTriviaSeed {
             for (i in 0 until (songs.size - 1)) {
                 val songA = songs[i]
                 val songB = songs[i + 1]
-                if (songA.isSegue) {
+                if (songA.isConnected) {
                     val otherSongNames = songs.map { it.name }
                         .filter { it != songB.name && it != songA.name }
                         .distinct()

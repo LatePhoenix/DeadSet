@@ -63,7 +63,7 @@ fun UserProfileScreen(
     }
     val totalLiveSeguesCount = remember(attendedShows) {
         attendedShows.sumOf { show ->
-            show.getSongsPerformed().count { it.isSegue }
+            show.getSongsPerformed().count { it.isConnected }
         }
     }
     val uniqueCitiesVisited = remember(attendedShows) {
