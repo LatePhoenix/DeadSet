@@ -206,6 +206,16 @@ class SeedingTest {
     }
 
     @Test
+    fun `updating a show's details never cascades away its setlist`() = runBlocking {
+        val show = TestSeeds.shows.first().copy(id = "upsert-show", isCustomShow = true)
+        repository.saveShow(show, listOf(SongEntry(name = "Bertha"), SongEntry(name = "Deal")))
+        // A REPLACE insert would delete the show row first and CASCADE-delete these rows.
+        dao.insertShow(show.copy(venue = "Renamed Venue"))
+        assertEquals(listOf("Bertha", "Deal"), repository.getSetlist(show.id).map { it.name })
+        assertEquals("Renamed Venue", dao.getShowById(show.id).first()!!.venue)
+    }
+
+    @Test
     fun `every stored performance links to an existing song`() = runBlocking {
         repository.checkAndSeedDatabase()
         val songIds = db.songDao().getAllSongs().map { it.id }.toSet()

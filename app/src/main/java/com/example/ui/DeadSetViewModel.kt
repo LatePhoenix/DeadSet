@@ -255,11 +255,26 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                         families = SetlistAnalytics.familyStats(allShowsList, songsFor)
                     )
                 }
-                _uiState.update {
-                    it.copy(
+                _uiState.update { latest ->
+                    // A filter setter may have run while we were off the main thread; if so, the
+                    // precomputed list is for old filters, so re-filter with the latest ones.
+                    val filtersUnchanged = latest.searchQuery == current.searchQuery &&
+                        latest.selectedEra == current.selectedEra &&
+                        latest.attendanceFilter == current.attendanceFilter &&
+                        latest.sortOrder == current.sortOrder &&
+                        latest.selectedSegueFilter == current.selectedSegueFilter
+                    latest.copy(
                         shows = snapshot.shows,
                         songsByShow = snapshot.songsByShow,
-                        filteredShows = snapshot.filtered,
+                        filteredShows = if (filtersUnchanged) snapshot.filtered else applyFilters(
+                            shows = snapshot.shows,
+                            query = latest.searchQuery,
+                            era = latest.selectedEra,
+                            attendance = latest.attendanceFilter,
+                            sort = latest.sortOrder,
+                            segueFilter = latest.selectedSegueFilter,
+                            songsByShow = snapshot.songsByShow
+                        ),
                         stats = snapshot.stats,
                         familyStats = snapshot.families
                     )

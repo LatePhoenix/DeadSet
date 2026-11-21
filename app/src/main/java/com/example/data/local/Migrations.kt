@@ -212,6 +212,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
 val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         backfillPerformancesFromJson(db)
+        reconcileTransitionsFromJson(db)
 
         db.execSQL("CREATE TABLE `song_performances_backup` AS SELECT * FROM `song_performances`")
         db.execSQL("DROP TABLE `song_performances`")
@@ -257,6 +258,89 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_song_performances_showId_trackOrder` " +
                 "ON `song_performances` (`showId`, `trackOrder`)"
         )
+    }
+
+    /**
+     * v5 wrote `setlistJson` first and `song_performances` second, so an interrupted edit could
+     * leave a row with an older transition than the JSON the app displayed. Before the JSON goes,
+     * copy each JSON `transitionOut` onto the matching row (same `trackOrder`) where they differ.
+     * Same length: matched by position. Different length: an order-aware alignment by song that
+     * skips any pairing it would have to guess (see [unambiguousAlignment]), so a
+     * transition is only copied onto a row for the same song.
+     * `performanceId`s are untouched.
+     */
+    private fun reconcileTransitionsFromJson(db: SupportSQLiteDatabase) {
+        val shows = mutableListOf<Pair<String, String>>()
+        db.query(
+            "SELECT id, setlistJson FROM shows WHERE EXISTS " +
+                "(SELECT 1 FROM song_performances sp WHERE sp.showId = shows.id)"
+        ).use { c -> while (c.moveToNext()) shows += c.getString(0) to c.getString(1) }
+        for ((showId, json) in shows) {
+            val array = runCatching { JSONArray(json) }.getOrNull() ?: continue
+            data class Row(val trackOrder: Int, val songKey: String, val transition: String)
+            val rows = mutableListOf<Row>()
+            db.query(
+                "SELECT trackOrder, songName, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
+                arrayOf<Any?>(showId)
+            ).use { c -> while (c.moveToNext()) rows += Row(c.getInt(0), songKey(c.getString(1)), c.getString(2)) }
+            val json = (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map {
+                songKey(it.optString("name")) to it.optString("transitionOut", "").ifBlank { null }
+            }
+            // Pair JSON entries with rows. Same length: by position. Different length (rows and JSON
+            // drifted apart): walk both in order and pair only entries naming the same song, so a
+            // transition is copied only where the song itself is matched.
+            val pairs = mutableListOf<Pair<Row, String?>>()
+            if (rows.size == json.size) {
+                rows.forEachIndexed { i, row -> pairs += row to json[i].second }
+            } else {
+                for ((ji, ri) in unambiguousAlignment(json.map { it.first }, rows.map { it.songKey })) {
+                    pairs += rows[ri] to json[ji].second
+                }
+            }
+            for ((row, jsonTransition) in pairs) {
+                if (jsonTransition != null && jsonTransition != row.transition) {
+                    db.execSQL(
+                        "UPDATE song_performances SET transitionOut = ? WHERE showId = ? AND trackOrder = ?",
+                        arrayOf<Any?>(jsonTransition, showId, row.trackOrder)
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Order-aware pairing of two song-key sequences that never guesses. Uses the longest common
+     * subsequence: (i, j) is a candidate when it lies on some optimal alignment
+     * (prefix LCS + 1 + suffix LCS == total). A pair is kept only if it lies on every optimal
+     * alignment (sole candidate for both indices, crossed by no other candidate), so a repeated
+     * song with more than one plausible partner, or competing alignments, are left alone.
+     */
+    internal fun unambiguousAlignment(a: List<String>, b: List<String>): List<Pair<Int, Int>> {
+        val n = a.size
+        val m = b.size
+        val pre = Array(n + 1) { IntArray(m + 1) }   // LCS of a[0, i) and b[0, j)
+        for (i in 1..n) for (j in 1..m) {
+            pre[i][j] = if (a[i - 1] == b[j - 1]) pre[i - 1][j - 1] + 1 else maxOf(pre[i - 1][j], pre[i][j - 1])
+        }
+        val suf = Array(n + 1) { IntArray(m + 1) }   // LCS of a[i, n) and b[j, m)
+        for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
+            suf[i][j] = if (a[i] == b[j]) suf[i + 1][j + 1] + 1 else maxOf(suf[i + 1][j], suf[i][j + 1])
+        }
+        val total = pre[n][m]
+        val candidates = mutableListOf<Pair<Int, Int>>()
+        for (i in 0 until n) for (j in 0 until m) {
+            if (a[i] == b[j] && pre[i][j] + 1 + suf[i + 1][j + 1] == total) candidates += i to j
+        }
+        val perA = candidates.groupingBy { it.first }.eachCount()
+        val perB = candidates.groupingBy { it.second }.eachCount()
+        // Keep a pair only if it is the sole candidate for its JSON index and its row index AND no
+        // other candidate crosses it. Together these mean it lies on EVERY optimal alignment: an
+        // optimal alignment without it would have to reuse its index (another candidate) or cross
+        // it (another candidate), or it could be added, contradicting optimality.
+        return candidates.filter { (i, j) ->
+            perA[i] == 1 && perB[j] == 1 &&
+                candidates.none { (i2, j2) -> (i2 < i && j2 > j) || (i2 > i && j2 < j) }
+        }
     }
 
     private fun backfillPerformancesFromJson(db: SupportSQLiteDatabase) {

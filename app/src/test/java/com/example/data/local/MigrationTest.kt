@@ -354,6 +354,149 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `5 to 6 keeps a segue edit that only reached the JSON`() {
+        // v5 wrote setlistJson before the rows; an interrupted edit left the row stale.
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('scarlet begonias', 'Scarlet Begonias')")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('fire on the mountain', 'Fire on the Mountain')")
+            insertV5Show(
+                this, "stale",
+                """[{"name":"Scarlet Begonias","transitionOut":"SEGUE"},{"name":"Fire on the Mountain","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(31, 'stale', 'scarlet begonias', 'Scarlet Begonias', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(32, 'stale', 'fire on the mountain', 'Fire on the Mountain', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, transitionOut FROM song_performances WHERE showId = 'stale' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            assertEquals(listOf(31L to "SEGUE", 32L to "NONE"), got)
+        }
+        db.close()
+    }
+
+    @Test
+    fun `5 to 6 keeps a JSON-only segue edit even when JSON and rows have different lengths`() {
+        helper.createDatabase(dbName, 5).apply {
+            for ((id, name) in listOf("bertha" to "Bertha", "scarlet begonias" to "Scarlet Begonias",
+                "fire on the mountain" to "Fire on the Mountain")) {
+                execSQL("INSERT INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+            }
+            // JSON (what v5 displayed) has an extra song first; rows drifted and are stale.
+            insertV5Show(
+                this, "drifted",
+                """[{"name":"Bertha","transitionOut":"SEGUE"},{"name":"Scarlet Begonias","transitionOut":"SEGUE"},""" +
+                    """{"name":"Fire on the Mountain","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(41, 'drifted', 'scarlet begonias', 'Scarlet Begonias', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(42, 'drifted', 'fire on the mountain', 'Fire on the Mountain', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, songName, transitionOut FROM song_performances WHERE showId = 'drifted' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getString(1), c.getString(2))) }
+            // Scarlet's edit is kept on Scarlet's row; Bertha's SEGUE is not copied onto another song.
+            assertEquals(
+                listOf(Triple(41L, "Scarlet Begonias", "SEGUE"), Triple(42L, "Fire on the Mountain", "NONE")),
+                got
+            )
+        }
+        db.close()
+    }
+
+    @Test
+    fun `5 to 6 aligns repeated songs by order and never guesses ambiguous ones`() {
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('playing in the band', 'Playing in the Band')")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('uncle johns band', 'Uncle John''s Band')")
+            // CodeRabbit's case: JSON [A, B, A(SEGUE)] vs rows [B, A] -> the row A is the second JSON A.
+            insertV5Show(
+                this, "sandwich",
+                """[{"name":"Playing in the Band","transitionOut":"NONE"},{"name":"Uncle John's Band","transitionOut":"NONE"},""" +
+                    """{"name":"Playing in the Band","transitionOut":"SEGUE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(51, 'sandwich', 'uncle johns band', 'Uncle John''s Band', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(52, 'sandwich', 'playing in the band', 'Playing in the Band', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            // Truly ambiguous: JSON [A(SEGUE), A] vs one row A -> either could be it, so leave it alone.
+            insertV5Show(
+                this, "ambiguous",
+                """[{"name":"Playing in the Band","transitionOut":"SEGUE"},{"name":"Playing in the Band","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(61, 'ambiguous', 'playing in the band', 'Playing in the Band', 'SET_2', 0, 'JAM', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        fun transitions(showId: String) = db.query(
+            "SELECT performanceId, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
+            arrayOf<Any?>(showId)
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) } }
+
+        assertEquals(listOf(51L to "NONE", 52L to "SEGUE"), transitions("sandwich"))
+        assertEquals(listOf(61L to "JAM"), transitions("ambiguous"))
+        db.close()
+    }
+
+    @Test
+    fun `5 to 6 only copies pairs that every best alignment agrees on`() {
+        // CodeRabbit's case: JSON [A, B, C] vs rows [B, A, C, A]. Best alignments are A..C and B..C,
+        // so A and B are uncertain (they cross); only C is certain.
+        helper.createDatabase(dbName, 5).apply {
+            for ((id, name) in listOf("althea" to "Althea", "bertha" to "Bertha", "china doll" to "China Doll")) {
+                execSQL("INSERT INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+            }
+            insertV5Show(
+                this, "crossing",
+                """[{"name":"Althea","transitionOut":"SEGUE"},{"name":"Bertha","transitionOut":"SEGUE"},""" +
+                    """{"name":"China Doll","transitionOut":"JAM"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(71, 'crossing', 'bertha', 'Bertha', 'SET_1', 0, 'NONE', NULL, NULL, 0), " +
+                    "(72, 'crossing', 'althea', 'Althea', 'SET_1', 1, 'NONE', NULL, NULL, 0), " +
+                    "(73, 'crossing', 'china doll', 'China Doll', 'SET_1', 2, 'NONE', NULL, NULL, 0), " +
+                    "(74, 'crossing', 'althea', 'Althea', 'SET_1', 3, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, transitionOut FROM song_performances WHERE showId = 'crossing' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            assertEquals(listOf(71L to "NONE", 72L to "NONE", 73L to "JAM", 74L to "NONE"), got)
+        }
+        db.close()
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,
