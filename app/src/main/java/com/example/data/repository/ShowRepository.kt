@@ -52,6 +52,7 @@ class ShowRepository(private val showDao: ShowDao) {
         showDao.getShowsPerformingSong(songName)
 
     suspend fun checkAndSeedDatabase() = withContext(Dispatchers.IO) {
+        showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
         val count = showDao.getShowsCount()
         val curatedShows = CuratedShows.getInitialShows()
         if (count == 0) {

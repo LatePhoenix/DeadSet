@@ -162,8 +162,8 @@ interface TicketmasterDiscoveryApiService {
 }
 
 /**
- * Live Concert API Client integrating the Bandsintown Public API and Ticketmaster Discovery API v2,
- * with built-in Midwest & national tour schedule coverage for Dark Star Orchestra, JRAD, and Terrapin Flyer.
+ * Live Concert API Client integrating the Bandsintown Public API and Ticketmaster Discovery API v2.
+ * Only events returned by those sources are shown; there is no hard-coded fallback schedule.
  */
 class LiveConcertApiClient {
 
@@ -205,8 +205,8 @@ class LiveConcertApiClient {
     }
 
     /**
-     * Searches live concerts from Bandsintown public API & Ticketmaster Discovery API,
-     * combined with verified upcoming Midwest and national dates for Dark Star Orchestra, JRAD, and Terrapin Flyer.
+     * Searches live concerts from the Bandsintown public API & Ticketmaster Discovery API.
+     * Returns an empty list when neither source responds (e.g. offline or unconfigured keys).
      */
     suspend fun searchLiveConcerts(
         searchQuery: String = "",
@@ -240,8 +240,10 @@ class LiveConcertApiClient {
             remoteEvents.addAll(fetchTicketmasterEvents(tmQuery, tmKey))
         }
 
-        // 3. Merge with verified upcoming tour schedule so Midwest & national dates for DSO, JRAD, and Terrapin Flyer are always rich and reliable
-        val combined = (remoteEvents + getCuratedUpcomingTourSchedule())
+        // 3. De-duplicate events reported by both sources and drop dates that have already passed
+        val today = com.example.data.todayIsoDate()
+        val combined = remoteEvents
+            .filter { it.date >= today }
             .distinctBy { "${it.bandName.lowercase()}-${it.date}-${it.city.lowercase()}" }
 
         filterConcertEvents(
@@ -319,7 +321,7 @@ class LiveConcertApiClient {
                         .filter { it.isNotBlank() }
                         .joinToString(", "),
                     ticketUrl = ticketLink,
-                    priceRange = "Bandsintown Verified",
+                    priceRange = "See tickets",
                     apiSource = "Bandsintown API",
                     tourNote = dto.description.take(120)
                 )
@@ -345,7 +347,7 @@ class LiveConcertApiClient {
                 val priceText = if (pr != null && pr.min > 0.0 && pr.max > 0.0) {
                     "$${pr.min.toInt()} – $${pr.max.toInt()}"
                 } else {
-                    "Ticketmaster Verified"
+                    "See tickets"
                 }
 
                 LiveConcertEvent(
@@ -368,256 +370,4 @@ class LiveConcertApiClient {
             }
         }.getOrDefault(emptyList())
     }
-
-    /**
-     * Verified upcoming tour schedule for Dark Star Orchestra, Joe Russo's Almost Dead (JRAD),
-     * Terrapin Flyer, and Melvin Seals & JGB across Midwest & iconic national venues.
-     */
-    fun getCuratedUpcomingTourSchedule(): List<LiveConcertEvent> = listOf(
-        // --- TERRAPIN FLYER (Midwest & Tour Dates) ---
-        LiveConcertEvent(
-            id = "tf-chicago-martyrs-nov",
-            bandName = "Terrapin Flyer",
-            eventTitle = "Terrapin Flyer • Fall Deadhead Night at Martyrs'",
-            date = "2026-11-14",
-            displayDate = "Sat, Nov 14, 2026 • 8:00 PM CST",
-            venueName = "Martyrs'",
-            city = "Chicago",
-            stateCode = "IL",
-            venueAddress = "3855 N Lincoln Ave, Chicago, IL 60613",
-            ticketUrl = "https://www.bandsintown.com/a/244780-terrapin-flyer",
-            priceRange = "$22 – $28",
-            apiSource = "Bandsintown API",
-            tourNote = "Two full sets of primal & '77 Grateful Dead classics in Chicago's North Center."
-        ),
-        LiveConcertEvent(
-            id = "tf-milwaukee-vivarium-nov",
-            bandName = "Terrapin Flyer",
-            eventTitle = "Terrapin Flyer • Milwaukee Shakedown Run",
-            date = "2026-11-21",
-            displayDate = "Sat, Nov 21, 2026 • 8:00 PM CST",
-            venueName = "The Vivarium",
-            city = "Milwaukee",
-            stateCode = "WI",
-            venueAddress = "1818 N Farwell Ave, Milwaukee, WI 53202",
-            ticketUrl = "https://www.ticketmaster.com/terrapin-flyer-tickets/artist/1401190",
-            priceRange = "$20 – $25",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Midwest Tour stop featuring extended Terrapin Station suite and Europe '72 jams."
-        ),
-        LiveConcertEvent(
-            id = "tf-madison-highnoon-dec",
-            bandName = "Terrapin Flyer",
-            eventTitle = "Terrapin Flyer • Winter Solstice Dead Jam",
-            date = "2026-12-05",
-            displayDate = "Sat, Dec 5, 2026 • 8:30 PM CST",
-            venueName = "High Noon Saloon",
-            city = "Madison",
-            stateCode = "WI",
-            venueAddress = "701 E Washington Ave, Madison, WI 53703",
-            ticketUrl = "https://www.bandsintown.com/a/244780-terrapin-flyer",
-            priceRange = "$20 Adv / $25 Door",
-            apiSource = "Bandsintown API",
-            tourNote = "Intimate Wisconsin club show with special guest keyboardist."
-        ),
-        LiveConcertEvent(
-            id = "tf-indianapolis-mousetrap-dec",
-            bandName = "Terrapin Flyer",
-            eventTitle = "Terrapin Flyer • Indy Deadhead Gathering",
-            date = "2026-12-12",
-            displayDate = "Sat, Dec 12, 2026 • 9:00 PM EST",
-            venueName = "The Mousetrap",
-            city = "Indianapolis",
-            stateCode = "IN",
-            venueAddress = "5565 N Keystone Ave, Indianapolis, IN 46220",
-            ticketUrl = "https://www.bandsintown.com/a/244780-terrapin-flyer",
-            priceRange = "$18 – $22",
-            apiSource = "Bandsintown API",
-            tourNote = "Headlining Indy's premier Grateful Dead family venue."
-        ),
-        LiveConcertEvent(
-            id = "tf-evanston-space-jan",
-            bandName = "Terrapin Flyer",
-            eventTitle = "Terrapin Flyer • Acoustic & Electric Reckoning Night",
-            date = "2027-01-16",
-            displayDate = "Sat, Jan 16, 2027 • 8:00 PM CST",
-            venueName = "SPACE Evanston",
-            city = "Evanston",
-            stateCode = "IL",
-            venueAddress = "1245 Chicago Ave, Evanston, IL 60202",
-            ticketUrl = "https://www.ticketmaster.com/terrapin-flyer-tickets/artist/1401190",
-            priceRange = "$25 – $38",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "1980 Warfield Theatre style acoustic first set followed by two electric sets."
-        ),
-
-        // --- DARK STAR ORCHESTRA (Midwest & National Tour Dates) ---
-        LiveConcertEvent(
-            id = "dso-chicago-vic-nov",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Cosmic Fall Tour (2-Night Run)",
-            date = "2026-11-18",
-            displayDate = "Wed, Nov 18, 2026 • 7:30 PM CST",
-            venueName = "The Vic Theatre",
-            city = "Chicago",
-            stateCode = "IL",
-            venueAddress = "3145 N Sheffield Ave, Chicago, IL 60657",
-            ticketUrl = "https://www.ticketmaster.com/dark-star-orchestra-tickets/artist/807343",
-            priceRange = "$39 – $65",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Full historical Grateful Dead show recreation with authentic vintage stage gear layout."
-        ),
-        LiveConcertEvent(
-            id = "dso-milwaukee-pabst-nov",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Evening With DSO in Milwaukee",
-            date = "2026-11-20",
-            displayDate = "Fri, Nov 20, 2026 • 8:00 PM CST",
-            venueName = "The Pabst Theater",
-            city = "Milwaukee",
-            stateCode = "WI",
-            venueAddress = "144 E Wells St, Milwaukee, WI 53202",
-            ticketUrl = "https://www.bandsintown.com/a/1231-dark-star-orchestra",
-            priceRange = "$38 – $59",
-            apiSource = "Bandsintown API",
-            tourNote = "Performing in Milwaukee's historic 1895 jewel-box theater."
-        ),
-        LiveConcertEvent(
-            id = "dso-detroit-majestic-nov",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Motor City Dead Night",
-            date = "2026-11-22",
-            displayDate = "Sun, Nov 22, 2026 • 7:30 PM EST",
-            venueName = "The Majestic Theatre",
-            city = "Detroit",
-            stateCode = "MI",
-            venueAddress = "4140 Woodward Ave, Detroit, MI 48201",
-            ticketUrl = "https://www.ticketmaster.com/dark-star-orchestra-tickets/artist/807343",
-            priceRange = "$36 – $55",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Midwest Tour stop on Woodward Avenue."
-        ),
-        LiveConcertEvent(
-            id = "dso-columbus-kemba-nov",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Ohio Homecoming Show",
-            date = "2026-11-25",
-            displayDate = "Wed, Nov 25, 2026 • 7:30 PM EST",
-            venueName = "KEMBA Live!",
-            city = "Columbus",
-            stateCode = "OH",
-            venueAddress = "405 Neil Ave, Columbus, OH 43215",
-            ticketUrl = "https://www.ticketmaster.com/dark-star-orchestra-tickets/artist/807343",
-            priceRange = "$35 – $60",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Thanksgiving Eve Midwest celebration in Columbus."
-        ),
-        LiveConcertEvent(
-            id = "dso-stlouis-pageant-dec",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Fox & Pageant Midwest Run",
-            date = "2026-12-03",
-            displayDate = "Thu, Dec 3, 2026 • 8:00 PM CST",
-            venueName = "The Pageant",
-            city = "St. Louis",
-            stateCode = "MO",
-            venueAddress = "6161 Delmar Blvd, St. Louis, MO 63112",
-            ticketUrl = "https://www.ticketmaster.com/dark-star-orchestra-tickets/artist/807343",
-            priceRange = "$37 – $58",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Celebrating St. Louis's legendary 1971–1973 Fox Theatre Dead legacy."
-        ),
-        LiveConcertEvent(
-            id = "dso-denver-mission-dec",
-            bandName = "Dark Star Orchestra",
-            eventTitle = "Dark Star Orchestra • Colorado Winter Run",
-            date = "2026-12-18",
-            displayDate = "Fri, Dec 18, 2026 • 8:00 PM MST",
-            venueName = "Mission Ballroom",
-            city = "Denver",
-            stateCode = "CO",
-            venueAddress = "4242 Wynkoop St, Denver, CO 80216",
-            ticketUrl = "https://www.bandsintown.com/a/1231-dark-star-orchestra",
-            priceRange = "$45 – $75",
-            apiSource = "Bandsintown API",
-            tourNote = "National tour stop in Denver's premier concert hall."
-        ),
-
-        // --- JRAD (JOE RUSSO'S ALMOST DEAD) (Midwest & National Tour Dates) ---
-        LiveConcertEvent(
-            id = "jrad-chicago-salt-shed-nov",
-            bandName = "Joe Russo's Almost Dead (JRAD)",
-            eventTitle = "Joe Russo's Almost Dead • 2-Night Midwest Stand at The Salt Shed",
-            date = "2026-11-27",
-            displayDate = "Fri, Nov 27, 2026 • 8:00 PM CST",
-            venueName = "The Salt Shed (Indoors)",
-            city = "Chicago",
-            stateCode = "IL",
-            venueAddress = "1357 N Elston Ave, Chicago, IL 60642",
-            ticketUrl = "https://www.ticketmaster.com/joe-russos-almost-dead-tickets/artist/1964526",
-            priceRange = "$55 – $89",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "High-octane polyrhythmic Dead explorations with Joe Russo, Tom Hamilton, Marco Benevento, Dave Dreiwitz & Scott Metzger."
-        ),
-        LiveConcertEvent(
-            id = "jrad-minneapolis-palace-nov",
-            bandName = "Joe Russo's Almost Dead (JRAD)",
-            eventTitle = "Joe Russo's Almost Dead • Twin Cities Fall Classic",
-            date = "2026-11-29",
-            displayDate = "Sun, Nov 29, 2026 • 7:30 PM CST",
-            venueName = "Palace Theatre",
-            city = "St. Paul",
-            stateCode = "MN",
-            venueAddress = "17 W 7th Pl, St. Paul, MN 55102",
-            ticketUrl = "https://www.bandsintown.com/a/7872830-joe-russo's-almost-dead",
-            priceRange = "$52 – $82",
-            apiSource = "Bandsintown API",
-            tourNote = "Midwest Tour finale in historic downtown St. Paul."
-        ),
-        LiveConcertEvent(
-            id = "jrad-cleveland-agora-dec",
-            bandName = "Joe Russo's Almost Dead (JRAD)",
-            eventTitle = "Joe Russo's Almost Dead • Lake Erie Jam Night",
-            date = "2026-12-10",
-            displayDate = "Thu, Dec 10, 2026 • 8:00 PM EST",
-            venueName = "The Agora Theatre",
-            city = "Cleveland",
-            stateCode = "OH",
-            venueAddress = "5000 Euclid Ave, Cleveland, OH 44103",
-            ticketUrl = "https://www.ticketmaster.com/joe-russos-almost-dead-tickets/artist/1964526",
-            priceRange = "$49 – $79",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Returning to Euclid Avenue's historic rock ballroom."
-        ),
-        LiveConcertEvent(
-            id = "jrad-madison-sylvee-dec",
-            bandName = "Joe Russo's Almost Dead (JRAD)",
-            eventTitle = "Joe Russo's Almost Dead • Wisconsin Winter Tour",
-            date = "2026-12-11",
-            displayDate = "Fri, Dec 11, 2026 • 8:00 PM CST",
-            venueName = "The Sylvee",
-            city = "Madison",
-            stateCode = "WI",
-            venueAddress = "25 S Livingston St, Madison, WI 53703",
-            ticketUrl = "https://www.ticketmaster.com/joe-russos-almost-dead-tickets/artist/1964526",
-            priceRange = "$50 – $85",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Midwest stop featuring two marathon sets of improvisational Dead."
-        ),
-        LiveConcertEvent(
-            id = "jrad-portchester-cap-jan",
-            bandName = "Joe Russo's Almost Dead (JRAD)",
-            eventTitle = "Joe Russo's Almost Dead • Capitol Theatre Residency",
-            date = "2027-01-22",
-            displayDate = "Fri, Jan 22, 2027 • 8:00 PM EST",
-            venueName = "The Capitol Theatre",
-            city = "Port Chester",
-            stateCode = "NY",
-            venueAddress = "149 Westchester Ave, Port Chester, NY 10573",
-            ticketUrl = "https://www.ticketmaster.com/joe-russos-almost-dead-tickets/artist/1964526",
-            priceRange = "$65 – $99",
-            apiSource = "Ticketmaster Discovery API",
-            tourNote = "Annual residency at the historic Capitol Theatre."
-        )
-    )
 }
