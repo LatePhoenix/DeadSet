@@ -2,6 +2,7 @@ package com.example.data.seed
 
 import androidx.compose.ui.graphics.Color
 import com.example.data.local.ShowEntity
+import com.example.data.local.isUpcoming
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry

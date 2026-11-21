@@ -3,7 +3,7 @@ package com.example
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.AppDatabase
-import com.example.data.local.Converters
+import com.example.data.local.isUpcoming
 import com.example.data.repository.ShowRepository
 import com.example.data.seed.CuratedShows
 import kotlinx.coroutines.flow.first
@@ -32,9 +32,8 @@ class ExampleRobolectricTest {
         val shows = CuratedShows.getInitialShows()
         assertTrue("Curated shows should not be empty", shows.isNotEmpty())
 
-        val converters = Converters()
         val cornellShow = shows.first { it.id == "1977-05-08-cornell" }
-        val songs = converters.toSongList(cornellShow.setlistJson)
+        val songs = cornellShow.songs
 
         assertTrue("Cornell should have songs in setlist", songs.isNotEmpty())
 
@@ -49,7 +48,7 @@ class ExampleRobolectricTest {
     @Test
     fun `curated shows include historic trivia and user reviews`() {
         val shows = CuratedShows.getInitialShows()
-        for (show in shows) {
+        for (show in shows.map { it.show }) {
             assertTrue("Show should have valid date", show.date.isNotBlank())
             assertTrue("Show should have historic trivia", show.historicTrivia.isNotBlank())
         }
@@ -58,13 +57,14 @@ class ExampleRobolectricTest {
     @Test
     fun `curated shows include a Terrapin Flyer show and no invented future-dated shows`() {
         val shows = CuratedShows.getInitialShows()
-        val terrapinShows = shows.filter { it.bandName == "Terrapin Flyer" }
+        val entities = shows.map { it.show }
+        val terrapinShows = entities.filter { it.bandName == "Terrapin Flyer" }
         assertTrue("Terrapin Flyer shows should be present", terrapinShows.isNotEmpty())
         assertTrue(terrapinShows.all { it.venueAddress.isNotBlank() && it.city == "Chicago" })
 
         val today = com.example.data.todayIsoDate()
-        assertTrue("Seed data must not contain upcoming shows", shows.none { it.isUpcoming })
-        assertTrue("Seed data must not contain future dates", shows.all { it.date <= today })
+        assertTrue("Seed data must not contain upcoming shows", entities.none { it.isUpcoming })
+        assertTrue("Seed data must not contain future dates", entities.all { it.date <= today })
         assertTrue(shows.none { it.id in CuratedShows.retiredSeedShowIds })
     }
 
@@ -76,7 +76,7 @@ class ExampleRobolectricTest {
         val repository = ShowRepository(dao, db.songDao())
         // Simulate an existing install: seeded catalog plus the old placeholder rows.
         repository.checkAndSeedDatabase()
-        val template = CuratedShows.getInitialShows().first()
+        val template = CuratedShows.getInitialShows().first().show
         val (untouchedId, attendedId) = CuratedShows.retiredSeedShowIds
         // Retired seeds shipped with filler review text but no attendance.
         dao.insertShow(template.copy(id = untouchedId, isAttended = false, attendedWith = "", userReview = "Upcoming show!"))
@@ -118,8 +118,10 @@ class ExampleRobolectricTest {
         // Verify attendance aggregation for UserProfileScreen counter summary
         val initialAttended = repository.attendedShows.first().size
         repository.toggleAttendance("1972-08-27-veneta", true)
-        val updatedShows = repository.allShows.first()
-        val stats = repository.computeOverallStats(updatedShows)
+        val updatedRows = repository.allShowsWithSongs.first()
+        val updatedShows = updatedRows.map { it.show }
+        val songsById = updatedRows.associate { it.show.id to it.orderedSongs }
+        val stats = repository.computeOverallStats(updatedShows) { songsById[it.id].orEmpty() }
         assertTrue("Attended shows count should increase after marking Veneta attended", stats.attendedShowsCount >= initialAttended)
 
         // Verify Era Song Performance Frequency Bar Chart statistics
@@ -134,13 +136,12 @@ class ExampleRobolectricTest {
     @Test
     fun `grateful dead trivia generates curated and dynamic room vault questions`() {
         val shows = CuratedShows.getInitialShows()
-        val converters = Converters()
         val curated = com.example.data.seed.DeadTriviaSeed.getCuratedQuestions()
         assertTrue("Curated trivia bank should have at least 20 questions", curated.size >= 20)
 
         val dynamicVault = com.example.data.seed.DeadTriviaSeed.generateDynamicVaultQuestions(
-            shows = shows,
-            parseSongs = { converters.toSongList(it.setlistJson) }
+            shows = TestSeeds.shows,
+            parseSongs = TestSeeds::songsFor
         )
         assertTrue("Dynamic Room vault trivia questions should be generated from shows", dynamicVault.isNotEmpty())
 
@@ -148,8 +149,8 @@ class ExampleRobolectricTest {
             mode = com.example.data.seed.TriviaGameMode.CLASSIC_TOUR,
             category = com.example.data.seed.TriviaCategory.ALL,
             difficultyFilter = null,
-            shows = shows,
-            parseSongs = { converters.toSongList(it.setlistJson) }
+            shows = TestSeeds.shows,
+            parseSongs = TestSeeds::songsFor
         )
         assertEquals(10, classicDeck.size)
         classicDeck.forEach { q ->
@@ -186,7 +187,7 @@ class ExampleRobolectricTest {
         val url = com.example.ui.util.ConcertIntentHelper.archiveOrgRecordingsUrl("1977-05-08")
         assertEquals("https://archive.org/details/GratefulDead?query=1977-05-08", url)
 
-        val cornell = CuratedShows.getInitialShows().first { it.id == "1977-05-08-cornell" }
+        val cornell = TestSeeds.seed("1977-05-08-cornell").show
         assertTrue(com.example.ui.util.ConcertIntentHelper.hasArchiveRecordings(cornell))
         val tribute = cornell.copy(bandName = "Terrapin Flyer")
         assertEquals(false, com.example.ui.util.ConcertIntentHelper.hasArchiveRecordings(tribute))

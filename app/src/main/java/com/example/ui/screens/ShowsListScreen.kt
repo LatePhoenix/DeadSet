@@ -49,17 +49,18 @@ fun ShowsListScreen(
     onShowClick: (String) -> Unit,
     onAddShowClick: () -> Unit,
     onRestoreOfflineCatalog: () -> Unit = {},
+    songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     var showOfflineVaultDialog by remember { mutableStateOf(false) }
 
-    val totalIndexedSongs = remember(allCatalogShows) {
-        allCatalogShows.sumOf { it.getSongsPerformed().size }
+    val totalIndexedSongs = remember(allCatalogShows, songsByShow) {
+        allCatalogShows.sumOf { songsByShow[it.id].orEmpty().size }
     }
-    val distinctCities = remember(allCatalogShows) {
+    val distinctCities = remember(allCatalogShows, songsByShow) {
         allCatalogShows.map { it.city }.distinct().sorted()
     }
-    val distinctVenuesCount = remember(allCatalogShows) {
+    val distinctVenuesCount = remember(allCatalogShows, songsByShow) {
         allCatalogShows.map { it.venue }.distinct().size
     }
 

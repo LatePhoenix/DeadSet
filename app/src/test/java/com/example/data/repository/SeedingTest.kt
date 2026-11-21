@@ -3,7 +3,10 @@ package com.example.data.repository
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.AppDatabase
-import com.example.data.seed.CuratedShows
+import com.example.TestSeeds
+import com.example.data.model.SetType
+import com.example.data.model.SongEntry
+import com.example.data.model.TransitionType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -33,20 +36,21 @@ class SeedingTest {
     fun tearDown() = db.close()
 
     @Test
-    fun `shows without performance rows get them rebuilt without a foreign key crash`() = runBlocking {
-        // Partial catalog (some curated shows missing) plus a custom show, and no performance rows.
-        val curated = CuratedShows.getInitialShows()
-        val present = curated.take(2)
-        val custom = curated.last().copy(id = "my-custom-show", isCustomShow = true)
-        (present + custom).forEach { dao.insertShow(it) }
+    fun `curated shows missing their setlists get the seed setlist back, without a foreign key crash`() = runBlocking {
+        // Partial catalog (some curated shows absent) plus a custom show, and no performance rows.
+        val present = TestSeeds.seeds.take(2)
+        val custom = TestSeeds.seeds.last().show.copy(id = "my-custom-show", isCustomShow = true)
+        present.forEach { dao.insertShow(it.show) }
+        dao.insertShow(custom)
         assertEquals(0, dao.getSongPerformancesCount())
 
-        repository.checkAndSeedDatabase() // previously threw SQLiteConstraintException
+        repository.checkAndSeedDatabase()
 
-        for (show in present + custom) {
-            val rows = dao.getSongsForShow(show.id).first()
-            assertEquals(show.id, repository.parseSongs(show).size, rows.size)
+        for (seed in present) {
+            assertEquals(seed.id, seed.songs.size, dao.getSongsForShow(seed.id).first().size)
         }
+        // A custom show has no seed setlist to restore, so it is left alone.
+        assertEquals(0, dao.getSongsForShow(custom.id).first().size)
         // Missing curated shows are not resurrected by the repair path.
         assertEquals(3, dao.getShowsCount())
     }
@@ -54,48 +58,71 @@ class SeedingTest {
     @Test
     fun `repair and restore keep the user's stored setlist edits`() = runBlocking {
         repository.checkAndSeedDatabase()
-        val cornell = dao.getShowById("1977-05-08-cornell").first()!!
-        val edited = repository.parseSongs(cornell).first().transitionOut.next()
-        repository.toggleSongTransition(cornell, 0)
+        val cornellId = "1977-05-08-cornell"
+        val edited = repository.getSetlist(cornellId).first().transitionOut.next()
+        repository.toggleSongTransition(cornellId, 0)
+        assertEquals(edited, repository.getSetlist(cornellId).first().transitionOut)
 
-        // Repair path: wipe performance rows, re-run seeding.
-        dao.getAllShows().first().forEach { dao.deleteSongPerformancesForShow(it.id) }
+        // Re-running seeding and restore must not overwrite the edit with the seed setlist.
         repository.checkAndSeedDatabase()
-        assertEquals(edited.name, dao.getSongsForShow(cornell.id).first().first().transitionOut)
-
-        // Restore path must not overwrite the edit with the original seed setlist either.
+        assertEquals(edited, repository.getSetlist(cornellId).first().transitionOut)
         repository.restoreCuratedOfflineCatalog()
-        assertEquals(edited.name, dao.getSongsForShow(cornell.id).first().first().transitionOut)
-        val storedJson = repository.parseSongs(dao.getShowById(cornell.id).first()!!)
-        assertEquals(edited, storedJson.first().transitionOut)
+        assertEquals(edited, repository.getSetlist(cornellId).first().transitionOut)
     }
 
     @Test
-    fun `saving a show normalizes titles in both setlist copies and registers new songs`() = runBlocking {
+    fun `saving a show normalizes titles and registers new songs`() = runBlocking {
         repository.checkAndSeedDatabase()
-        val template = CuratedShows.getInitialShows().first()
-        val custom = template.copy(
-            id = "custom-normalize",
-            isCustomShow = true,
-            setlistJson = repository.serializeSongs(
-                listOf(
-                    com.example.data.model.SongEntry(name = "St Stephen", transitionOut = com.example.data.model.TransitionType.SEGUE),
-                    com.example.data.model.SongEntry(name = "Samson & Delilah"),
-                    com.example.data.model.SongEntry(name = "Brand New Tune")
-                )
-            )
+        val custom = TestSeeds.shows.first().copy(id = "custom-normalize", isCustomShow = true)
+        val songs = listOf(
+            SongEntry(name = "St Stephen", transitionOut = TransitionType.SEGUE),
+            SongEntry(name = "Samson & Delilah"),
+            SongEntry(name = "Brand New Tune")
         )
 
-        repository.saveShow(custom)
+        repository.saveShow(custom, songs)
 
         val expected = listOf("Saint Stephen", "Samson and Delilah", "Brand New Tune")
-        val stored = dao.getShowById(custom.id).first()!!
-        assertEquals(expected, repository.parseSongs(stored).map { it.name })
+        assertEquals(expected, repository.getSetlist(custom.id).map { it.name })
         val rows = dao.getSongsForShow(custom.id).first()
-        assertEquals(expected, rows.map { it.songName })
         assertEquals(listOf("saint stephen", "samson and delilah", "brand new tune"), rows.map { it.songId })
         assertEquals("Brand New Tune", db.songDao().getSong("brand new tune")?.canonicalName)
         assertEquals("SEGUE", rows.first().transitionOut)
+    }
+
+    @Test
+    fun `editing a show replaces its setlist instead of appending`() = runBlocking {
+        val show = TestSeeds.shows.first().copy(id = "custom-edit", isCustomShow = true)
+        repository.saveShow(show, listOf(SongEntry(name = "Bertha"), SongEntry(name = "Deal")))
+        repository.saveShow(show.copy(venue = "New Venue"), listOf(SongEntry(name = "Ripple")))
+
+        assertEquals(listOf("Ripple"), repository.getSetlist(show.id).map { it.name })
+        assertEquals("New Venue", dao.getShowById(show.id).first()!!.venue)
+    }
+
+    @Test
+    fun `setlist positions are numbered within each set`() = runBlocking {
+        val show = TestSeeds.shows.first().copy(id = "custom-positions", isCustomShow = true)
+        repository.saveShow(
+            show,
+            listOf(
+                SongEntry(name = "Bertha", setType = SetType.SET_1),
+                SongEntry(name = "Deal", setType = SetType.SET_1),
+                SongEntry(name = "Scarlet Begonias", setType = SetType.SET_2),
+                SongEntry(name = "Ripple", setType = SetType.ENCORE)
+            )
+        )
+        assertEquals(listOf(1, 2, 1, 1), repository.getSetlist(show.id).map { it.position })
+    }
+
+    @Test
+    fun `updating a show's details never cascades away its setlist`() = runBlocking {
+        val show = TestSeeds.shows.first().copy(id = "upsert-show", isCustomShow = true)
+        repository.saveShow(show, listOf(SongEntry(name = "Bertha"), SongEntry(name = "Deal")))
+        // A REPLACE insert would delete the show row first and CASCADE-delete these rows.
+        dao.insertShow(show.copy(venue = "Renamed Venue"))
+        assertEquals(listOf("Bertha", "Deal"), repository.getSetlist(show.id).map { it.name })
+        assertEquals("Renamed Venue", dao.getShowById(show.id).first()!!.venue)
     }
 
     @Test
@@ -108,14 +135,15 @@ class SeedingTest {
     }
 
     @Test
-    fun `restore re-adds deleted curated shows`() = runBlocking {
+    fun `restore re-adds deleted curated shows with their setlists`() = runBlocking {
         repository.checkAndSeedDatabase()
         val veneta = dao.getShowById("1972-08-27-veneta").first()!!
         repository.deleteShow(veneta)
+        assertEquals(0, dao.getSongsForShow(veneta.id).first().size) // cascade
 
         repository.restoreCuratedOfflineCatalog()
 
         assertTrue(dao.getShowById(veneta.id).first() != null)
-        assertTrue(dao.getSongsForShow(veneta.id).first().isNotEmpty())
+        assertEquals(TestSeeds.seed(veneta.id).songs.size, dao.getSongsForShow(veneta.id).first().size)
     }
 }

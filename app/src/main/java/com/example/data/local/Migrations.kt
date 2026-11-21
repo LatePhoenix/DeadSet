@@ -195,3 +195,204 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+/**
+ * 5 → 6: `song_performances` becomes the only copy of each setlist. Drops `shows.setlistJson`,
+ * and drops `shows.isUpcoming` (now computed from the date, see [isUpcoming]).
+ *
+ * 1. Backfill: any show with setlist JSON but no performance rows gets rows from its JSON first,
+ *    so dropping the column can't lose a setlist. Titles resolve through the existing
+ *    `song_aliases`, like a normal save.
+ * 2. Rebuild `shows` without the two columns. Dropping a parent table with foreign keys enabled
+ *    would CASCADE-delete every performance row, so performances are parked in a constraint-free
+ *    temp table first and restored after.
+ *
+ * SQL below is copied from schemas/.../6.json; keep them identical.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        backfillPerformancesFromJson(db)
+        reconcileTransitionsFromJson(db)
+
+        db.execSQL("CREATE TABLE `song_performances_backup` AS SELECT * FROM `song_performances`")
+        db.execSQL("DROP TABLE `song_performances`")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `shows_new` (`id` TEXT NOT NULL, `date` TEXT NOT NULL, `venue` TEXT NOT NULL, " +
+                "`city` TEXT NOT NULL, `stateOrCountry` TEXT NOT NULL, `eraId` TEXT NOT NULL, `tourName` TEXT NOT NULL, " +
+                "`isAttended` INTEGER NOT NULL, `userRating` REAL NOT NULL, `userReview` TEXT NOT NULL, " +
+                "`attendedWith` TEXT NOT NULL, `favoriteSong` TEXT NOT NULL, `archiveIdentifier` TEXT NOT NULL, " +
+                "`tapeQuality` TEXT NOT NULL, `isCustomShow` INTEGER NOT NULL, `tags` TEXT NOT NULL, " +
+                "`historicTrivia` TEXT NOT NULL, `bandName` TEXT NOT NULL, `venueAddress` TEXT NOT NULL, " +
+                "`lastUpdatedTimestamp` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        val showColumns = "id, date, venue, city, stateOrCountry, eraId, tourName, isAttended, userRating, " +
+            "userReview, attendedWith, favoriteSong, archiveIdentifier, tapeQuality, isCustomShow, tags, " +
+            "historicTrivia, bandName, venueAddress, lastUpdatedTimestamp"
+        db.execSQL("INSERT INTO `shows_new` ($showColumns) SELECT $showColumns FROM `shows`")
+        db.execSQL("DROP TABLE `shows`")
+        db.execSQL("ALTER TABLE `shows_new` RENAME TO `shows`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_date` ON `shows` (`date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_venue` ON `shows` (`venue`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_city` ON `shows` (`city`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_eraId` ON `shows` (`eraId`)")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `song_performances` (`performanceId` INTEGER PRIMARY KEY " +
+                "AUTOINCREMENT NOT NULL, `showId` TEXT NOT NULL, `songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`setType` TEXT NOT NULL, `trackOrder` INTEGER NOT NULL, `transitionOut` TEXT NOT NULL, " +
+                "`durationMinutes` INTEGER, `notes` TEXT, `isJamHighlight` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`showId`) REFERENCES `shows`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )"
+        )
+        val perfColumns = "performanceId, showId, songId, songName, setType, trackOrder, transitionOut, " +
+            "durationMinutes, notes, isJamHighlight"
+        db.execSQL(
+            "INSERT INTO `song_performances` ($perfColumns) SELECT $perfColumns FROM `song_performances_backup`"
+        )
+        db.execSQL("DROP TABLE `song_performances_backup`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_showId` ON `song_performances` (`showId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songName` ON `song_performances` (`songName`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songId` ON `song_performances` (`songId`)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_song_performances_showId_trackOrder` " +
+                "ON `song_performances` (`showId`, `trackOrder`)"
+        )
+    }
+
+    /**
+     * v5 wrote `setlistJson` first and `song_performances` second, so an interrupted edit could
+     * leave a row with an older transition than the JSON the app displayed. Before the JSON goes,
+     * copy each JSON `transitionOut` onto the matching row (same `trackOrder`) where they differ.
+     * Same length: matched by position. Different length: an order-aware alignment by song that
+     * skips any pairing it would have to guess (see [unambiguousAlignment]), so a
+     * transition is only copied onto a row for the same song.
+     * `performanceId`s are untouched.
+     */
+    private fun reconcileTransitionsFromJson(db: SupportSQLiteDatabase) {
+        val shows = mutableListOf<Pair<String, String>>()
+        db.query(
+            "SELECT id, setlistJson FROM shows WHERE EXISTS " +
+                "(SELECT 1 FROM song_performances sp WHERE sp.showId = shows.id)"
+        ).use { c -> while (c.moveToNext()) shows += c.getString(0) to c.getString(1) }
+        for ((showId, json) in shows) {
+            val array = runCatching { JSONArray(json) }.getOrNull() ?: continue
+            data class Row(val trackOrder: Int, val songKey: String, val transition: String)
+            val rows = mutableListOf<Row>()
+            db.query(
+                "SELECT trackOrder, songName, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
+                arrayOf<Any?>(showId)
+            ).use { c -> while (c.moveToNext()) rows += Row(c.getInt(0), songKey(c.getString(1)), c.getString(2)) }
+            val json = (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map {
+                songKey(it.optString("name")) to it.optString("transitionOut", "").ifBlank { null }
+            }
+            // Pair JSON entries with rows. Same length: by position. Different length (rows and JSON
+            // drifted apart): walk both in order and pair only entries naming the same song, so a
+            // transition is copied only where the song itself is matched.
+            val pairs = mutableListOf<Pair<Row, String?>>()
+            if (rows.size == json.size) {
+                rows.forEachIndexed { i, row -> pairs += row to json[i].second }
+            } else {
+                for ((ji, ri) in unambiguousAlignment(json.map { it.first }, rows.map { it.songKey })) {
+                    pairs += rows[ri] to json[ji].second
+                }
+            }
+            for ((row, jsonTransition) in pairs) {
+                if (jsonTransition != null && jsonTransition != row.transition) {
+                    db.execSQL(
+                        "UPDATE song_performances SET transitionOut = ? WHERE showId = ? AND trackOrder = ?",
+                        arrayOf<Any?>(jsonTransition, showId, row.trackOrder)
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Order-aware pairing of two song-key sequences that never guesses. Uses the longest common
+     * subsequence: (i, j) is a candidate when it lies on some optimal alignment
+     * (prefix LCS + 1 + suffix LCS == total). A pair is kept only if it lies on every optimal
+     * alignment (sole candidate for both indices, crossed by no other candidate), so a repeated
+     * song with more than one plausible partner, or competing alignments, are left alone.
+     */
+    internal fun unambiguousAlignment(a: List<String>, b: List<String>): List<Pair<Int, Int>> {
+        val n = a.size
+        val m = b.size
+        val pre = Array(n + 1) { IntArray(m + 1) }   // LCS of a[0, i) and b[0, j)
+        for (i in 1..n) for (j in 1..m) {
+            pre[i][j] = if (a[i - 1] == b[j - 1]) pre[i - 1][j - 1] + 1 else maxOf(pre[i - 1][j], pre[i][j - 1])
+        }
+        val suf = Array(n + 1) { IntArray(m + 1) }   // LCS of a[i, n) and b[j, m)
+        for (i in n - 1 downTo 0) for (j in m - 1 downTo 0) {
+            suf[i][j] = if (a[i] == b[j]) suf[i + 1][j + 1] + 1 else maxOf(suf[i + 1][j], suf[i][j + 1])
+        }
+        val total = pre[n][m]
+        val candidates = mutableListOf<Pair<Int, Int>>()
+        for (i in 0 until n) for (j in 0 until m) {
+            if (a[i] == b[j] && pre[i][j] + 1 + suf[i + 1][j + 1] == total) candidates += i to j
+        }
+        val perA = candidates.groupingBy { it.first }.eachCount()
+        val perB = candidates.groupingBy { it.second }.eachCount()
+        // Keep a pair only if it is the sole candidate for its JSON index and its row index AND no
+        // other candidate crosses it. Together these mean it lies on EVERY optimal alignment: an
+        // optimal alignment without it would have to reuse its index (another candidate) or cross
+        // it (another candidate), or it could be added, contradicting optimality.
+        return candidates.filter { (i, j) ->
+            perA[i] == 1 && perB[j] == 1 &&
+                candidates.none { (i2, j2) -> (i2 < i && j2 > j) || (i2 > i && j2 < j) }
+        }
+    }
+
+    private fun backfillPerformancesFromJson(db: SupportSQLiteDatabase) {
+        val orphans = mutableListOf<Pair<String, String>>()
+        db.query(
+            "SELECT id, setlistJson FROM shows WHERE NOT EXISTS " +
+                "(SELECT 1 FROM song_performances sp WHERE sp.showId = shows.id)"
+        ).use { c -> while (c.moveToNext()) orphans += c.getString(0) to c.getString(1) }
+        if (orphans.isEmpty()) return
+
+        val aliases = mutableMapOf<String, String>()
+        db.query("SELECT aliasKey, songId FROM song_aliases").use { c ->
+            while (c.moveToNext()) aliases[c.getString(0)] = c.getString(1)
+        }
+        val names = mutableMapOf<String, String>()
+        db.query("SELECT id, canonicalName FROM songs").use { c ->
+            while (c.moveToNext()) names[c.getString(0)] = c.getString(1)
+        }
+        val resolver = SongResolver(aliases, names)
+
+        val rows = mutableListOf<Array<Any?>>()
+        for ((showId, json) in orphans) {
+            val array = runCatching { JSONArray(json) }.getOrNull() ?: continue
+            for (i in 0 until array.length()) {
+                val song = array.optJSONObject(i) ?: continue
+                val rawName = song.optString("name").ifBlank { continue }
+                val resolved = resolver.resolve(rawName)
+                rows += arrayOf(
+                    showId,
+                    resolved.songId,
+                    resolved.canonicalName,
+                    song.optString("setType", "SET_1").ifBlank { "SET_1" },
+                    i,
+                    song.optString("transitionOut", "NONE").ifBlank { "NONE" },
+                    if (song.has("durationMinutes") && !song.isNull("durationMinutes")) song.optInt("durationMinutes") else null,
+                    if (song.has("notes") && !song.isNull("notes")) song.optString("notes") else null,
+                    if (song.optBoolean("isJamHighlight", false)) 1 else 0
+                )
+            }
+        }
+        for ((id, name) in resolver.newSongs) {
+            db.execSQL("INSERT OR IGNORE INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+        }
+        for ((key, id) in resolver.newAliases) {
+            db.execSQL("INSERT OR IGNORE INTO song_aliases (aliasKey, songId) VALUES (?, ?)", arrayOf<Any?>(key, id))
+        }
+        for (row in rows) {
+            db.execSQL(
+                "INSERT INTO song_performances (showId, songId, songName, setType, trackOrder, transitionOut, " +
+                    "durationMinutes, notes, isJamHighlight) VALUES (?,?,?,?,?,?,?,?,?)",
+                row
+            )
+        }
+    }
+}

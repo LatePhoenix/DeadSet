@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
 import com.example.data.local.ShowEntity
+import com.example.data.local.isUpcoming
+import com.example.data.setlist.SegueMatcher
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
 import com.example.data.repository.ShowRepository
@@ -13,6 +15,8 @@ import com.example.data.seed.TriviaGameMode
 import com.example.data.seed.TriviaUserProgress
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class MainTab {
     SHOWS,
@@ -60,6 +64,8 @@ data class UiState(
     val sortOrder: SortOrder = SortOrder.DATE_DESC,
     val selectedSegueFilter: String? = null,
     val shows: List<ShowEntity> = emptyList(),
+    /** Each show's setlist in performance order, keyed by show id (from `song_performances`). */
+    val songsByShow: Map<String, List<SongEntry>> = emptyMap(),
     val filteredShows: List<ShowEntity> = emptyList(),
     val stats: OverallStats? = null,
     val userProfile: UserProfileData = UserProfileData(),
@@ -94,27 +100,54 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch {
-            repository.allShows.collect { allShowsList ->
+            repository.allShowsWithSongs.collect { rows ->
                 val current = _uiState.value
-                val filtered = applyFilters(
-                    shows = allShowsList,
-                    query = current.searchQuery,
-                    era = current.selectedEra,
-                    attendance = current.attendanceFilter,
-                    sort = current.sortOrder,
-                    segueFilter = current.selectedSegueFilter
-                )
-                val stats = repository.computeOverallStats(allShowsList)
-                _uiState.update {
-                    it.copy(
+                // Stats and filtering walk every setlist; keep that off the main thread.
+                val (snapshot, stats) = withContext(Dispatchers.Default) {
+                    val allShowsList = rows.map { it.show }
+                    val songsByShow = rows.associate { it.show.id to it.orderedSongs }
+                    val filtered = applyFilters(
                         shows = allShowsList,
-                        filteredShows = filtered,
+                        query = current.searchQuery,
+                        era = current.selectedEra,
+                        attendance = current.attendanceFilter,
+                        sort = current.sortOrder,
+                        segueFilter = current.selectedSegueFilter,
+                        songsByShow = songsByShow
+                    )
+                    Triple(allShowsList, songsByShow, filtered) to
+                        repository.computeOverallStats(allShowsList) { songsByShow[it.id].orEmpty() }
+                }
+                val (allShowsList, songsByShow, filtered) = snapshot
+                _uiState.update { latest ->
+                    // A filter setter may have run while we were off the main thread; if so, the
+                    // precomputed list is for old filters, so re-filter with the latest ones.
+                    val filtersUnchanged = latest.searchQuery == current.searchQuery &&
+                        latest.selectedEra == current.selectedEra &&
+                        latest.attendanceFilter == current.attendanceFilter &&
+                        latest.sortOrder == current.sortOrder &&
+                        latest.selectedSegueFilter == current.selectedSegueFilter
+                    latest.copy(
+                        shows = allShowsList,
+                        songsByShow = songsByShow,
+                        filteredShows = if (filtersUnchanged) filtered else applyFilters(
+                            shows = allShowsList,
+                            query = latest.searchQuery,
+                            era = latest.selectedEra,
+                            attendance = latest.attendanceFilter,
+                            sort = latest.sortOrder,
+                            segueFilter = latest.selectedSegueFilter,
+                            songsByShow = songsByShow
+                        ),
                         stats = stats
                     )
                 }
             }
         }
     }
+
+    /** A show's setlist in performance order (empty if it has none yet). */
+    fun songsFor(show: ShowEntity): List<SongEntry> = _uiState.value.songsByShow[show.id].orEmpty()
 
     fun setTab(tab: MainTab) {
         _uiState.update { it.copy(currentTab = tab, screenState = ScreenState.Main) }
@@ -278,7 +311,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleSongTransition(show: ShowEntity, songIndex: Int) {
         viewModelScope.launch {
-            repository.toggleSongTransition(show, songIndex)
+            repository.toggleSongTransition(show.id, songIndex)
         }
     }
 
@@ -294,9 +327,9 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun saveCustomShow(show: ShowEntity) {
+    fun saveCustomShow(show: ShowEntity, songs: List<SongEntry>) {
         viewModelScope.launch {
-            repository.saveShow(show)
+            repository.saveShow(show, songs)
             _uiState.update {
                 it.copy(
                     screenState = ScreenState.ShowDetail(show.id),
@@ -413,7 +446,8 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         era: DeadEra,
         attendance: AttendanceFilter,
         sort: SortOrder,
-        segueFilter: String?
+        segueFilter: String?,
+        songsByShow: Map<String, List<SongEntry>> = _uiState.value.songsByShow
     ): List<ShowEntity> {
         val q = query.trim().lowercase()
 
@@ -428,7 +462,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                 show.date.contains(q) ||
                 show.tourName.lowercase().contains(q) ||
                 show.tags.lowercase().contains(q) ||
-                show.setlistJson.lowercase().contains(q) ||
+                songsByShow[show.id].orEmpty().any { it.name.lowercase().contains(q) } ||
                 show.userReview.lowercase().contains(q) ||
                 show.bandName.lowercase().contains(q)
             }
@@ -449,9 +483,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
             val matchesSegue = if (segueFilter.isNullOrBlank()) {
                 true
             } else {
-                val clean = segueFilter.replace("➔", "").replace("->", "").lowercase()
-                val parts = clean.split(" ").filter { it.isNotBlank() }
-                parts.all { part -> show.setlistJson.lowercase().contains(part) }
+                SegueMatcher.matches(songsByShow[show.id].orEmpty(), segueFilter)
             }
 
             matchesQuery && matchesEra && matchesAttendance && matchesSegue

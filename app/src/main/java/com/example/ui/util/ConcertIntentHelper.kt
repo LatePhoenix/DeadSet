@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.CalendarContract
 import android.widget.Toast
 import com.example.data.local.ShowEntity
+import com.example.data.local.isUpcoming
 import java.text.SimpleDateFormat
 import java.util.*
 

@@ -1,6 +1,5 @@
 package com.example.data.seed
 
-import com.example.data.local.Converters
 import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.LegendarySegue
@@ -8,9 +7,44 @@ import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
 
+/** A built-in show and its setlist (setlists are stored separately, in `song_performances`). */
+data class SeedShow(val show: ShowEntity, val songs: List<SongEntry>) {
+    val id: String get() = show.id
+}
+
 object CuratedShows {
 
-    private val converters = Converters()
+    @Suppress("LongParameterList")
+    private fun seed(
+        id: String,
+        date: String,
+        venue: String,
+        city: String,
+        stateOrCountry: String,
+        eraId: String,
+        tourName: String,
+        songs: List<SongEntry>,
+        isAttended: Boolean = false,
+        userRating: Float = 0f,
+        userReview: String = "",
+        attendedWith: String = "",
+        favoriteSong: String = "",
+        archiveIdentifier: String = "",
+        tapeQuality: String = "",
+        tags: String = "",
+        historicTrivia: String = "",
+        bandName: String = "Grateful Dead",
+        venueAddress: String = ""
+    ) = SeedShow(
+        show = ShowEntity(
+            id = id, date = date, venue = venue, city = city, stateOrCountry = stateOrCountry,
+            eraId = eraId, tourName = tourName, isAttended = isAttended, userRating = userRating,
+            userReview = userReview, attendedWith = attendedWith, favoriteSong = favoriteSong,
+            archiveIdentifier = archiveIdentifier, tapeQuality = tapeQuality, tags = tags,
+            historicTrivia = historicTrivia, bandName = bandName, venueAddress = venueAddress
+        ),
+        songs = songs
+    )
 
     private fun song(
         name: String,
@@ -30,10 +64,10 @@ object CuratedShows {
         isJamHighlight = isHighlight
     )
 
-    fun getInitialShows(): List<ShowEntity> {
+    fun getInitialShows(): List<SeedShow> {
         return listOf(
             // 1. CORNELL 5/8/77
-            ShowEntity(
+            seed(
                 id = "1977-05-08-cornell",
                 date = "1977-05-08",
                 venue = "Barton Hall, Cornell University",
@@ -41,7 +75,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.SPRING_77.id,
                 tourName = "Spring Tour 1977",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("New Minglewood Blues", SetType.SET_1, 1, false, 5),
                         song("Loser", SetType.SET_1, 2, false, 8),
@@ -79,7 +113,7 @@ object CuratedShows {
             ),
 
             // 2. VENETA 8/27/72 (Sunshine Daydream)
-            ShowEntity(
+            seed(
                 id = "1972-08-27-veneta",
                 date = "1972-08-27",
                 venue = "Old Renaissance Faire Grounds",
@@ -87,7 +121,7 @@ object CuratedShows {
                 stateOrCountry = "OR",
                 eraId = DeadEra.EARLY_70S.id,
                 tourName = "Springfield Creamery Benefit (Sunshine Daydream)",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("The Promised Land", SetType.SET_1, 1, false, 4),
                         song("Sugaree", SetType.SET_1, 2, false, 8),
@@ -126,7 +160,7 @@ object CuratedShows {
             ),
 
             // 3. FILLMORE WEST 2/27/69 (Live/Dead Core)
-            ShowEntity(
+            seed(
                 id = "1969-02-27-fillmore-west",
                 date = "1969-02-27",
                 venue = "Fillmore West",
@@ -134,7 +168,7 @@ object CuratedShows {
                 stateOrCountry = "CA",
                 eraId = DeadEra.PRIMAL_60S.id,
                 tourName = "Fillmore West 1969 Run",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Good Morning Little Schoolgirl", SetType.SET_1, 1, false, 12),
                         song("Doin' That Rag", SetType.SET_1, 2, false, 7),
@@ -162,7 +196,7 @@ object CuratedShows {
             ),
 
             // 4. HARPUR COLLEGE 5/2/70
-            ShowEntity(
+            seed(
                 id = "1970-05-02-harpur",
                 date = "1970-05-02",
                 venue = "Harpur College, SUNY",
@@ -170,7 +204,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.EARLY_70S.id,
                 tourName = "East Coast Spring 1970",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Don't Ease Me In", SetType.SET_1, 1, false, 4),
                         song("I Know You Rider", SetType.SET_1, 2, false, 5),
@@ -206,7 +240,7 @@ object CuratedShows {
             ),
 
             // 5. FREEDOM HALL 6/18/74 (Wall of Sound)
-            ShowEntity(
+            seed(
                 id = "1974-06-18-louisville",
                 date = "1974-06-18",
                 venue = "Freedom Hall",
@@ -214,7 +248,7 @@ object CuratedShows {
                 stateOrCountry = "KY",
                 eraId = DeadEra.WALL_OF_SOUND.id,
                 tourName = "Summer Tour 1974 (Wall of Sound)",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("The Promised Land", SetType.SET_1, 1, false, 4),
                         song("It Must Have Been the Roses", SetType.SET_1, 2, false, 6),
@@ -251,7 +285,7 @@ object CuratedShows {
             ),
 
             // 6. BUFFALO 5/9/77
-            ShowEntity(
+            seed(
                 id = "1977-05-09-buffalo",
                 date = "1977-05-09",
                 venue = "Buffalo Memorial Auditorium",
@@ -259,7 +293,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.SPRING_77.id,
                 tourName = "Spring Tour 1977",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Help on the Way", SetType.SET_1, 1, true, 4, "Classic tricky tempo changes into Slipknot", true),
                         song("Slipknot!", SetType.SET_1, 2, true, 6, "Dark and winding guitar labyrinth", true),
@@ -298,7 +332,7 @@ object CuratedShows {
             ),
 
             // 7. RACEWAY PARK ENGLISHTOWN 9/3/77
-            ShowEntity(
+            seed(
                 id = "1977-09-03-englishtown",
                 date = "1977-09-03",
                 venue = "Raceway Park",
@@ -306,7 +340,7 @@ object CuratedShows {
                 stateOrCountry = "NJ",
                 eraId = DeadEra.SPRING_77.id,
                 tourName = "Summer 1977 Raceway Festival",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("The Promised Land", SetType.SET_1, 1, false, 4),
                         song("They Love Each Other", SetType.SET_1, 2, false, 7),
@@ -343,7 +377,7 @@ object CuratedShows {
             ),
 
             // 8. RED ROCKS 7/8/78
-            ShowEntity(
+            seed(
                 id = "1978-07-08-red-rocks",
                 date = "1978-07-08",
                 venue = "Red Rocks Amphitheatre",
@@ -351,7 +385,7 @@ object CuratedShows {
                 stateOrCountry = "CO",
                 eraId = DeadEra.SPRING_77.id,
                 tourName = "Summer Tour 1978",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Bertha", SetType.SET_1, 1, true, 7),
                         song("Good Lovin'", SetType.SET_1, 2, false, 6),
@@ -391,7 +425,7 @@ object CuratedShows {
             ),
 
             // 9. FOX THEATRE ATLANTA 11/30/80
-            ShowEntity(
+            seed(
                 id = "1980-11-30-fox-atlanta",
                 date = "1980-11-30",
                 venue = "Fox Theatre",
@@ -399,7 +433,7 @@ object CuratedShows {
                 stateOrCountry = "GA",
                 eraId = DeadEra.BRENT_80S.id,
                 tourName = "Fall Tour 1980",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Feel Like a Stranger", SetType.SET_1, 1, false, 8, "Funky opening groove"),
                         song("Loser", SetType.SET_1, 2, false, 8),
@@ -438,7 +472,7 @@ object CuratedShows {
             ),
 
             // 10. RADIO CITY MUSIC HALL HALLOWEEN 10/31/80 (Matching Today in Dead History!)
-            ShowEntity(
+            seed(
                 id = "1980-10-31-radio-city",
                 date = "1980-10-31",
                 venue = "Radio City Music Hall",
@@ -446,7 +480,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.BRENT_80S.id,
                 tourName = "Radio City 15th Anniversary Halloween Finale",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Deep Elem Blues", SetType.SET_1, 1, false, 5, "Acoustic Set opener"),
                         song("The Monkey and the Engineer", SetType.SET_1, 2, false, 3),
@@ -486,7 +520,7 @@ object CuratedShows {
             ),
 
             // 11. TRUCKIN UP TO BUFFALO 7/4/89
-            ShowEntity(
+            seed(
                 id = "1989-07-04-rich-stadium",
                 date = "1989-07-04",
                 venue = "Rich Stadium",
@@ -494,7 +528,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.BRENT_80S.id,
                 tourName = "Summer Tour 1989 (Truckin' Up to Buffalo)",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Bertha", SetType.SET_1, 1, true, 7),
                         song("Greatest Story Ever Told", SetType.SET_1, 2, false, 5),
@@ -533,7 +567,7 @@ object CuratedShows {
             ),
 
             // 12. HAMPTON 10/9/89 (Formerly The Warlocks)
-            ShowEntity(
+            seed(
                 id = "1989-10-09-hampton",
                 date = "1989-10-09",
                 venue = "Hampton Coliseum",
@@ -541,7 +575,7 @@ object CuratedShows {
                 stateOrCountry = "VA",
                 eraId = DeadEra.BRENT_80S.id,
                 tourName = "Formerly The Warlocks Unannounced Shows",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Feel Like a Stranger", SetType.SET_1, 1, false, 8),
                         song("Built to Last", SetType.SET_1, 2, false, 5),
@@ -579,7 +613,7 @@ object CuratedShows {
             ),
 
             // 13. NASSAU 3/29/90 (with Branford Marsalis)
-            ShowEntity(
+            seed(
                 id = "1990-03-29-nassau",
                 date = "1990-03-29",
                 venue = "Nassau Veterans Memorial Coliseum",
@@ -587,7 +621,7 @@ object CuratedShows {
                 stateOrCountry = "NY",
                 eraId = DeadEra.BRENT_80S.id,
                 tourName = "Spring Tour 1990",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Jack Straw", SetType.SET_1, 1, false, 6),
                         song("Bertha", SetType.SET_1, 2, false, 6),
@@ -622,7 +656,7 @@ object CuratedShows {
             ),
 
             // 14. BOSTON GARDEN 9/25/91 (Bruce Hornsby Era)
-            ShowEntity(
+            seed(
                 id = "1991-09-25-boston",
                 date = "1991-09-25",
                 venue = "Boston Garden",
@@ -630,7 +664,7 @@ object CuratedShows {
                 stateOrCountry = "MA",
                 eraId = DeadEra.HORNSBY_VINCE_90S.id,
                 tourName = "Fall Tour 1991",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Help on the Way", SetType.SET_1, 1, true, 4),
                         song("Slipknot!", SetType.SET_1, 2, true, 7),
@@ -669,7 +703,7 @@ object CuratedShows {
             ),
 
             // 15. SOLDIER FIELD 7/9/95 (The Final Show)
-            ShowEntity(
+            seed(
                 id = "1995-07-09-soldier-field",
                 date = "1995-07-09",
                 venue = "Soldier Field",
@@ -677,7 +711,7 @@ object CuratedShows {
                 stateOrCountry = "IL",
                 eraId = DeadEra.HORNSBY_VINCE_90S.id,
                 tourName = "Summer Tour 1995 (The Final Concert)",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("Touch of Grey", SetType.SET_1, 1, false, 6),
                         song("Little Red Rooster", SetType.SET_1, 2, false, 8),
@@ -713,7 +747,7 @@ object CuratedShows {
             ),
 
             // 18. TERRAPIN FLYER - MARTYRS' CHICAGO (Attended Local Classic)
-            ShowEntity(
+            seed(
                 id = "2024-05-18-terrapin-flyer-martyrs",
                 date = "2024-05-18",
                 venue = "Martyrs'",
@@ -721,7 +755,7 @@ object CuratedShows {
                 stateOrCountry = "IL",
                 eraId = DeadEra.SPRING_77.id,
                 tourName = "Spring 2024 Residency",
-                setlistJson = converters.fromSongList(
+                songs = (
                     listOf(
                         song("The Harder They Come", SetType.SET_1, 1, false, 7),
                         song("Althea", SetType.SET_1, 2, false, 8),
@@ -748,7 +782,6 @@ object CuratedShows {
                 tags = "Terrapin Flyer,Martyrs,Chicago,Attended",
                 historicTrivia = "Martyrs' on Lincoln Ave has been a sanctuary for live roots and jam music in Chicago for decades, and one of Terrapin Flyer's long-running home venues.",
                 bandName = "Terrapin Flyer",
-                isUpcoming = false,
                 venueAddress = "3855 N Lincoln Ave, Chicago, IL 60613"
             )
         )
