@@ -23,13 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through PR #7): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1/A2 cleanup. DB **v10**.
-- A3 on `phase-1b-a3-github-ci`.
+- **`main` is the working line** (through PR #8 / `61b9622`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3. DB **v10**. CI runs unit tests on push/PR.
+- Next branch: cut `phase-2-c1-importer-shared` from `main` for C1.
 
 **Next up (in order):**
-1. Merge A3 → **Phase 2 C1** (unless blocked). A5 needs owner package/app IDs; 4.3 needs Ticketmaster key.
-2. **Phase 2, catalog importer from gdshowsdb** (C1–C7).
-3. **Phase 4 follow-ups D1/D2**, Phase 5, Phase 6.
+1. **C1 / 2.2** `:shared` + `tools:importer` (hand YAML parser; peek one show block first).
+2. C2–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
 
 **Open decisions for the owner**
 - [ ] **A5 package/app IDs.** What should the Kotlin package and `applicationId` be (e.g. `app.deadset` / `app.deadset.android`)? Don't change them until the owner answers: changing the app ID orphans existing installs.
@@ -230,9 +229,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
-### 2026-11-21 · Cursor (A3 CI)
-- A1 (PR #6) and A2 (PR #7) merged. A3 adds `.github/workflows/ci.yml` (JDK 17, Gradle cache, keytool debug.keystore, testDebugUnitTest, 3-day artifacts).
-- **Next:** merge A3, then C1 importer/`shared` module. Blocked on owner: A5 IDs, 4.3 keys.
+### 2026-11-21 · Cursor (A1–A3 done; pause before C1)
+- Merged PR #5 (`4604ad0` + CR fixes `f2812e0`), A1 PR #6 (`d9a971a`), A2 PR #7, A3 PR #8 (`06ebe67`/`d0547b8`, CI green).
+- **Decisions made for owner review:** deferred CR heavy lifts (multi-band events, refresh race, cross-source IDs, graph a11y); Bandsintown skipped when unset; exact invented-review fingerprint.
+- Local branch `phase-2-c1-importer-shared` was cut but not started. **Next agent:** implement C1 from `main`. Ask owner for A5 IDs / 4.3 keys when needed.
+- Remote prune of old stacked phase-* branches still needs owner OK (sandbox blocked bulk delete).
 
 ### 2026-11-21 · Cursor (A2 AI Studio cleanup)
 - PR #5 merged (`4604ad0`). A1 merged as PR #6 (`e8ef86c` / `d9a971a`). A2 on `phase-1b-a2-ai-studio-cleanup`: removed tracked `.aistudio/` + `public/` + `metadata.json`, gitignored them. README already present.
