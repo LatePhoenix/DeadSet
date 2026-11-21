@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
+import com.example.data.local.UserPrefsStore
 import com.example.data.local.ShowEntity
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
@@ -12,7 +13,6 @@ import com.example.data.seed.TriviaGameMode
 import com.example.data.seed.TriviaUserProgress
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 enum class MainTab {
     SHOWS,
@@ -71,8 +71,21 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     private val database = AppDatabase.getInstance(application)
     val repository = ShowRepository(database.showDao())
+    private val userPrefs = UserPrefsStore(application)
 
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(
+        UiState(
+            triviaProgress = userPrefs.loadTriviaProgress(),
+            userProfile = userPrefs.loadProfile()?.let {
+                UserProfileData(
+                    handle = it.handle,
+                    homeCity = it.homeCity,
+                    favoriteJam = it.favoriteJam,
+                    favoriteEraTitle = it.favoriteEraTitle
+                )
+            } ?: UserProfileData()
+        )
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
@@ -218,8 +231,21 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** Clears the segue filter without changing the current tab. */
     fun clearSegueFilter() {
-        filterByLegendarySegue("")
+        _uiState.update { current ->
+            current.copy(
+                selectedSegueFilter = null,
+                filteredShows = applyFilters(
+                    current.shows,
+                    current.searchQuery,
+                    current.selectedEra,
+                    current.attendanceFilter,
+                    current.sortOrder,
+                    null
+                )
+            )
+        }
     }
 
     fun toggleAttendance(show: ShowEntity) {
@@ -292,6 +318,14 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateUserProfile(profile: UserProfileData) {
+        userPrefs.saveProfile(
+            UserPrefsStore.StoredProfile(
+                handle = profile.handle,
+                homeCity = profile.homeCity,
+                favoriteJam = profile.favoriteJam,
+                favoriteEraTitle = profile.favoriteEraTitle
+            )
+        )
         _uiState.update {
             it.copy(
                 userProfile = profile,
@@ -314,8 +348,11 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
             val newTotalPoints = prev.totalPoints + pointsEarned
             val newBestStreak = maxOf(prev.bestStreak, maxStreakInRound)
             val newQuizzesCompleted = prev.quizzesCompleted + 1
-            val todayDayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-            val newDailyDay = if (mode == TriviaGameMode.DAILY_DEADHEAD) todayDayOfYear else prev.dailyCompletedDayOfYear
+            val newDailyDate = if (mode == TriviaGameMode.DAILY_DEADHEAD) {
+                com.example.data.todayIsoDate()
+            } else {
+                prev.dailyCompletedDate
+            }
 
             val newBadges = prev.unlockedBadgeIds.toMutableSet()
             if (answeredCount > 0) {
@@ -346,7 +383,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                 bestStreak = newBestStreak,
                 totalPoints = newTotalPoints,
                 quizzesCompleted = newQuizzesCompleted,
-                dailyCompletedDayOfYear = newDailyDay,
+                dailyCompletedDate = newDailyDate,
                 unlockedBadgeIds = newBadges
             )
 
@@ -362,6 +399,8 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                 userFeedbackMessage = feedback
             )
         }
+        // Persist outside update{}, whose lambda may re-run under contention.
+        userPrefs.saveTriviaProgress(_uiState.value.triviaProgress)
     }
 
     fun clearFeedbackMessage() {

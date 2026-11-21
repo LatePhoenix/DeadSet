@@ -51,9 +51,9 @@ fun LiveConcertsScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedBandFilter by remember { mutableStateOf(TributeBandFilter.ALL) }
-    var midwestOnly by remember { mutableStateOf(true) } // Default to Midwest dates so users immediately see Midwest DSO, JRAD & Terrapin Flyer shows
+    var midwestOnly by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(false) }
-    var allEvents by remember { mutableStateOf(apiClient.getCuratedUpcomingTourSchedule()) }
+    var allEvents by remember { mutableStateOf(emptyList<com.example.data.remote.LiveConcertEvent>()) }
     var showApiInfoDialog by remember { mutableStateOf(false) }
 
     val filteredEvents = remember(allEvents, searchQuery, selectedBandFilter, midwestOnly) {
@@ -82,9 +82,7 @@ fun LiveConcertsScreen(
                 bandFilter = selectedBandFilter,
                 midwestOnly = false // Fetch all and filter reactively in UI
             )
-            if (results.isNotEmpty()) {
-                allEvents = results
-            }
+            allEvents = results
             isLoading = false
         }
     }
@@ -481,14 +479,21 @@ fun LiveConcertsScreen(
                             StealieEmblem(size = 56.dp)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "No matching live dates found",
+                                text = when {
+                                    isLoading -> "Searching for live dates…"
+                                    allEvents.isEmpty() -> "No live dates returned"
+                                    else -> "No matching live dates found"
+                                },
                                 color = TextPrimaryDark,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Try toggling off 'Midwest Dates Only' or clearing your band search filter.",
+                                text = if (allEvents.isEmpty() && !isLoading)
+                                    "Dates come only from Bandsintown and Ticketmaster. Check your connection, or add a Ticketmaster API key / registered Bandsintown app ID (see the ⓘ info dialog)."
+                                else
+                                    "Try toggling off 'Midwest Dates Only' or clearing your band search filter.",
                                 color = TextSecondaryDark,
                                 fontSize = 12.sp
                             )

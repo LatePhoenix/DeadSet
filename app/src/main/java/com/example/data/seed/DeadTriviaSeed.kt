@@ -101,7 +101,7 @@ data class TriviaUserProgress(
     val bestStreak: Int = 0,
     val totalPoints: Int = 0,
     val quizzesCompleted: Int = 0,
-    val dailyCompletedDayOfYear: Int = -1,
+    val dailyCompletedDate: String = "", // ISO date (yyyy-MM-dd) of the last completed Daily Five
     val unlockedBadgeIds: Set<String> = emptySet()
 ) {
     val accuracyPercent: Int

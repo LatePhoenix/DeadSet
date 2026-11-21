@@ -56,15 +56,38 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `curated shows include Terrapin Flyer tribute band concerts with venue addresses`() {
+    fun `curated shows include a Terrapin Flyer show and no invented future-dated shows`() {
         val shows = CuratedShows.getInitialShows()
         val terrapinShows = shows.filter { it.bandName == "Terrapin Flyer" }
         assertTrue("Terrapin Flyer shows should be present", terrapinShows.isNotEmpty())
+        assertTrue(terrapinShows.all { it.venueAddress.isNotBlank() && it.city == "Chicago" })
 
-        val upcomingShow = terrapinShows.firstOrNull { it.isUpcoming }
-        assertNotNull("Upcoming Terrapin Flyer concert should exist", upcomingShow)
-        assertTrue("Venue address should be populated for navigation", upcomingShow?.venueAddress?.isNotBlank() == true)
-        assertEquals("Chicago", upcomingShow?.city)
+        val today = com.example.data.todayIsoDate()
+        assertTrue("Seed data must not contain upcoming shows", shows.none { it.isUpcoming })
+        assertTrue("Seed data must not contain future dates", shows.all { it.date <= today })
+        assertTrue(shows.none { it.id in CuratedShows.retiredSeedShowIds })
+    }
+
+    @Test
+    fun `seeding removes retired placeholder shows unless the user attended them`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = AppDatabase.createInMemoryDatabase(context)
+        val dao = db.showDao()
+        val repository = ShowRepository(dao)
+        // Simulate an existing install: seeded catalog plus the old placeholder rows.
+        repository.checkAndSeedDatabase()
+        val template = CuratedShows.getInitialShows().first()
+        val (untouchedId, attendedId) = CuratedShows.retiredSeedShowIds
+        // Retired seeds shipped with filler review text but no attendance.
+        dao.insertShow(template.copy(id = untouchedId, isAttended = false, attendedWith = "", userReview = "Upcoming show!"))
+        dao.insertShow(template.copy(id = attendedId, isAttended = true))
+
+        repository.checkAndSeedDatabase()
+
+        val ids = dao.getAllShows().first().map { it.id }
+        assertTrue(untouchedId !in ids)
+        assertTrue(attendedId in ids)
+        db.close()
     }
 
     @Test
@@ -137,19 +160,36 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `spotify api client resolves grateful dead setlist tracks to playable spotify uris`() = runBlocking {
-        val spotifyClient = com.example.data.remote.SpotifyApiClient()
-        val track = spotifyClient.resolveTrackForSetlistSong(
-            songName = "Scarlet Begonias",
-            showDate = "1977-05-08",
-            tourName = "Spring Tour 1977",
-            bandName = "Grateful Dead"
+    fun `trivia progress and profile survive a new store instance`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val progress = com.example.data.seed.TriviaUserProgress(
+            totalAnswered = 12, totalCorrect = 9, bestStreak = 5, totalPoints = 1800,
+            quizzesCompleted = 2, dailyCompletedDate = "2026-11-21",
+            unlockedBadgeIds = setOf("first_miracle", "daily_stealie")
         )
-        assertEquals("Scarlet Begonias", track.title)
-        assertEquals("Grateful Dead", track.artistName)
-        assertTrue("Spotify URI should start with spotify:track:", track.spotifyUri.startsWith("spotify:track:"))
-        assertTrue("Web URL should point to open.spotify.com/track/", track.webUrl.startsWith("https://open.spotify.com/track/"))
-        assertTrue("Duration should be positive", track.durationMs > 0L)
+        val profile = com.example.data.local.UserPrefsStore.StoredProfile(
+            "Terrapin Fan", "Chicago, IL", "Scarlet ➔ Fire", "Spring '77"
+        )
+        com.example.data.local.UserPrefsStore(context).apply {
+            assertEquals(null, loadProfile())
+            saveTriviaProgress(progress)
+            saveProfile(profile)
+        }
+
+        val reloaded = com.example.data.local.UserPrefsStore(context)
+        assertEquals(progress, reloaded.loadTriviaProgress())
+        assertEquals(profile, reloaded.loadProfile())
+    }
+
+    @Test
+    fun `archive org link searches the GratefulDead collection by show date`() {
+        val url = com.example.ui.util.ConcertIntentHelper.archiveOrgRecordingsUrl("1977-05-08")
+        assertEquals("https://archive.org/details/GratefulDead?query=1977-05-08", url)
+
+        val cornell = CuratedShows.getInitialShows().first { it.id == "1977-05-08-cornell" }
+        assertTrue(com.example.ui.util.ConcertIntentHelper.hasArchiveRecordings(cornell))
+        val tribute = cornell.copy(bandName = "Terrapin Flyer")
+        assertEquals(false, com.example.ui.util.ConcertIntentHelper.hasArchiveRecordings(tribute))
     }
 
     @Test
@@ -211,10 +251,22 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `live concert search filters upcoming Midwest dates for Dark Star Orchestra, JRAD, and Terrapin Flyer with ticket URLs`() {
+    fun `live concert filter narrows events by band and Midwest region`() {
         val apiClient = com.example.data.remote.LiveConcertApiClient()
-        val allSchedule = apiClient.getCuratedUpcomingTourSchedule()
-        assertTrue("Tour schedule should not be empty", allSchedule.isNotEmpty())
+        // Test fixtures only — the app no longer ships any hard-coded schedule.
+        fun event(id: String, band: String, city: String, state: String) =
+            com.example.data.remote.LiveConcertEvent(
+                id = id, bandName = band, eventTitle = "$band in $city", date = "2099-01-0${id.last()}",
+                displayDate = "", venueName = "Test Venue", city = city, stateCode = state,
+                venueAddress = "", ticketUrl = "https://example.test/$id"
+            )
+        val allSchedule = listOf(
+            event("e1", "Dark Star Orchestra", "Chicago", "IL"),
+            event("e2", "Dark Star Orchestra", "Denver", "CO"),
+            event("e3", "Joe Russo's Almost Dead", "Milwaukee", "WI"),
+            event("e4", "Terrapin Flyer", "Chicago", "IL"),
+            event("e5", "Terrapin Flyer", "Asheville", "NC")
+        )
 
         // Verify Midwest filter for Dark Star Orchestra
         val dsoMidwest = apiClient.filterConcertEvents(

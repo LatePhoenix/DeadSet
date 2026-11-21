@@ -711,93 +711,6 @@ object CuratedShows {
                 historicTrivia = "The 2,318th and final Grateful Dead concert. Jerry Garcia's impassioned performance on 'So Many Roads' became his live musical epitaph."
             ),
 
-            // 16. TERRAPIN FLYER - THALIA HALL CHICAGO (Upcoming Tour Date)
-            ShowEntity(
-                id = "2026-11-20-terrapin-flyer-thalia",
-                date = "2026-11-20",
-                venue = "Thalia Hall",
-                city = "Chicago",
-                stateOrCountry = "IL",
-                eraId = DeadEra.SPRING_77.id,
-                tourName = "Fall 2026 Midwest Tour (feat. Melvin Seals)",
-                setlistJson = converters.fromSongList(
-                    listOf(
-                        song("Feel Like a Stranger", SetType.SET_1, 1, false, 8, "Funky opening groove"),
-                        song("Sugaree", SetType.SET_1, 2, false, 11, "Melvin Seals B3 organ flourishes", true),
-                        song("Cats Under the Stars", SetType.SET_1, 3, false, 8, "JGB classic fan favorite"),
-                        song("Me and My Uncle", SetType.SET_1, 4, true, 4),
-                        song("Big River", SetType.SET_1, 5, false, 6),
-                        song("They Love Each Other", SetType.SET_1, 6, false, 7),
-                        song("Tangled Up in Blue", SetType.SET_1, 7, false, 9, "Bob Dylan cover with thunderous bass"),
-
-                        song("Scarlet Begonias", SetType.SET_2, 1, true, 11, "Seamless transition into Fire", true),
-                        song("Fire on the Mountain", SetType.SET_2, 2, false, 15, "Searing guitar and Hammond organ interplay", true),
-                        song("Help on the Way", SetType.SET_2, 3, true, 4),
-                        song("Slipknot!", SetType.SET_2, 4, true, 7),
-                        song("Franklin's Tower", SetType.SET_2, 5, false, 12, "Joyous crowd dance party", true),
-                        song("That's What Love Will Make You Do", SetType.SET_2, 6, false, 8),
-                        song("The Wheel", SetType.SET_2, 7, true, 6),
-                        song("Midnight Moonlight", SetType.SET_2, 8, false, 7, "Peter Rowan bluegrass rocker"),
-
-                        song("Ripple", SetType.ENCORE, 1, false, 5, "Acoustic singalong finale")
-                    )
-                ),
-                isAttended = false,
-                userRating = 5f,
-                userReview = "Upcoming show! Terrapin Flyer returning to Thalia Hall in Pilsen. Don't miss Melvin Seals on the B3 organ.",
-                attendedWith = "",
-                favoriteSong = "Cats Under the Stars",
-                archiveIdentifier = "",
-                tapeQuality = "Live Soundboard & Audience Matrix",
-                tags = "Terrapin Flyer,Melvin Seals,Thalia Hall,Chicago,Upcoming",
-                historicTrivia = "Chicago's beloved Grateful Dead tribute band, frequently collaborating with former Dead & JGB members. Known for delivering electrifying, soulful dual-lead guitar sets.",
-                bandName = "Terrapin Flyer",
-                isUpcoming = true,
-                venueAddress = "1807 S Allport St, Chicago, IL 60608"
-            ),
-
-            // 17. TERRAPIN FLYER - THE VIC THEATRE CHICAGO (Upcoming NYE Show)
-            ShowEntity(
-                id = "2026-12-31-terrapin-flyer-vic",
-                date = "2026-12-31",
-                venue = "The Vic Theatre",
-                city = "Chicago",
-                stateOrCountry = "IL",
-                eraId = DeadEra.BRENT_80S.id,
-                tourName = "New Year's Eve Extravaganza 2026",
-                setlistJson = converters.fromSongList(
-                    listOf(
-                        song("Bertha", SetType.SET_1, 1, false, 7),
-                        song("China Cat Sunflower", SetType.SET_1, 2, true, 6, "Signature melodic guitar bridge", true),
-                        song("I Know You Rider", SetType.SET_1, 3, false, 6),
-                        song("How Sweet It Is (To Be Loved by You)", SetType.SET_1, 4, false, 7),
-                        song("Jack Straw", SetType.SET_1, 5, false, 6),
-                        song("Deal", SetType.SET_1, 6, false, 8, "Blistering set 1 closer", true),
-
-                        song("Shakedown Street", SetType.SET_2, 1, true, 13, "Midnight countdown into Rubin & Cherise", true),
-                        song("Rubin and Cherise", SetType.SET_2, 2, false, 9, "Jerry Garcia Band epic"),
-                        song("Eyes of the World", SetType.SET_2, 3, true, 14, "Soaring upbeat tempo into Terrapin", true),
-                        song("Terrapin Station", SetType.SET_2, 4, true, 15, "Complete Terrapin suite with full band crescendo", true),
-                        song("Morning Dew", SetType.SET_2, 5, false, 12, "Emotional climax"),
-
-                        song("Brokedown Palace", SetType.ENCORE, 1, false, 6),
-                        song("One More Saturday Night", SetType.ENCORE, 2, false, 5)
-                    )
-                ),
-                isAttended = false,
-                userRating = 5f,
-                userReview = "Annual New Year's Eve show in Lakeview! Midnight balloon drop and three sets of Dead and JGB.",
-                attendedWith = "",
-                favoriteSong = "Terrapin Station",
-                archiveIdentifier = "",
-                tapeQuality = "Live Multi-Track SBD",
-                tags = "Terrapin Flyer,NYE 2026,The Vic,Chicago,Upcoming",
-                historicTrivia = "The Vic Theatre's historic five-story vaudeville stage provides an acoustic paradise for Terrapin Flyer's annual New Year's Eve bash.",
-                bandName = "Terrapin Flyer",
-                isUpcoming = true,
-                venueAddress = "3145 N Sheffield Ave, Chicago, IL 60657"
-            ),
-
             // 18. TERRAPIN FLYER - MARTYRS' CHICAGO (Attended Local Classic)
             ShowEntity(
                 id = "2024-05-18-terrapin-flyer-martyrs",
@@ -839,6 +752,15 @@ object CuratedShows {
             )
         )
     }
+
+    /**
+     * Seed shows that earlier builds shipped but were placeholder data (future-dated tribute
+     * shows with invented setlists). Removed from existing installs unless the user touched them.
+     */
+    val retiredSeedShowIds = listOf(
+        "2026-11-20-terrapin-flyer-thalia",
+        "2026-12-31-terrapin-flyer-vic"
+    )
 
     val legendaryTransitions = listOf(
         LegendarySegue(

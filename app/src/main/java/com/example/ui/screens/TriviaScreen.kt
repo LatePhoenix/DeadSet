@@ -41,7 +41,6 @@ import com.example.ui.components.DancingBear
 import com.example.ui.components.StealieEmblem
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
-import java.util.Calendar
 
 private enum class TriviaStage {
     HUB,
@@ -382,10 +381,8 @@ private fun TriviaHubContent(
     val vaultGeneratedCount = remember(allAvailableQuestions) {
         allAvailableQuestions.count { it.isVaultGenerated }
     }
-    val todayDayOfYear = remember {
-        Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-    }
-    val isDailyCompletedToday = triviaProgress.dailyCompletedDayOfYear == todayDayOfYear
+    val today = remember { com.example.data.todayIsoDate() }
+    val isDailyCompletedToday = triviaProgress.dailyCompletedDate == today
 
     LazyColumn(
         contentPadding = PaddingValues(

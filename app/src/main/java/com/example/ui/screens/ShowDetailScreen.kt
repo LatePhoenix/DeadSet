@@ -29,16 +29,12 @@ import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
-import com.example.data.remote.SpotifyApiClient
 import com.example.ui.util.ConcertIntentHelper
 import com.example.ui.components.BerthaRose
 import com.example.ui.components.CassetteTapeJCard
 import com.example.ui.components.EraBadge
 import com.example.ui.components.RatingStars
 import com.example.ui.components.SegueIndicatorPill
-import com.example.ui.components.SetlistSpotifyPlayButton
-import com.example.ui.components.SpotifyBrandGreen
-import com.example.ui.components.SpotifySetlistPlayerCard
 import com.example.ui.components.StealieEmblem
 import com.example.ui.components.TerrapinTurtleBadge
 import com.example.ui.theme.*
@@ -67,11 +63,6 @@ fun ShowDetailScreen(
     var attendedWithText by remember(show.id) { mutableStateOf(show.attendedWith) }
     var favoriteSongText by remember(show.id) { mutableStateOf(show.favoriteSong) }
     var reviewSavedConfirmation by remember { mutableStateOf(false) }
-
-    // Spotify Setlist Playback State
-    val spotifyClient = remember { SpotifyApiClient() }
-    var activeSpotifySongIndex by remember(show.id) { mutableStateOf<Int?>(null) }
-    var isSpotifyPlaying by remember(show.id) { mutableStateOf(false) }
 
     val quickTags = listOf(
         "🔥 Scorcher",
@@ -426,93 +417,56 @@ fun ShowDetailScreen(
                 }
             }
 
-            // Setlist Header, Spotify Setlist Launcher & Transition Tip
+            // Setlist Header, Archive.org Listen Link & Transition Tip
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            Text(
-                                text = "Setlist & Segues",
-                                color = TextPrimaryDark,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Tap Spotify to play tracks or ➔ to tag transitions",
-                                color = StealieCrimsonLight,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        if (songs.isNotEmpty()) {
-                            Surface(
-                                color = SpotifyBrandGreen.copy(alpha = 0.16f),
-                                shape = RoundedCornerShape(10.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, SpotifyBrandGreen),
-                                modifier = Modifier
-                                    .clickable {
-                                        if (activeSpotifySongIndex == null) {
-                                            activeSpotifySongIndex = 0
-                                            isSpotifyPlaying = true
-                                        } else {
-                                            isSpotifyPlaying = !isSpotifyPlaying
-                                        }
-                                    }
-                                    .testTag("play_full_setlist_spotify_button")
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (activeSpotifySongIndex != null && isSpotifyPlaying)
-                                            Icons.Filled.Pause
-                                        else
-                                            Icons.Filled.PlayArrow,
-                                        contentDescription = null,
-                                        tint = SpotifyBrandGreen,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (activeSpotifySongIndex != null && isSpotifyPlaying)
-                                            "Pause Setlist"
-                                        else
-                                            "Play Setlist",
-                                        color = SpotifyBrandGreen,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
-                                }
-                            }
-                        }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Setlist & Segues",
+                            color = TextPrimaryDark,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Tap ➔ to tag transitions",
+                            color = StealieCrimsonLight,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
-                    val currentPlayIdx = activeSpotifySongIndex
-                    if (currentPlayIdx != null && currentPlayIdx in songs.indices) {
-                        SpotifySetlistPlayerCard(
-                            showDate = show.date,
-                            tourName = show.tourName,
-                            bandName = show.bandName,
-                            songs = songs,
-                            currentSongIndex = currentPlayIdx,
-                            isPlaying = isSpotifyPlaying,
-                            spotifyClient = spotifyClient,
-                            onTogglePlayPause = { isSpotifyPlaying = !isSpotifyPlaying },
-                            onSelectSongIndex = { newIdx ->
-                                activeSpotifySongIndex = newIdx
-                                isSpotifyPlaying = true
-                            },
-                            onClosePlayer = {
-                                isSpotifyPlaying = false
-                                activeSpotifySongIndex = null
+                    if (ConcertIntentHelper.hasArchiveRecordings(show)) {
+                        Surface(
+                            color = StealieCyan.copy(alpha = 0.14f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, StealieCyan.copy(alpha = 0.7f)),
+                            modifier = Modifier
+                                .clickable { ConcertIntentHelper.openArchiveRecordings(context, show) }
+                                .testTag("listen_archive_org_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Headphones,
+                                    contentDescription = null,
+                                    tint = StealieCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Listen on Archive.org",
+                                    color = StealieCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -622,21 +576,6 @@ fun ShowDetailScreen(
                                             fontSize = 11.sp
                                         )
                                     }
-
-                                    // Direct Spotify Track Play Button
-                                    SetlistSpotifyPlayButton(
-                                        isCurrentSong = activeSpotifySongIndex == globalIndex,
-                                        isPlaying = isSpotifyPlaying,
-                                        onClick = {
-                                            if (activeSpotifySongIndex == globalIndex) {
-                                                isSpotifyPlaying = !isSpotifyPlaying
-                                            } else {
-                                                activeSpotifySongIndex = globalIndex
-                                                isSpotifyPlaying = true
-                                            }
-                                        },
-                                        modifier = Modifier.testTag("spotify_play_button_$globalIndex")
-                                    )
 
                                     // Toggleable Segue Pill
                                     SegueIndicatorPill(

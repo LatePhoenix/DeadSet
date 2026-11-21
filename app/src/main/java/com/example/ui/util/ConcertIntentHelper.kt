@@ -12,6 +12,29 @@ import java.util.*
 object ConcertIntentHelper {
 
     /**
+     * Archive.org search URL for every recording of a Grateful Dead show date in the
+     * Live Music Archive's GratefulDead collection. Searching by date avoids depending on
+     * a specific (and possibly stale) item identifier.
+     */
+    fun archiveOrgRecordingsUrl(showDate: String): String =
+        "https://archive.org/details/GratefulDead?query=" +
+            java.net.URLEncoder.encode(showDate, "UTF-8")
+
+    /** True when it makes sense to offer an Archive.org link for this show. */
+    fun hasArchiveRecordings(show: ShowEntity): Boolean =
+        !show.isUpcoming && show.bandName.equals("Grateful Dead", ignoreCase = true)
+
+    fun openArchiveRecordings(context: Context, show: ShowEntity) {
+        try {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(archiveOrgRecordingsUrl(show.date)))
+            )
+        } catch (e: Exception) {
+            Toast.makeText(context, "No browser available to open Archive.org", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
      * Opens the show venue location in Google Maps or the user's default navigation app.
      */
     fun openVenueInMaps(context: Context, show: ShowEntity) {

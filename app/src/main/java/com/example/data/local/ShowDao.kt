@@ -58,6 +58,9 @@ interface ShowDao {
     @Query("SELECT DISTINCT venue FROM shows ORDER BY venue ASC")
     fun getDistinctVenues(): Flow<List<String>>
 
+    @Query("SELECT * FROM shows")
+    suspend fun getAllShowsOnce(): List<ShowEntity>
+
     @Query("SELECT COUNT(*) FROM shows")
     suspend fun getShowsCount(): Int
 
@@ -84,6 +87,13 @@ interface ShowDao {
 
     @Delete
     suspend fun deleteShow(show: ShowEntity)
+
+    /**
+     * Removes retired seed rows the user never claimed (not attended, nobody logged as
+     * attendedWith). userReview isn't checked because the retired seeds shipped with filler text.
+     */
+    @Query("DELETE FROM shows WHERE id IN (:ids) AND isAttended = 0 AND attendedWith = '' AND isCustomShow = 0")
+    suspend fun deleteUntouchedSeedShows(ids: List<String>)
 
     @Query("UPDATE shows SET isAttended = :isAttended WHERE id = :id")
     suspend fun updateAttendance(id: String, isAttended: Boolean)

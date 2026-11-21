@@ -52,27 +52,30 @@ class ShowRepository(private val showDao: ShowDao) {
         showDao.getShowsPerformingSong(songName)
 
     suspend fun checkAndSeedDatabase() = withContext(Dispatchers.IO) {
-        val count = showDao.getShowsCount()
-        val curatedShows = CuratedShows.getInitialShows()
-        if (count == 0) {
-            showDao.insertShows(curatedShows)
-            for (show in curatedShows) {
-                syncSongPerformancesForShow(show.id, parseSongs(show))
-            }
-        } else {
-            val perfCount = showDao.getSongPerformancesCount()
-            if (perfCount == 0) {
-                for (show in curatedShows) {
-                    syncSongPerformancesForShow(show.id, parseSongs(show))
-                }
-            }
+        showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
+        if (showDao.getShowsCount() == 0) {
+            showDao.insertShows(CuratedShows.getInitialShows())
+            rebuildSongPerformancesFromStoredShows()
+        } else if (showDao.getSongPerformancesCount() == 0) {
+            // Repair: performance rows are missing. Rebuild them from the shows actually stored
+            // (including custom shows), never from seed data — that would hit the foreign key for
+            // absent shows and overwrite the user's segue edits.
+            rebuildSongPerformancesFromStoredShows()
         }
     }
 
+    /**
+     * Re-adds any curated shows that are missing. Existing rows (and the user's edits to them)
+     * are kept because insertShows() ignores conflicts.
+     */
     suspend fun restoreCuratedOfflineCatalog() = withContext(Dispatchers.IO) {
-        val curatedShows = CuratedShows.getInitialShows()
-        showDao.insertShows(curatedShows)
-        for (show in curatedShows) {
+        showDao.insertShows(CuratedShows.getInitialShows())
+        rebuildSongPerformancesFromStoredShows()
+    }
+
+    /** Re-derives song_performances from each stored show's setlistJson (the user's version). */
+    private suspend fun rebuildSongPerformancesFromStoredShows() {
+        for (show in showDao.getAllShowsOnce()) {
             syncSongPerformancesForShow(show.id, parseSongs(show))
         }
     }
