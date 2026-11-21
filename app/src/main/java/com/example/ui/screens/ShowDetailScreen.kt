@@ -52,6 +52,8 @@ fun ShowDetailScreen(
     onSaveReviewAndNotes: (showId: String, review: String, rating: Float, attendedWith: String, favoriteSong: String) -> Unit,
     onEditShow: ((String) -> Unit)? = null,
     onDeleteShow: ((ShowEntity) -> Unit)? = null,
+    /** Shown near the top for shows that haven't happened yet (live tracker, step 4.9). */
+    liveTracker: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -354,6 +356,10 @@ fun ShowDetailScreen(
                         }
                     }
                 }
+            }
+
+            if (liveTracker != null) {
+                item { liveTracker() }
             }
 
             // Historic Trivia Card

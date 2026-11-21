@@ -22,6 +22,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.*
 import com.example.ui.screens.*
 import com.example.ui.theme.*
+import com.example.ui.components.LiveTrackerCard
+import com.example.data.local.isUpcoming
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -246,7 +248,20 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 onToggleSongTransition = viewModel::toggleSongTransition,
                                 onSaveReviewAndNotes = viewModel::saveReviewAndNotes,
                                 onEditShow = viewModel::openEditShow,
-                                onDeleteShow = viewModel::deleteShow
+                                onDeleteShow = viewModel::deleteShow,
+                                liveTracker = if (show.isUpcoming) {
+                                    {
+                                        val names by viewModel.songNames.collectAsStateWithLifecycle()
+                                        LaunchedEffect(Unit) { viewModel.loadSongNames() }
+                                        LiveTrackerCard(
+                                            showId = show.id,
+                                            lastSong = songs.lastOrNull()?.name,
+                                            predictionsFor = { last, set -> viewModel.predictNext(show.id, last, set) },
+                                            allSongNames = names,
+                                            onAddSong = { name, set -> viewModel.appendSongToShow(show.id, name, set) }
+                                        )
+                                    }
+                                } else null
                             )
                         } else {
                             Box(
@@ -265,7 +280,9 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         AddEditShowScreen(
                             existingShow = existing,
                             existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
-                            bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }.map { it.name },
+                            bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
+                                .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
+                                .map { it.name },
                             onBack = { viewModel.navigateBack() },
                             onSave = viewModel::saveCustomShow
                         )

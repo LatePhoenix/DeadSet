@@ -116,6 +116,22 @@ class SeedingTest {
     }
 
     @Test
+    fun `live tracker appends songs at the end of their set`() = runBlocking {
+        repository.ensureSongCatalog() // as at app startup, so aliases resolve
+        val show = TestSeeds.shows.first().copy(id = "live-show", isCustomShow = true)
+        repository.saveShow(show, emptyList())
+        repository.appendSong(show.id, "Bertha", SetType.SET_1)
+        repository.appendSong(show.id, "Ripple", SetType.ENCORE)
+        repository.appendSong(show.id, "Scarlet", SetType.SET_2) // alias -> canonical
+        repository.appendSong(show.id, "Deal", SetType.SET_1)
+        assertEquals(
+            listOf("Bertha", "Deal", "Scarlet Begonias", "Ripple"),
+            repository.getSetlist(show.id).map { it.name }
+        )
+        assertEquals(listOf(1, 2, 1, 1), repository.getSetlist(show.id).map { it.position })
+    }
+
+    @Test
     fun `every stored performance links to an existing song`() = runBlocking {
         repository.checkAndSeedDatabase()
         val songIds = db.songDao().getAllSongs().map { it.id }.toSet()

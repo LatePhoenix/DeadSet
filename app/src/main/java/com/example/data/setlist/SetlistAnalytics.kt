@@ -234,3 +234,44 @@ fun SetlistAnalytics.transitionGraph(
         .sortedWith(compareByDescending<GraphEdge> { it.count }.thenBy { it.label })
     return TransitionGraph(nodes.map { display.getValue(it) }, edges)
 }
+
+/**
+ * Most likely next songs for the live tracker (step 4.9): what followed [lastSong] (same set,
+ * any transition) across the catalog, most often first. With no last song, the usual openers of
+ * [setType]. Songs already in [alreadyPlayed] are skipped, since repeats within a show are rare.
+ */
+fun SetlistAnalytics.predictNext(
+    lastSong: String?,
+    setType: com.example.data.model.SetType,
+    shows: List<ShowEntity>,
+    songsFor: (ShowEntity) -> List<SongEntry>,
+    alreadyPlayed: Collection<String> = emptyList(),
+    limit: Int = 3
+): List<String> {
+    val played = alreadyPlayed.map(::canonicalKey).toSet()
+    val counts = mutableMapOf<String, Int>()
+    val display = mutableMapOf<String, String>()
+    fun count(name: String) {
+        val key = canonicalKey(name)
+        if (key in played) return
+        counts[key] = (counts[key] ?: 0) + 1
+        display.putIfAbsent(key, name)
+    }
+    val target = lastSong?.let(::canonicalKey)
+    for (show in shows) {
+        val songs = songsFor(show)
+        if (target == null) {
+            songs.firstOrNull { it.setType == setType }?.let { count(it.name) }
+        } else {
+            for (i in 0 until songs.size - 1) {
+                if (canonicalKey(songs[i].name) == target && songs[i + 1].setType == songs[i].setType) {
+                    count(songs[i + 1].name)
+                }
+            }
+        }
+    }
+    return counts.entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .take(limit)
+        .map { display.getValue(it.key) }
+}

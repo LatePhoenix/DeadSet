@@ -120,6 +120,18 @@ class SetlistAnalyticsTest {
     }
 
     @Test
+    fun `predictor ranks what followed the last song and skips songs already played`() {
+        // Fire on the Mountain is followed by Estimated (a), Drums (b), Drums (c).
+        assertEquals(listOf("Drums", "Estimated Prophet"),
+            SetlistAnalytics.predictNext("Fire on the Mountain", SetType.SET_2, shows, songsFor))
+        assertEquals(listOf("Estimated Prophet"),
+            SetlistAnalytics.predictNext("Fire on the Mountain", SetType.SET_2, shows, songsFor, alreadyPlayed = listOf("Drums")))
+        // With nothing played yet, the set's usual openers.
+        assertEquals(listOf("Scarlet Begonias"), SetlistAnalytics.predictNext(null, SetType.SET_2, shows, songsFor))
+        assertTrue(SetlistAnalytics.predictNext(null, SetType.ENCORE, shows, songsFor).isEmpty())
+    }
+
+    @Test
     fun `seed catalog contains the families its curated notes rely on`() {
         val stats = SetlistAnalytics.familyStats(TestSeeds.shows, TestSeeds::songsFor).associateBy { it.family.id }
         assertTrue(stats.getValue("scarlet-fire").occurrences > 0)

@@ -172,6 +172,17 @@ class ShowRepository(
         }
     }
 
+    /**
+     * Live tracker (step 4.9): adds a just-played song at the end of [setType], before any later
+     * set already logged (e.g. an Encore entered early stays last).
+     */
+    suspend fun appendSong(showId: String, name: String, setType: SetType) = withContext(Dispatchers.IO) {
+        val songs = getSetlist(showId).toMutableList()
+        val insertAt = songs.indexOfFirst { it.setType.ordinal > setType.ordinal }.let { if (it < 0) songs.size else it }
+        songs.add(insertAt, SongEntry(name = name.trim(), setType = setType))
+        writeSetlist(showId, songs, loadSongResolver())
+    }
+
     /** A show's setlist in performance order. */
     suspend fun getSetlist(showId: String): List<SongEntry> = withContext(Dispatchers.IO) {
         ShowWithSongs.orderSongs(showDao.getSongsForShowOnce(showId))

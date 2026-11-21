@@ -158,7 +158,9 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **Bug fixed:** the "Live Songs Seen" tile used `topSongsAttended.size`, which is capped at 15; it now counts distinct songs heard (80 on the seed data).
   - **Bug found on device and fixed:** "+" used to add any typed text as a new song (e.g. "Mississippi Half"). It's now enabled only for a known title (aliases included); otherwise you pick a suggestion or tap an explicit "Add 'X' as a new song" chip.
 - [ ] **4.8 DSO recreation link.** Match a tribute setlist to the original GD date and show them side by side.
-- [ ] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
+- [x] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
+  _As built (branch `phase-4-tribute-c`):_ a "Track it live" card on Show Detail for shows that haven't happened yet (`ui/components/LiveTrackerCard.kt`). Pick the set; it suggests the 3 likeliest next songs from what followed the last song (same set, any transition) across the catalog, or the set's usual openers when empty (`SetlistAnalytics.predictNext`). Tap a guess or type any song (same known-title/explicit-new rule as the chase list). `ShowRepository.appendSong` inserts at the end of the chosen set. A "Predicted N of M" score is kept for the session. Uses all adjacency, not only connected transitions, because "what's next" includes stops.
+  - **Bugs fixed while testing on the emulator:** (1) the Setlists header's **Add Show button was squeezed to zero width** on phones, so you couldn't add a show unless the list was empty. The title column now takes `weight(1f)` and the button is a compact icon button. (2) An **upcoming show couldn't be saved without a setlist**; now only past shows require one. (3) Terrapin Flyer is listed first among the editor's band chips.
 
 ## Phase 5: Almanac (trivia + articles)
 

@@ -13,6 +13,7 @@ import com.example.data.local.isUpcoming
 import com.example.data.setlist.FamilyStat
 import com.example.data.setlist.SegueMatcher
 import com.example.data.setlist.SetlistAnalytics
+import com.example.data.setlist.predictNext
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
 import com.example.data.repository.ShowRepository
@@ -140,6 +141,23 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun removeChaseSong(songId: String) = viewModelScope.launch { chaseDao.remove(songId) }
+
+    /** Live tracker (step 4.9): log a just-played song. */
+    fun appendSongToShow(showId: String, name: String, setType: SetType) {
+        viewModelScope.launch {
+            repository.appendSong(showId, name, setType)
+            loadSongNames()
+        }
+    }
+
+    /** Best guesses for the next song, from the whole catalog (step 4.9). */
+    fun predictNext(showId: String, lastSong: String?, setType: SetType): List<String> {
+        val state = _uiState.value
+        return SetlistAnalytics.predictNext(
+            lastSong, setType, state.shows, { state.songsByShow[it.id].orEmpty() },
+            alreadyPlayed = state.songsByShow[showId].orEmpty().map { it.name }
+        )
+    }
 
     // --- Tickets tab (Phase 4): followed bands + cached upcoming dates ---
     private val concertRepository = ConcertRepository(database.concertDao())

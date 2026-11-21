@@ -554,8 +554,9 @@ fun AddEditShowScreen(
                             errorMessage = "Please enter a venue name."
                             return@Button
                         }
-                        if (songList.isEmpty()) {
-                            errorMessage = "Please add at least one song to the setlist."
+                        // A past show needs its setlist; an upcoming one can be logged now and filled in live.
+                        if (songList.isEmpty() && dateText.trim() < com.example.data.todayIsoDate()) {
+                            errorMessage = "Please add at least one song to the setlist (only upcoming shows can be saved without one)."
                             return@Button
                         }
 

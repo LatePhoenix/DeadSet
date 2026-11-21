@@ -207,7 +207,7 @@ fun ShowsListScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         StealieEmblem(size = 38.dp)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -240,7 +240,9 @@ fun ShowsListScreen(
                                     text = "Offline Room Vault • ${allCatalogShows.size} Shows • $totalIndexedSongs Songs",
                                     color = StealieCyan,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -252,27 +254,17 @@ fun ShowsListScreen(
                     ) {
                         StealieQuickThemeToggleButton()
 
-                        FilledTonalButton(
+                        // Compact so it always fits next to the title on phone widths (it used
+                        // to be squeezed to zero width, leaving no way to add a show).
+                        FilledTonalIconButton(
                             onClick = onAddShowClick,
-                            colors = ButtonDefaults.filledTonalButtonColors(
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = StealieGold.copy(alpha = 0.15f),
                                 contentColor = StealieGold
                             ),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.testTag("add_show_button")
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = "Add Show",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Add Show",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Icon(imageVector = Icons.Filled.Add, contentDescription = "Add Show")
                         }
                     }
                 }
