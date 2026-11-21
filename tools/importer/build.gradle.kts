@@ -18,6 +18,8 @@ application {
 
 dependencies {
   implementation(project(":shared"))
+  implementation(libs.sqlite.jdbc)
+  implementation(libs.org.json)
   testImplementation(libs.junit)
 }
 

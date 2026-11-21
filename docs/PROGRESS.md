@@ -23,15 +23,17 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through C3 / PR #11): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3**. DB **v10**. Importer: `--fetch`, `--normalize`; cache gitignored; provenance committed.
-- Next branch: cut `phase-2-c5-user-show-data` from `main` for C5 (user columns → `user_show_data`, then `catalog.db`).
+- **`main` is the working line** (through C5): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5**. DB **v11** (`user_show_data` + `shows_with_user` view). Importer: `--fetch`, `--normalize`, `--build-catalog`.
+- Next: **C6** catalog tests + DAO segue query (then C7).
 
 **Next up (in order):**
-1. **C5 / 2.3** Split user columns out of `shows` (migration 10→11 + MigrationTest), then build `catalog.db` from Room schema + gdshowsdb cache.
-2. C6–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
-3. **C4** Relisten cross-check remains optional — deferred until after C5 ships (not blocking).
+1. **C6** Show-count / Cornell setlist / no-future-date tests against built DB; DAO next-song segue query.
+2. **C7** About / credits; then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
+- [x] **Catalog asset in git.** _Decided (agent):_ `catalog.db` (~10MB) is **gitignored**; regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. Room `createFromAsset` is used when the file is present.
+- [x] **Catalog merge on upgrade.** _Decided (agent):_ fresh installs use `createFromAsset`; existing installs keep `user_show_data` via migrations. Future catalog refresh = upsert catalog tables by PK, never touch `user_show_data`.
 - [x] **C4 timing.** _Decided (agent):_ defer optional Relisten `--crosscheck` until after C5 catalog.db; network-heavy and not required to ship the corpus.
 - [x] **Importer set-type heuristic (C1).** _Decided (agent, reversible):_ 1–2 sets → `SET_1`/`SET_2`; 3+ sets → last is `ENCORE`, earlier `SET_1`…`SET_3` (capped). gdshowsdb has no set labels. Revisit when C5 maps into Room if real encores are mislabeled.
 - [ ] **A5 package/app IDs.** What should the Kotlin package and `applicationId` be (e.g. `app.deadset` / `app.deadset.android`)? Don't change them until the owner answers: changing the app ID orphans existing installs.
@@ -147,7 +149,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **C2 Fetch + cache.** (`6756615`) `GdshowsFetcher` (`--fetch` / `--force`) downloads 31 year YAMLs + `song_refs.yaml` into gitignored `tools/importer/cache/`, pins tip SHA via GitHub API, writes committed `tools/importer/provenance.json`. Verified full parse: **2358 shows / 39774 songs / 16577 segued / 282 empty** (matches plan figures). Parser follow-up: same-day keys `YYYY/MM/DD/N:`.
 - [x] **C3 Normalize.** (`76ac69a`) `--normalize` parses the cache through `SongResolver`, writes gitignored `out/unmatched.csv` (count, song_key, sample_name). Corpus run: 14746 catalog-matched / 25028 unmatched performances / **399** distinct keys outside the seed-sized `SongCatalog` (expected; C5 will insert corpus songs — aliases still hand-added, never auto-guessed).
 - [ ] **C4 Cross-check (optional `--crosscheck` flag).** _Deferred until after C5._ Free Relisten API (no key; ~2,000 calls; cache every response; one request at a time with a delay; honest User-Agent). Compare dates/venues/segues, write `out/discrepancies.csv`, and **mark disagreeing shows uncertain** (a flag column) rather than picking a winner. Archive.org's GratefulDead collection is a second free option; its item identifiers can power a per-show "Listen" link (today's link searches by date).
-- [ ] **C5 / 2.3 Build `app/src/main/assets/catalog.db`.** Create tables from the Room exported schema JSON for the current version, so `createFromAsset` passes Room's validation (same identity hash; set `user_version`; include `room_master_table`). Populate songs, song_aliases, shows, song_performances (set, position, transitionOut). **Move user data (attended, rating, review, companions, favorite) out of `shows` into a separate user table first** (its own migration + test), so a catalog refresh can never wipe it. Decide how a newer bundled catalog merges into an existing install (likely: upsert catalog rows by id, never touch user tables).
+- [x] **C5 / 2.3 Build `catalog.db` + user-table split.** DB **v11**: `ShowCatalogEntity` / `user_show_data` / `shows_with_user` view; MIGRATION_10_11 + MigrationTest. UI still reads `ShowEntity` (view). `--build-catalog` builds Room-valid SQLite from `schemas/.../11.json` + cache (2358 shows / 438 songs / 39774 perfs; empty `user_show_data`). Asset gitignored (~10MB); `createFromAsset` when present. Merge policy: upsert catalog by id, never touch user tables.
 - [ ] **C6 Tests.** Show count ≈2,358 (allow a small range); no future dates; 1977-05-08 setlist matches exactly; add the DAO next-song segue query (B1) and test it against the built DB.
 - [ ] **C7 About / credits screen.** gdshowsdb (MIT, with license text), Deadlists, plus Relisten / Archive.org if used.
 - [ ] **2.4 Perf check.** Shows, Stats, Segues and the transition map stay smooth with ~2,400 shows (stats already run off the main thread; consider SQL aggregates if needed). Re-enable the 3.3 Drums/Space set-structure split once real data is in.
@@ -230,6 +232,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (C5 user_show_data + catalog builder)
+- Branch `phase-2-c5-user-show-data`: DB v11 — user fields → `user_show_data`; `shows_with_user` view keeps UI `ShowEntity`. MigrationTest 10→11. Importer `--build-catalog` → local `app/src/main/assets/catalog.db` (gitignored).
+- **Decisions:** catalog.db not committed (~10MB); createFromAsset optional; catalog upsert never touches user table.
+- **Next:** C6 tests + DAO segue query; then C7 credits. C4 still deferred.
 
 ### 2026-11-21 · Cursor (C1–C3 merged; pause before C5)
 - Merged PR #9 C1 (`d7d1543`), #10 C2 (`6756615`), #11 C3 (`76ac69a` + CSV formula fix `465ee0b`). CodeRabbit findings on #11 fixed; rate-limited on #9/#10 (skipped, CI green).

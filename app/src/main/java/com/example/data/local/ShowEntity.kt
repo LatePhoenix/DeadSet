@@ -1,27 +1,35 @@
 package com.example.data.local
 
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
+import androidx.room.DatabaseView
 import com.example.data.todayIsoDate
 
 /**
- * Room Entity storing historical Grateful Dead and tribute concerts for offline browsing.
- * Indexed by [date], [venue], [city], and [eraId] for instantaneous local SQLite queries.
+ * Read model: catalog [shows] LEFT JOIN [user_show_data].
  *
- * The setlist lives only in `song_performances` (see [ShowWithSongs]); there is no copy here.
+ * Writers must not @Insert/@Update this view — use [ShowDao.insertShow] / [ShowDao.updateShow],
+ * which split into [ShowCatalogEntity] + [UserShowDataEntity].
+ *
+ * View SQL must stay identical to [SHOW_WITH_USER_VIEW_CREATE_SQL] (used by MIGRATION_10_11).
  */
-@Entity(
-    tableName = "shows",
-    indices = [
-        Index(value = ["date"]),
-        Index(value = ["venue"]),
-        Index(value = ["city"]),
-        Index(value = ["eraId"])
-    ]
+@DatabaseView(
+    viewName = "shows_with_user",
+    value = """
+        SELECT s.id AS id, s.date AS date, s.venue AS venue, s.city AS city,
+            s.stateOrCountry AS stateOrCountry, s.eraId AS eraId, s.tourName AS tourName,
+            COALESCE(u.isAttended, 0) AS isAttended,
+            COALESCE(u.userRating, 0) AS userRating,
+            COALESCE(u.userReview, '') AS userReview,
+            COALESCE(u.attendedWith, '') AS attendedWith,
+            COALESCE(u.favoriteSong, '') AS favoriteSong,
+            s.archiveIdentifier AS archiveIdentifier, s.tapeQuality AS tapeQuality,
+            s.isCustomShow AS isCustomShow, s.tags AS tags, s.historicTrivia AS historicTrivia,
+            s.bandName AS bandName, s.venueAddress AS venueAddress,
+            s.recreatesShowId AS recreatesShowId, s.lastUpdatedTimestamp AS lastUpdatedTimestamp
+        FROM shows AS s
+        LEFT JOIN user_show_data AS u ON u.showId = s.id
+    """
 )
 data class ShowEntity(
-    @PrimaryKey
     val id: String,
     val date: String,
     val venue: String,
@@ -31,17 +39,16 @@ data class ShowEntity(
     val tourName: String,
     val isAttended: Boolean = false,
     val userRating: Float = 0f,
-    val userReview: String = "",       // User's personal thoughts, memories, or review of the performance
-    val attendedWith: String = "",     // Who you were with
-    val favoriteSong: String = "",     // Your personal favorite jam from this show
-    val archiveIdentifier: String = "",// Archive.org SBD/Matrix tape reference
-    val tapeQuality: String = "",      // e.g. "Betty Board Matrix"
+    val userReview: String = "",
+    val attendedWith: String = "",
+    val favoriteSong: String = "",
+    val archiveIdentifier: String = "",
+    val tapeQuality: String = "",
     val isCustomShow: Boolean = false,
     val tags: String = "",
-    val historicTrivia: String = "",   // Notable historical lore & trivia for Today in Dead History
-    val bandName: String = "Grateful Dead", // "Grateful Dead", "Terrapin Flyer", etc.
-    val venueAddress: String = "",     // Optional specific street address for Google Maps navigation
-    /** For a tribute show: id of the Grateful Dead show it recreates (step 4.8), if linked. */
+    val historicTrivia: String = "",
+    val bandName: String = "Grateful Dead",
+    val venueAddress: String = "",
     val recreatesShowId: String? = null,
     val lastUpdatedTimestamp: Long = System.currentTimeMillis()
 )
