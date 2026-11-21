@@ -23,12 +23,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- `main` has Phases 0–1 (DB v6), merged through PR #4 (`04da9bb`).
-- **Branch `phase-5-seed-reset` is the working line.** It has everything else: Phases 3, 4 (except 4.3), steps 5.1 and 5.7, and the seed reset. DB is **v10**, `main` is merged into it (`aae31a4`), and **97/97 tests pass**. All the earlier stacked branches (`phase-3-transitions-*`, `phase-4-tribute-*`, `phase-5-almanac-a`) are ancestors of it and need no separate PRs. **Next action: PR [#5](https://github.com/LatePhoenix/DeadSet/pull/5) (`phase-5-seed-reset` → `main`) is open**; let CodeRabbit review it, fix findings, merge. Then delete the old stacked branches.
-- After that, work in the order of the **Next up** list below.
+- **`main` is the working line** (PR #5 merged as `4604ad0`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset. DB **v10**. CodeRabbit findings on #5 fixed in `f2812e0` before merge.
+- Working on **`phase-1b-a1-trim-deps`** (A1). Old stacked phase branches can be deleted on the remote when convenient (local cleanup pending owner OK for remote deletes).
 
-**Next up (in order), after the working-line PR merges:**
-1. **Part A, cleanup & safety** (section "Phase 1b" below): A1 trim deps → A2 delete AI Studio leftovers + README → A3 GitHub Actions CI. A5 (package rename) needs the owner's IDs first.
+**Next up (in order):**
+1. **Part A, cleanup & safety:** A1 (in progress) → A2 delete AI Studio leftovers + README polish → A3 GitHub Actions CI. A5 (package rename) needs the owner's IDs first.
 2. **Phase 2, catalog importer from gdshowsdb** (C1–C7). This unblocks most of the remaining plan.
 3. **Phase 4 follow-ups D1/D2** (key proxy, R8 + drop Retrofit/Moshi), Phase 5, Phase 6.
 
@@ -129,7 +128,7 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 
 Do these after the working-line PR merges, one per PR (or batch A1–A3).
 
-- [ ] **A1 Trim unused dependencies.** Firebase AI and App Check are already commented out (5.7). Also remove `logging-interceptor` (no `HttpLoggingInterceptor` reference in `app/src/main`), and drop the Firebase BoM + `google-services` plugin if no Firebase library remains (nothing uses Firebase; AI Studio no longer builds this project). Confirm with `git grep`, then `testDebugUnitTest` + `assembleDebug`.
+- [x] **A1 Trim unused dependencies.** ($hash) Removed unused `logging-interceptor`, Firebase BoM, all Firebase library catalog entries, and the `google-services` plugin. Confirmed no `HttpLoggingInterceptor` / Firebase references in `app/src`. `.env.example` uses `YOUR_BANDSINTOWN_APP_ID` sentinel (empty BuildConfig values break javac). `testDebugUnitTest` + `assembleDebug` green.
 - [ ] **A2 Remove AI Studio leftovers + README.** Delete tracked `.aistudio/` (~1.5 MB temp media) and `public/` (~0.6 MB web scaffolding) and `metadata.json`; add them and `.idea/` to `.gitignore`. Write `README.md`: what the app is, how to build (JDK path, keystore), data sources + credits, env vars (`TICKETMASTER_API_KEY`, `BANDSINTOWN_APP_ID`).
 - [ ] **A3 GitHub Actions CI.** `.github/workflows/ci.yml`: on push + PR, `concurrency` with cancel-in-progress, JDK 17+, cache Gradle, **generate `debug.keystore` with `keytool` in a step** (never commit one, never edit `signingConfigs`), run `testDebugUnitTest`. Add a release-shrink check later with D2 (`:app:minifyReleaseWithR8`; `assembleRelease` needs a signing secret).
 - [x] **A4 Demo seed data.** Done on the working line: all 16 seeds ship unattended with no invented review/rating/companions/favorite; existing installs are cleaned only where data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`).
@@ -213,7 +212,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
-  _Decision:_ removed (commented out, per the build file's AI Studio convention) `firebase-ai` and both App Check libraries; no code used them. The Firebase BoM and google-services plugin stay so AI Studio builds keep working. Re-enable if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2). App launches cleanly on the emulator.
+  _Decision:_ removed (commented out in 5.7, then fully dropped in A1) `firebase-ai`, App Check, Firebase BoM and google-services. No code used them. Re-add only if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2).
 
 ## Phase 6: Polish & architecture
 
@@ -230,6 +229,12 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (PR #5 merged; A1 started)
+- Merged PR #5 → `main` (`4604ad0`) after CodeRabbit review + `f2812e0` fixes. Deferred heavy lifts noted on the PR.
+- **A1** on `phase-1b-a1-trim-deps`: dropped logging-interceptor, Firebase BoM/libs, google-services. Tests + assembleDebug pass.
+- Remote delete of old stacked phase branches was blocked by sandbox; owner can prune when ready.
+- **Next:** finish A1 PR → A2 → A3.
 
 ### 2026-11-21 · Cursor (PR #5 CodeRabbit fixes)
 - Addressed clear CodeRabbit findings on PR #5 (`phase-5-coderabbit-fixes`): exact invented-review fingerprint, setlist/review mutexes, chase card when attendance empty, live-tracker set-scoped predictions + SET_3, same-set analytics, chain distractor exclusions, tonight-reminder only when notify posts, home-city stale-lookup guard, ISO date validation, followed-band alert query, Bandsintown skipped when unset (no placeholder), MigrationTest 6→10 seeded cases, README/AGENTS docs.
