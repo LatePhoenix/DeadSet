@@ -264,7 +264,8 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
      * v5 wrote `setlistJson` first and `song_performances` second, so an interrupted edit could
      * leave a row with an older transition than the JSON the app displayed. Before the JSON goes,
      * copy each JSON `transitionOut` onto the matching row (same `trackOrder`) where they differ.
-     * Only done when JSON and rows have the same length, so a mismatch can't misalign songs.
+     * Same length: matched by position. Different length: matched in order by song, so a
+     * transition is only copied onto a row for the same song.
      * `performanceId`s are untouched.
      */
     private fun reconcileTransitionsFromJson(db: SupportSQLiteDatabase) {
@@ -275,19 +276,34 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         ).use { c -> while (c.moveToNext()) shows += c.getString(0) to c.getString(1) }
         for ((showId, json) in shows) {
             val array = runCatching { JSONArray(json) }.getOrNull() ?: continue
-            val rows = mutableListOf<Pair<Int, String>>() // trackOrder to transitionOut
+            data class Row(val trackOrder: Int, val songKey: String, val transition: String)
+            val rows = mutableListOf<Row>()
             db.query(
-                "SELECT trackOrder, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
+                "SELECT trackOrder, songName, transitionOut FROM song_performances WHERE showId = ? ORDER BY trackOrder",
                 arrayOf<Any?>(showId)
-            ).use { c -> while (c.moveToNext()) rows += c.getInt(0) to c.getString(1) }
-            if (rows.size != array.length()) continue
-            rows.forEachIndexed { i, (trackOrder, rowTransition) ->
-                val jsonTransition = array.optJSONObject(i)?.optString("transitionOut", "")?.ifBlank { null }
-                    ?: return@forEachIndexed
-                if (jsonTransition != rowTransition) {
+            ).use { c -> while (c.moveToNext()) rows += Row(c.getInt(0), songKey(c.getString(1)), c.getString(2)) }
+            val json = (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map {
+                songKey(it.optString("name")) to it.optString("transitionOut", "").ifBlank { null }
+            }
+            // Pair JSON entries with rows. Same length: by position. Different length (rows and JSON
+            // drifted apart): walk both in order and pair only entries naming the same song, so a
+            // transition is copied only where the song itself is matched.
+            val pairs = mutableListOf<Pair<Row, String?>>()
+            if (rows.size == json.size) {
+                rows.forEachIndexed { i, row -> pairs += row to json[i].second }
+            } else {
+                var r = 0
+                for ((key, transition) in json) {
+                    val match = (r until rows.size).firstOrNull { rows[it].songKey == key } ?: continue
+                    pairs += rows[match] to transition
+                    r = match + 1
+                }
+            }
+            for ((row, jsonTransition) in pairs) {
+                if (jsonTransition != null && jsonTransition != row.transition) {
                     db.execSQL(
                         "UPDATE song_performances SET transitionOut = ? WHERE showId = ? AND trackOrder = ?",
-                        arrayOf<Any?>(jsonTransition, showId, trackOrder)
+                        arrayOf<Any?>(jsonTransition, showId, row.trackOrder)
                     )
                 }
             }

@@ -383,6 +383,42 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `5 to 6 keeps a JSON-only segue edit even when JSON and rows have different lengths`() {
+        helper.createDatabase(dbName, 5).apply {
+            for ((id, name) in listOf("bertha" to "Bertha", "scarlet begonias" to "Scarlet Begonias",
+                "fire on the mountain" to "Fire on the Mountain")) {
+                execSQL("INSERT INTO songs (id, canonicalName) VALUES (?, ?)", arrayOf<Any?>(id, name))
+            }
+            // JSON (what v5 displayed) has an extra song first; rows drifted and are stale.
+            insertV5Show(
+                this, "drifted",
+                """[{"name":"Bertha","transitionOut":"SEGUE"},{"name":"Scarlet Begonias","transitionOut":"SEGUE"},""" +
+                    """{"name":"Fire on the Mountain","transitionOut":"NONE"}]""",
+                attended = true
+            )
+            execSQL(
+                "INSERT INTO song_performances (performanceId, showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "(41, 'drifted', 'scarlet begonias', 'Scarlet Begonias', 'SET_2', 0, 'NONE', NULL, NULL, 0), " +
+                    "(42, 'drifted', 'fire on the mountain', 'Fire on the Mountain', 'SET_2', 1, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT performanceId, songName, transitionOut FROM song_performances WHERE showId = 'drifted' ORDER BY trackOrder").use { c ->
+            val got = buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getString(1), c.getString(2))) }
+            // Scarlet's edit is kept on Scarlet's row; Bertha's SEGUE is not copied onto another song.
+            assertEquals(
+                listOf(Triple(41L, "Scarlet Begonias", "SEGUE"), Triple(42L, "Fire on the Mountain", "NONE")),
+                got
+            )
+        }
+        db.close()
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,
