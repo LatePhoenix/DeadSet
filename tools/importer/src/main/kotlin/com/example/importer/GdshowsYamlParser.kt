@@ -27,7 +27,10 @@ object GdshowsYamlParser {
             }
             val dateMatch = SHOW_DATE.matchEntire(line)
                 ?: throw GdshowsParseException("line ${i + 1}: expected show date key, got: ${line.take(80)}")
-            val (y, m, d) = dateMatch.destructured
+            val y = dateMatch.groupValues[1]
+            val m = dateMatch.groupValues[2]
+            val d = dateMatch.groupValues[3]
+            // Optional /N suffix when multiple shows share a calendar date (e.g. 1966/03/03/0).
             val dateIso = "%s-%s-%s".format(y, m, d)
             val (show, next) = parseShow(lines, i + 1, dateIso)
             shows += show
@@ -223,5 +226,6 @@ object GdshowsYamlParser {
         }
     }
 
-    private val SHOW_DATE = Regex("""^(\d{4})/(\d{2})/(\d{2}):\s*$""")
+    /** `YYYY/MM/DD:` or `YYYY/MM/DD/N:` for same-day multi-show bills. */
+    private val SHOW_DATE = Regex("""^(\d{4})/(\d{2})/(\d{2})(?:/\d+)?:\s*$""")
 }

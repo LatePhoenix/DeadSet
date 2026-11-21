@@ -40,6 +40,32 @@ class GdshowsYamlParserTest {
     }
 
     @Test
+    fun `parses same-day multi-show date suffix`() {
+        val yaml = """
+            1966/03/03/0:
+              :uuid: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+              :venue: First Show
+              :city: X
+              :state: CA
+              :country: US
+              :sets:
+            1966/03/03/1:
+              :uuid: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+              :venue: Second Show
+              :city: X
+              :state: CA
+              :country: US
+              :sets:
+        """.trimIndent() + "\n"
+        val shows = GdshowsYamlParser.parseYearFile(yaml)
+        assertEquals(2, shows.size)
+        assertEquals("1966-03-03", shows[0].dateIso)
+        assertEquals("1966-03-03", shows[1].dateIso)
+        assertEquals("First Show", shows[0].venue)
+        assertEquals("Second Show", shows[1].venue)
+    }
+
+    @Test
     fun `skips YAML document markers`() {
         val shows = GdshowsYamlParser.parseYearFile("---\n$CORNELL_FIXTURE...\n")
         assertEquals(1, shows.size)
