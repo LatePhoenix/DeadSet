@@ -111,6 +111,9 @@ interface ShowDao {
     @Query("DELETE FROM shows WHERE id IN (:ids) AND isAttended = 0 AND attendedWith = '' AND isCustomShow = 0")
     suspend fun deleteUntouchedSeedShows(ids: List<String>)
 
+    @Query("UPDATE shows SET recreatesShowId = :originalId WHERE id = :id")
+    suspend fun setRecreation(id: String, originalId: String?)
+
     @Query("UPDATE shows SET isAttended = :isAttended WHERE id = :id")
     suspend fun updateAttendance(id: String, isAttended: Boolean)
 

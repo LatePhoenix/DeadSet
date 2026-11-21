@@ -142,6 +142,11 @@ class ShowRepository(
         showDao.deleteShow(show)
     }
 
+    /** Links a tribute show to the Grateful Dead show it recreates, or unlinks with null (4.8). */
+    suspend fun setRecreation(showId: String, originalId: String?) = withContext(Dispatchers.IO) {
+        showDao.setRecreation(showId, originalId)
+    }
+
     suspend fun toggleAttendance(id: String, isAttended: Boolean) = withContext(Dispatchers.IO) {
         showDao.updateAttendance(id, isAttended)
     }

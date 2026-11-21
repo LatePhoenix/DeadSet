@@ -361,3 +361,10 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         )
     }
 }
+
+/** 9 → 10: `shows.recreatesShowId` links a tribute show to the GD show it replays (step 4.8). */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `shows` ADD COLUMN `recreatesShowId` TEXT")
+    }
+}

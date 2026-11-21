@@ -262,6 +262,28 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                             onAddSong = { name, set -> viewModel.appendSongToShow(show.id, name, set) }
                                         )
                                     }
+                                } else null,
+                                recreation = if (!show.bandName.equals("Grateful Dead", ignoreCase = true)) {
+                                    {
+                                        val original = show.recreatesShowId?.let { id -> uiState.shows.firstOrNull { it.id == id } }
+                                        val suggestion = remember(show.id, songs, uiState.shows) {
+                                            if (original != null) null
+                                            else com.example.data.setlist.RecreationMatcher.bestMatch(
+                                                tribute = songs,
+                                                candidates = uiState.shows,
+                                                songsFor = { uiState.songsByShow[it.id].orEmpty() }
+                                            )
+                                        }
+                                        com.example.ui.components.RecreationCard(
+                                            tributeSongs = songs,
+                                            original = original,
+                                            originalSongs = original?.let { uiState.songsByShow[it.id] }.orEmpty(),
+                                            suggestion = suggestion,
+                                            onLink = { viewModel.setRecreation(show.id, it) },
+                                            onUnlink = { viewModel.setRecreation(show.id, null) },
+                                            onOpenShow = viewModel::openShowDetail
+                                        )
+                                    }
                                 } else null
                             )
                         } else {

@@ -150,6 +150,11 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** Links (or with null, unlinks) a tribute show to the GD show it recreates (step 4.8). */
+    fun setRecreation(showId: String, originalId: String?) {
+        viewModelScope.launch { repository.setRecreation(showId, originalId) }
+    }
+
     /** Best guesses for the next song, from the whole catalog (step 4.9). */
     fun predictNext(showId: String, lastSong: String?, setType: SetType): List<String> {
         val state = _uiState.value

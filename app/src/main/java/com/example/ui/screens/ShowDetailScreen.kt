@@ -54,6 +54,8 @@ fun ShowDetailScreen(
     onDeleteShow: ((ShowEntity) -> Unit)? = null,
     /** Shown near the top for shows that haven't happened yet (live tracker, step 4.9). */
     liveTracker: (@Composable () -> Unit)? = null,
+    /** Tribute show ↔ the GD show it recreates (step 4.8). */
+    recreation: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -360,6 +362,9 @@ fun ShowDetailScreen(
 
             if (liveTracker != null) {
                 item { liveTracker() }
+            }
+            if (recreation != null) {
+                item { recreation() }
             }
 
             // Historic Trivia Card
