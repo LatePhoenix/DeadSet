@@ -73,10 +73,19 @@ object GdshowsNormalizer {
             append("count,song_key,sample_name\n")
             for (row in unmatched) {
                 append(row.count).append(',')
-                append(csvEscape(row.songKey)).append(',')
-                append(csvEscape(row.rawName)).append('\n')
+                append(csvEscape(neutralizeCsvFormula(row.songKey))).append(',')
+                append(csvEscape(neutralizeCsvFormula(row.rawName))).append('\n')
             }
         })
+    }
+
+    /** Prefix a leading apostrophe so spreadsheet apps won't treat =/+/-/@ as formulas. */
+    internal fun neutralizeCsvFormula(value: String): String {
+        if (value.isEmpty()) return value
+        return when (value[0]) {
+            '=', '+', '-', '@' -> "'$value"
+            else -> value
+        }
     }
 
     private fun csvEscape(value: String): String =

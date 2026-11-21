@@ -51,4 +51,18 @@ class GdshowsNormalizerTest {
         assertTrue(text.contains("2,completely made up jam,"))
         assertFalse(text.contains("Scarlet"))
     }
+
+    @Test
+    fun `csv formula-leading titles are neutralized`() {
+        assertEquals("'=CMD", GdshowsNormalizer.neutralizeCsvFormula("=CMD"))
+        assertEquals("'+1", GdshowsNormalizer.neutralizeCsvFormula("+1"))
+        assertEquals("Jack Straw", GdshowsNormalizer.neutralizeCsvFormula("Jack Straw"))
+        val csv = File(tmp.newFolder("out2"), "unmatched.csv")
+        GdshowsNormalizer.writeUnmatchedCsv(
+            csv,
+            listOf(GdshowsNormalizer.UnmatchedTitle(rawName = "=Weird", songKey = "=weird", count = 1))
+        )
+        assertTrue(csv.readText().contains("'=weird"))
+        assertTrue(csv.readText().contains("'=Weird"))
+    }
 }
