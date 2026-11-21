@@ -132,6 +132,42 @@ class SeedingTest {
     }
 
     @Test
+    fun `seed shows no longer ship as attended or with invented reviews`() {
+        for (seed in TestSeeds.seeds) {
+            val s = seed.show
+            assertTrue(s.id, !s.isAttended)
+            if (seed.id in com.example.data.seed.CuratedShows.legacySeedPersonalData.map { it.showId }) {
+                assertEquals(s.id, listOf("", "", ""), listOf(s.userReview, s.attendedWith, s.favoriteSong))
+                assertEquals(s.id, 0f, s.userRating)
+            }
+        }
+    }
+
+    @Test
+    fun `existing installs lose invented attendance, but never the user's own edits`() = runBlocking {
+        val base = TestSeeds.seed("1977-05-08-cornell").show
+        // As an old build stored it: attended, with the invented review and companions.
+        val invented = base.copy(
+            isAttended = true, userRating = 5f, attendedWith = "College tape traders", favoriteSong = "Morning Dew",
+            userReview = "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection."
+        )
+        dao.insertShow(invented)
+        val soldier = TestSeeds.seed("1995-07-09-soldier-field").show
+        // The user rewrote this review themselves, so it must be kept.
+        val edited = soldier.copy(isAttended = true, userRating = 4f, attendedWith = "Tour family", userReview = "I was really there!")
+        dao.insertShow(edited)
+
+        repository.checkAndSeedDatabase()
+
+        val cleared = dao.getShowById(base.id).first()!!
+        assertEquals(listOf(false, 0f, "", "", ""), listOf(cleared.isAttended, cleared.userRating, cleared.userReview,
+            cleared.attendedWith, cleared.favoriteSong))
+        val kept = dao.getShowById(soldier.id).first()!!
+        assertTrue(kept.isAttended)
+        assertEquals("I was really there!", kept.userReview)
+    }
+
+    @Test
     fun `every stored performance links to an existing song`() = runBlocking {
         repository.checkAndSeedDatabase()
         val songIds = db.songDao().getAllSongs().map { it.id }.toSet()

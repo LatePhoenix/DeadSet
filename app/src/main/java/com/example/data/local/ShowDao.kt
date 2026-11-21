@@ -114,6 +114,13 @@ interface ShowDao {
     @Query("UPDATE shows SET recreatesShowId = :originalId WHERE id = :id")
     suspend fun setRecreation(id: String, originalId: String?)
 
+    /** Clears invented personal data from a seed show, only if it still matches what was invented. */
+    @Query(
+        "UPDATE shows SET isAttended = 0, userRating = 0, userReview = '', attendedWith = '', favoriteSong = '' " +
+            "WHERE id = :id AND attendedWith = :inventedCompanions AND userReview LIKE :inventedReviewPrefix || '%'"
+    )
+    suspend fun clearInventedPersonalData(id: String, inventedCompanions: String, inventedReviewPrefix: String)
+
     @Query("UPDATE shows SET isAttended = :isAttended WHERE id = :id")
     suspend fun updateAttendance(id: String, isAttended: Boolean)
 

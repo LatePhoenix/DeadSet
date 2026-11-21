@@ -60,6 +60,9 @@ class ShowRepository(
     suspend fun checkAndSeedDatabase() = withContext(Dispatchers.IO) {
         ensureSongCatalog()
         showDao.deleteUntouchedSeedShows(CuratedShows.retiredSeedShowIds)
+        for (legacy in CuratedShows.legacySeedPersonalData) {
+            showDao.clearInventedPersonalData(legacy.showId, legacy.attendedWith, legacy.reviewPrefix)
+        }
         if (showDao.getShowsCount() == 0) {
             showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
         }

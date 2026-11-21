@@ -100,11 +100,11 @@ object CuratedShows {
                         song("One More Saturday Night", SetType.ENCORE, 1, false, 5)
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection, and Jerry's final crescendo on Morning Dew gave everyone in the room chills. Transcendent.",
-                attendedWith = "College tape traders",
-                favoriteSong = "Morning Dew",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "gd77-05-08.sbd.hicks.4982.sbeok.shnf",
                 tapeQuality = "Betty Cantor-Jackson SBD Soundboard",
                 tags = "All-Time Classic,Scarlet->Fire,Epic Dew,Spring 77",
@@ -364,11 +364,11 @@ object CuratedShows {
                         song("Terrapin Station", SetType.ENCORE, 1, false, 11, "Echoing across 100,000 fans", true)
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "100,000 Deadheads on a hot racetrack in New Jersey. Dick's Picks Vol. 15. The Mississippi Half-Step has the most soaring Jerry solo of the entire summer, and the bust-out Truckin' drove the crowd insane.",
-                attendedWith = "Jersey Shore Deadheads",
-                favoriteSong = "Mississippi Half-Step",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "gd77-09-03.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard Master",
                 tags = "Dick's Picks 15,100k Crowd,Truckin Bustout,Half-Step",
@@ -507,11 +507,11 @@ object CuratedShows {
                         song("One More Saturday Night", SetType.ENCORE, 1, false, 6)
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "The Halloween night finale of the 15th anniversary acoustic/electric run. Broadcast live via satellite into movie theatres nationwide with Al Franken and Tom Davis hosting! The acoustic Ripple and electric Scarlet->Fire were unforgettable.",
-                attendedWith = "Costumed Deadhead crew",
-                favoriteSong = "Ripple",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "gd80-10-31.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Dead Ahead 24-Track Video Soundtrack SBD",
                 tags = "Halloween,Radio City,Dead Ahead,Acoustic Set,Oct 31",
@@ -554,11 +554,11 @@ object CuratedShows {
                         song("U.S. Blues", SetType.ENCORE, 1, false, 5, "4th of July stadium fireworks celebration!")
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "4th of July at Rich Stadium! The entire stadium was shaking during Deal and U.S. Blues. Jerry was grinning ear-to-ear during Touch of Grey, and the Watchtower -> Dew combo was pure thunder.",
-                attendedWith = "Tour bus traveling crew",
-                favoriteSong = "Morning Dew",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "gd89-07-04.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Multi-Track Soundboard / Official Release",
                 tags = "Truckin Up to Buffalo,4th of July,Watchtower->Dew,Late 80s",
@@ -734,11 +734,11 @@ object CuratedShows {
                         song("Box of Rain", SetType.ENCORE, 2, false, 5, "Phil sings 'Such a long long time to be gone, and a short time to be there'")
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "The final Grateful Dead show at Soldier Field. An emotional night that lives on forever in our hearts. When Jerry sang 'So Many Roads' with all of his heart and closed with Black Muddy River, there wasn't a dry eye in Chicago.",
-                attendedWith = "Tour family",
-                favoriteSong = "So Many Roads",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "gd95-07-09.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Digital Soundboard SBD",
                 tags = "Final Show,So Many Roads,Black Muddy River,Chicago 95",
@@ -771,11 +771,11 @@ object CuratedShows {
                         song("U.S. Blues", SetType.ENCORE, 1, false, 5)
                     )
                 ),
-                isAttended = true,
-                userRating = 5f,
-                userReview = "Terrapin Flyer tore the roof off Martyrs'! Melvin Seals was on the Hammond B3 and Jerry's spirit was alive and well in Chicago. The Mississippi Half-Step was unbelievable.",
-                attendedWith = "Local Deadhead friends",
-                favoriteSong = "Mississippi Half-Step",
+                isAttended = false,
+                userRating = 0f,
+                userReview = "",
+                attendedWith = "",
+                favoriteSong = "",
                 archiveIdentifier = "",
                 tapeQuality = "Audience Matrix Recording",
                 tags = "Terrapin Flyer,Martyrs,Chicago,Attended",
@@ -794,4 +794,23 @@ object CuratedShows {
         "2026-11-20-terrapin-flyer-thalia",
         "2026-12-31-terrapin-flyer-vic"
     )
+
+    /**
+     * Earlier builds shipped these six shows pre-marked as attended, with an invented first-person
+     * review, rating, companions and favorite song. New installs no longer do. On existing installs
+     * [com.example.data.repository.ShowRepository.checkAndSeedDatabase] clears them, but only where
+     * the companions and review opening still match exactly what the app invented, so anything the
+     * user changed is left alone.
+     */
+    val legacySeedPersonalData = listOf(
+        LegacySeedPersonalData("1977-05-08-cornell", "College tape traders", "The Barton Hall holy grail. The Scarlet "),
+        LegacySeedPersonalData("1977-09-03-englishtown", "Jersey Shore Deadheads", "100,000 Deadheads on a hot racetrack in "),
+        LegacySeedPersonalData("1980-10-31-radio-city", "Costumed Deadhead crew", "The Halloween night finale of the 15th a"),
+        LegacySeedPersonalData("1989-07-04-rich-stadium", "Tour bus traveling crew", "4th of July at Rich Stadium! The entire "),
+        LegacySeedPersonalData("1995-07-09-soldier-field", "Tour family", "The final Grateful Dead show at Soldier "),
+        LegacySeedPersonalData("2024-05-18-terrapin-flyer-martyrs", "Local Deadhead friends", "Terrapin Flyer tore the roof off Martyrs")
+    )
 }
+
+/** Fingerprint of invented personal data a seed show used to ship with (see [CuratedShows.legacySeedPersonalData]). */
+data class LegacySeedPersonalData(val showId: String, val attendedWith: String, val reviewPrefix: String)
