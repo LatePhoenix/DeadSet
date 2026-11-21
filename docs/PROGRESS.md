@@ -24,7 +24,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - `main` has Phases 0–1 (DB v6), merged through PR #4 (`04da9bb`).
-- **Branch `phase-5-seed-reset` is the working line.** It has everything else: Phases 3, 4 (except 4.3), steps 5.1 and 5.7, and the seed reset. DB is **v10**, `main` is merged into it (`aae31a4`), and **97/97 tests pass**. All the earlier stacked branches (`phase-3-transitions-*`, `phase-4-tribute-*`, `phase-5-almanac-a`) are ancestors of it and need no separate PRs. **Next action: open one PR from `phase-5-seed-reset` into `main`**, let CodeRabbit review it, fix findings, merge. Then delete the old stacked branches.
+- **Branch `phase-5-seed-reset` is the working line.** It has everything else: Phases 3, 4 (except 4.3), steps 5.1 and 5.7, and the seed reset. DB is **v10**, `main` is merged into it (`aae31a4`), and **97/97 tests pass**. All the earlier stacked branches (`phase-3-transitions-*`, `phase-4-tribute-*`, `phase-5-almanac-a`) are ancestors of it and need no separate PRs. **Next action: PR [#5](https://github.com/LatePhoenix/DeadSet/pull/5) (`phase-5-seed-reset` → `main`) is open**; let CodeRabbit review it, fix findings, merge. Then delete the old stacked branches.
 - After that, work in the order of the **Next up** list below.
 
 **Next up (in order), after the working-line PR merges:**
@@ -235,7 +235,7 @@ _Newest first. Keep entries short: what changed, what's half-done, next action._
 - Owner had another AI review the project; each suggestion was checked against the code and the sources. **Accepted** into the plan: A1, A2, A3, A5 (Phase 1b), C1–C7 (Phase 2, gdshowsdb), D1, D2 (Phase 4), D3 and D4 as notes. **Already done:** A4 (seed reset on the working line), B1 (Phase 1 steps 1.6/1.7; the DAO segue query is folded into C6). **Adjusted:** C1 shares `songKey`/`SongResolver` through a `:shared` module instead of copying them; C5 must first move user columns out of `shows` and build the asset DB from Room's exported schema so `createFromAsset` validates. **Rejected sources:** gratefulstats.com (terms forbid scraping), jerrybase.com / gdsets.com (no license). gdshowsdb's MIT license was verified directly.
 - Merged `main` (PR #4 fixes) into `phase-5-seed-reset` (`aae31a4`); 97/97 tests pass. Docs rewritten for Cursor: `AGENTS.md` (workflow + ground rules), new `README.md`, this file.
 - **Not checked on the emulator yet:** 4.8 recreation link, seed reset on an existing install.
-- **Next action (Cursor):** open the PR `phase-5-seed-reset` → `main`, wait for CodeRabbit, fix findings, merge. Then A1.
+- **Next action (Cursor):** PR #5 (`phase-5-seed-reset` → `main`) is open; wait for CodeRabbit, fix findings, merge. Then A1.
 
 ### 2026-11-21 · Claude Code (Phases 3–4, autonomous run)
 - **Branch stack** (each builds on the last; open PRs in order, each after the previous merges): PR #4 `phase-1-step-1.6-single-setlist` (awaiting CodeRabbit; it was rate-limited) → `phase-3-transitions-a` (3.1–3.3) → `-b` (3.4–3.5) → `-c` (3.6) → `phase-4-tribute-a` (4.1/4.2/4.4/4.5) → `-b` (4.7) → `-c` (4.9) → `-d` (4.6). Plan: one PR for all of Phase 3 (from `-c`) and one for Phase 4 (from `-d`), because CodeRabbit's free tier allows ~1 review/hour.
