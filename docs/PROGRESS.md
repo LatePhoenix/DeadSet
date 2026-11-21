@@ -171,7 +171,8 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 - [ ] **5.4 Article format.** Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
-- [ ] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
+- [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
+  _Decision:_ removed (commented out, per the build file's AI Studio convention) `firebase-ai` and both App Check libraries; no code used them. The Firebase BoM and google-services plugin stay so AI Studio builds keep working. Re-enable if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2). App launches cleanly on the emulator.
 
 ## Phase 6: Polish & architecture
 
