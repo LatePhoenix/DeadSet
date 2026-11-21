@@ -92,7 +92,14 @@ interface ConcertDao {
     @Query("SELECT id FROM events")
     suspend fun eventIds(): List<String>
 
-    @Query("SELECT * FROM events WHERE date >= :today ORDER BY date ASC")
+    @Query(
+        """
+        SELECT e.* FROM events e
+        INNER JOIN bands b ON b.name = e.bandName AND b.isFollowed = 1
+        WHERE e.date >= :today
+        ORDER BY e.date ASC
+        """
+    )
     suspend fun upcomingEventsOnce(today: String): List<EventEntity>
 
     @Query("DELETE FROM events WHERE date < :today")

@@ -14,6 +14,8 @@ import com.example.data.songs.SongResolver
 import com.example.data.songs.songKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class OverallStats(
@@ -37,6 +39,8 @@ class ShowRepository(
     private val showDao: ShowDao,
     private val songDao: SongDao
 ) {
+    /** Serializes setlist read-modify-write so concurrent adds/toggles cannot overwrite each other. */
+    private val setlistMutex = Mutex()
 
     val allShows: Flow<List<ShowEntity>> = showDao.getAllShows()
     val allShowsWithSongs: Flow<List<ShowWithSongs>> = showDao.getAllShowsWithSongs()
@@ -66,7 +70,7 @@ class ShowRepository(
                 inventedRating = legacy.rating,
                 inventedFavorite = legacy.favoriteSong,
                 inventedCompanions = legacy.attendedWith,
-                inventedReviewPrefix = legacy.reviewPrefix,
+                inventedReview = legacy.inventedReview,
                 clearAttendance = legacy.inventedAttendance
             )
         }
@@ -183,11 +187,13 @@ class ShowRepository(
 
     /** Cycles the song's transition into the next one: Stop → Segue → Transition → Jam → Stop. */
     suspend fun toggleSongTransition(showId: String, songIndex: Int) = withContext(Dispatchers.IO) {
-        val songs = getSetlist(showId).toMutableList()
-        if (songIndex in songs.indices) {
-            val current = songs[songIndex]
-            songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
-            writeSetlist(showId, songs, loadSongResolver())
+        setlistMutex.withLock {
+            val songs = getSetlist(showId).toMutableList()
+            if (songIndex in songs.indices) {
+                val current = songs[songIndex]
+                songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
+                writeSetlist(showId, songs, loadSongResolver())
+            }
         }
     }
 
@@ -196,10 +202,12 @@ class ShowRepository(
      * set already logged (e.g. an Encore entered early stays last).
      */
     suspend fun appendSong(showId: String, name: String, setType: SetType) = withContext(Dispatchers.IO) {
-        val songs = getSetlist(showId).toMutableList()
-        val insertAt = songs.indexOfFirst { it.setType.ordinal > setType.ordinal }.let { if (it < 0) songs.size else it }
-        songs.add(insertAt, SongEntry(name = name.trim(), setType = setType))
-        writeSetlist(showId, songs, loadSongResolver())
+        setlistMutex.withLock {
+            val songs = getSetlist(showId).toMutableList()
+            val insertAt = songs.indexOfFirst { it.setType.ordinal > setType.ordinal }.let { if (it < 0) songs.size else it }
+            songs.add(insertAt, SongEntry(name = name.trim(), setType = setType))
+            writeSetlist(showId, songs, loadSongResolver())
+        }
     }
 
     /** A show's setlist in performance order. */

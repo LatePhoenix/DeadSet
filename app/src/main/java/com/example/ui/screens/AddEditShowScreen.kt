@@ -554,8 +554,13 @@ fun AddEditShowScreen(
                             errorMessage = "Please enter a venue name."
                             return@Button
                         }
+                        val date = dateText.trim()
+                        if (!com.example.data.isValidIsoDate(date)) {
+                            errorMessage = "Please enter the date as YYYY-MM-DD."
+                            return@Button
+                        }
                         // A past show needs its setlist; an upcoming one can be logged now and filled in live.
-                        if (songList.isEmpty() && dateText.trim() < com.example.data.todayIsoDate()) {
+                        if (songList.isEmpty() && date < com.example.data.todayIsoDate()) {
                             errorMessage = "Please add at least one song to the setlist (only upcoming shows can be saved without one)."
                             return@Button
                         }

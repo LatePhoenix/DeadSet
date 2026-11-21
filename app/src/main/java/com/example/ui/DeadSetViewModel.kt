@@ -25,7 +25,10 @@ import com.example.data.seed.TriviaUserProgress
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 enum class MainTab {
     SHOWS,
@@ -100,6 +103,8 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     private val database = AppDatabase.getInstance(application)
     val repository = ShowRepository(database.showDao(), database.songDao())
     private val userPrefs = UserPrefsStore(application)
+    private val reviewMutex = Mutex()
+    private val homeLookupGeneration = AtomicInteger(0)
 
     private val _uiState = MutableStateFlow(
         UiState(
@@ -196,6 +201,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     /** Geocodes the profile's home city for "near me" (no network key needed; may be unavailable). */
     private fun locateHome(homeCity: String) {
+        val generation = homeLookupGeneration.incrementAndGet()
         viewModelScope.launch {
             val home = withContext(Dispatchers.IO) {
                 runCatching {
@@ -206,6 +212,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                         ?.let { LatLon(it.latitude, it.longitude) }
                 }.getOrNull()
             }
+            if (generation != homeLookupGeneration.get()) return@launch
             _concerts.update { it.copy(home = home, homeLabel = homeCity.substringBefore(",").trim()) }
         }
     }
@@ -577,9 +584,11 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     /** Records a Segue School answer and moves the card between Leitner boxes. */
     fun recordCardAnswer(cardId: String, correct: Boolean) {
         viewModelScope.launch {
-            val previous = reviewDao.get(cardId)?.toState()
-            val next = Leitner.afterAnswer(previous, correct, com.example.data.todayIsoDate())
-            reviewDao.upsert(ReviewCardEntity.from(cardId, next))
+            reviewMutex.withLock {
+                val previous = reviewDao.get(cardId)?.toState()
+                val next = Leitner.afterAnswer(previous, correct, com.example.data.todayIsoDate())
+                reviewDao.upsert(ReviewCardEntity.from(cardId, next))
+            }
         }
     }
 

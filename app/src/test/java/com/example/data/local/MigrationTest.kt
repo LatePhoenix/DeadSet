@@ -497,6 +497,118 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `6 to 7 keeps shows and adds empty review_cards`() {
+        helper.createDatabase(dbName, 6).apply {
+            insertV6Show(this, "kept-show", review = "Mine")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('althea', 'Althea')")
+            execSQL(
+                "INSERT INTO song_performances (showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "('kept-show', 'althea', 'Althea', 'SET_1', 0, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 7, true, MIGRATION_6_7)
+        db.query("SELECT userReview FROM shows WHERE id = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Mine", c.getString(0))
+        }
+        db.query("SELECT COUNT(*) FROM song_performances WHERE showId = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM review_cards").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `7 to 8 keeps shows and adds empty bands and events`() {
+        helper.createDatabase(dbName, 7).apply {
+            insertV6Show(this, "kept-show", review = "Still here")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 8, true, MIGRATION_7_8)
+        db.query("SELECT userReview FROM shows WHERE id = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Still here", c.getString(0))
+        }
+        db.query("SELECT COUNT(*) FROM bands").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM events").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `8 to 9 keeps shows and adds empty chase_songs`() {
+        helper.createDatabase(dbName, 8).apply {
+            insertV6Show(this, "kept-show", review = "Chase later")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 9, true, MIGRATION_8_9)
+        db.query("SELECT userReview FROM shows WHERE id = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Chase later", c.getString(0))
+        }
+        db.query("SELECT COUNT(*) FROM chase_songs").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun `9 to 10 keeps review and setlist and leaves recreatesShowId null`() {
+        helper.createDatabase(dbName, 9).apply {
+            insertV6Show(this, "kept-show", review = "Mine")
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('bertha', 'Bertha')")
+            execSQL(
+                "INSERT INTO song_performances (showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "('kept-show', 'bertha', 'Bertha', 'SET_1', 0, 'NONE', NULL, NULL, 0)"
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 10, true, MIGRATION_9_10)
+        db.query("SELECT userReview, recreatesShowId FROM shows WHERE id = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Mine", c.getString(0))
+            assertTrue(c.isNull(1))
+        }
+        db.query("SELECT songName FROM song_performances WHERE showId = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Bertha", c.getString(0))
+        }
+        db.close()
+    }
+
+    /** v6+ shows table (no setlistJson / isUpcoming). */
+    private fun insertV6Show(
+        db: androidx.sqlite.db.SupportSQLiteDatabase,
+        id: String,
+        review: String
+    ) {
+        db.execSQL(
+            """
+            INSERT INTO shows (id, date, venue, city, stateOrCountry, eraId, tourName,
+                isAttended, userRating, userReview, attendedWith, favoriteSong, archiveIdentifier,
+                tapeQuality, isCustomShow, tags, historicTrivia, bandName, venueAddress,
+                lastUpdatedTimestamp)
+            VALUES (?, '1977-05-08', 'Barton Hall', 'Ithaca', 'NY', 'spring_77', 'Spring',
+                1, 5.0, ?, '', '', '', '', 0, '', '', 'Grateful Dead', '', 99)
+            """.trimIndent(),
+            arrayOf<Any?>(id, review)
+        )
+    }
+
     private fun insertV5Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,

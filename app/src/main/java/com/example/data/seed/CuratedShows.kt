@@ -800,27 +800,60 @@ object CuratedShows {
      * favorite song; six were also pre-marked attended with invented companions. New installs no
      * longer do. On existing installs
      * [com.example.data.repository.ShowRepository.checkAndSeedDatabase] clears these, but only
-     * where the rating, favorite song, companions and review opening all still match exactly what
-     * the app invented, so anything the user changed is left alone. Attendance is reset only for
-     * the six where it was invented, never for a show the user marked attended themselves.
+     * where the rating, favorite song, companions and full review all still match exactly what
+     * the app invented, so anything the user changed (including an appended note) is left alone.
+     * Attendance is reset only for the six where it was invented, never for a show the user marked
+     * attended themselves.
      */
     val legacySeedPersonalData = listOf(
-        LegacySeedPersonalData("1977-05-08-cornell", 5f, "Morning Dew", "College tape traders", "The Barton Hall holy grail. The Scarlet ", inventedAttendance = true),
-        LegacySeedPersonalData("1972-08-27-veneta", 5f, "Dark Star", "", "Sunshine Daydream! 100 degrees out in th", inventedAttendance = false),
-        LegacySeedPersonalData("1969-02-27-fillmore-west", 5f, "The Eleven", "", "The purest essence of primal Dead. The D", inventedAttendance = false),
-        LegacySeedPersonalData("1970-05-02-harpur", 5f, "Uncle John's Band", "", "Dick's Picks Vol. 8. The intimate acoust", inventedAttendance = false),
-        LegacySeedPersonalData("1974-06-18-louisville", 5f, "Weather Report Suite", "", "Wall of Sound in full glory. The Weather", inventedAttendance = false),
-        LegacySeedPersonalData("1977-05-09-buffalo", 5f, "Help on the Way", "", "The night after Cornell and many think i", inventedAttendance = false),
-        LegacySeedPersonalData("1977-09-03-englishtown", 5f, "Mississippi Half-Step", "Jersey Shore Deadheads", "100,000 Deadheads on a hot racetrack in ", inventedAttendance = true),
-        LegacySeedPersonalData("1978-07-08-red-rocks", 5f, "Wharf Rat", "", "Red Rocks under the stars. The Wharf Rat", inventedAttendance = false),
-        LegacySeedPersonalData("1980-11-30-fox-atlanta", 4.5f, "Bird Song", "", "Early Brent era at its peak in the Fox T", inventedAttendance = false),
-        LegacySeedPersonalData("1980-10-31-radio-city", 5f, "Ripple", "Costumed Deadhead crew", "The Halloween night finale of the 15th a", inventedAttendance = true),
-        LegacySeedPersonalData("1989-07-04-rich-stadium", 5f, "Morning Dew", "Tour bus traveling crew", "4th of July at Rich Stadium! The entire ", inventedAttendance = true),
-        LegacySeedPersonalData("1989-10-09-hampton", 5f, "Dark Star", "", "The Warlocks shows at Hampton. When Jerr", inventedAttendance = false),
-        LegacySeedPersonalData("1990-03-29-nassau", 5f, "Eyes of the World", "", "Without Ever Having Seen the Grateful De", inventedAttendance = false),
-        LegacySeedPersonalData("1991-09-25-boston", 4.5f, "Crazy Fingers", "", "Bruce Hornsby's grand piano brought unbe", inventedAttendance = false),
-        LegacySeedPersonalData("1995-07-09-soldier-field", 5f, "So Many Roads", "Tour family", "The final Grateful Dead show at Soldier ", inventedAttendance = true),
-        LegacySeedPersonalData("2024-05-18-terrapin-flyer-martyrs", 5f, "Mississippi Half-Step", "Local Deadhead friends", "Terrapin Flyer tore the roof off Martyrs", inventedAttendance = true)
+        LegacySeedPersonalData("1977-05-08-cornell", 5f, "Morning Dew", "College tape traders",
+            "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection, and Jerry's final crescendo on Morning Dew gave everyone in the room chills. Transcendent.",
+            inventedAttendance = true),
+        LegacySeedPersonalData("1972-08-27-veneta", 5f, "Dark Star", "",
+            "Sunshine Daydream! 100 degrees out in the Oregon dust. The 31-minute Dark Star is an absolute trip to outer space.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1969-02-27-fillmore-west", 5f, "The Eleven", "",
+            "The purest essence of primal Dead. The Dark Star -> Saint Stephen -> The Eleven -> Lovelight is the defining sequence of 1960s San Francisco music.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1970-05-02-harpur", 5f, "Uncle John's Band", "",
+            "Dick's Picks Vol. 8. The intimate acoustic first set followed by two soaring electric sets makes this one of the most complete shows in existence.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1974-06-18-louisville", 5f, "Weather Report Suite", "",
+            "Wall of Sound in full glory. The Weather Report Suite -> The Other One -> Stella Blue segment is peak jazz-fusion Dead.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1977-05-09-buffalo", 5f, "Help on the Way", "",
+            "The night after Cornell and many think it equals or beats it! Opening Help -> Slip -> Franklin's is blistering, and Comes a Time is pure magic.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1977-09-03-englishtown", 5f, "Mississippi Half-Step", "Jersey Shore Deadheads",
+            "100,000 Deadheads on a hot racetrack in New Jersey. Dick's Picks Vol. 15. The Mississippi Half-Step has the most soaring Jerry solo of the entire summer, and the bust-out Truckin' drove the crowd insane.",
+            inventedAttendance = true),
+        LegacySeedPersonalData("1978-07-08-red-rocks", 5f, "Wharf Rat", "",
+            "Red Rocks under the stars. The Wharf Rat -> Franklin's Tower is unique and uplifting, and Jerry howling Werewolves of London was legendary.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1980-11-30-fox-atlanta", 4.5f, "Bird Song", "",
+            "Early Brent era at its peak in the Fox Theatre's pristine acoustics. The Scarlet -> Fire has incredible synthesizer and B3 textures.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1980-10-31-radio-city", 5f, "Ripple", "Costumed Deadhead crew",
+            "The Halloween night finale of the 15th anniversary acoustic/electric run. Broadcast live via satellite into movie theatres nationwide with Al Franken and Tom Davis hosting! The acoustic Ripple and electric Scarlet->Fire were unforgettable.",
+            inventedAttendance = true),
+        LegacySeedPersonalData("1989-07-04-rich-stadium", 5f, "Morning Dew", "Tour bus traveling crew",
+            "4th of July at Rich Stadium! The entire stadium was shaking during Deal and U.S. Blues. Jerry was grinning ear-to-ear during Touch of Grey, and the Watchtower -> Dew combo was pure thunder.",
+            inventedAttendance = true),
+        LegacySeedPersonalData("1989-10-09-hampton", 5f, "Dark Star", "",
+            "The Warlocks shows at Hampton. When Jerry struck the opening notes to Dark Star for the first time in 5 years, the mothership practically lifted off the ground. Attics of My Life encore brought grown Deadheads to tears.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1990-03-29-nassau", 5f, "Eyes of the World", "",
+            "Without Ever Having Seen the Grateful Dead, Branford Marsalis sat in and played the most transcendent jazz-rock set ever captured. Eyes of the World is peak musical telepathy.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1991-09-25-boston", 4.5f, "Crazy Fingers", "",
+            "Bruce Hornsby's grand piano brought unbelievable energy to Boston Garden in September '91. The Help -> Slip -> Franklin's opener set the arena on fire.",
+            inventedAttendance = false),
+        LegacySeedPersonalData("1995-07-09-soldier-field", 5f, "So Many Roads", "Tour family",
+            "The final Grateful Dead show at Soldier Field. An emotional night that lives on forever in our hearts. When Jerry sang 'So Many Roads' with all of his heart and closed with Black Muddy River, there wasn't a dry eye in Chicago.",
+            inventedAttendance = true),
+        LegacySeedPersonalData("2024-05-18-terrapin-flyer-martyrs", 5f, "Mississippi Half-Step", "Local Deadhead friends",
+            "Terrapin Flyer tore the roof off Martyrs'! Melvin Seals was on the Hammond B3 and Jerry's spirit was alive and well in Chicago. The Mississippi Half-Step was unbelievable.",
+            inventedAttendance = true)
     )
 }
 
@@ -830,7 +863,8 @@ data class LegacySeedPersonalData(
     val rating: Float,
     val favoriteSong: String,
     val attendedWith: String,
-    val reviewPrefix: String,
+    /** Full invented review text; must match exactly before cleanup clears the row. */
+    val inventedReview: String,
     /** True only for the six shows that shipped pre-marked attended. */
     val inventedAttendance: Boolean
 )

@@ -127,21 +127,21 @@ interface ShowDao {
 
     /**
      * Clears invented personal data from a seed show, only if every invented field (rating,
-     * favorite song, companions, review opening) is still exactly what the app shipped. Attendance
+     * favorite song, companions, full review) is still exactly what the app shipped. Attendance
      * is reset only when [clearAttendance] (the attendance itself was invented).
      */
     @Query(
         "UPDATE shows SET userRating = 0, userReview = '', attendedWith = '', favoriteSong = '', " +
             "isAttended = CASE WHEN :clearAttendance THEN 0 ELSE isAttended END " +
             "WHERE id = :id AND userRating = :inventedRating AND favoriteSong = :inventedFavorite " +
-            "AND attendedWith = :inventedCompanions AND substr(userReview, 1, length(:inventedReviewPrefix)) = :inventedReviewPrefix"
+            "AND attendedWith = :inventedCompanions AND userReview = :inventedReview"
     )
     suspend fun clearInventedPersonalData(
         id: String,
         inventedRating: Float,
         inventedFavorite: String,
         inventedCompanions: String,
-        inventedReviewPrefix: String,
+        inventedReview: String,
         clearAttendance: Boolean
     )
 

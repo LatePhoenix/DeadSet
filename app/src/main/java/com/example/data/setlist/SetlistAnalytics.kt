@@ -136,13 +136,13 @@ object SetlistAnalytics {
                 if (canonicalKey(song.name) != target) return@forEachIndexed
                 played++
                 val prev = songs.getOrNull(i - 1)
-                if (prev != null && prev.isConnected) {
+                if (prev != null && prev.isConnected && prev.setType == song.setType) {
                     val k = canonicalKey(prev.name)
                     into[k] = (into[k] ?: 0) + 1
                     display.putIfAbsent(k, prev.name)
                 }
                 val next = songs.getOrNull(i + 1)
-                if (next != null && song.isConnected) {
+                if (next != null && song.isConnected && next.setType == song.setType) {
                     val k = canonicalKey(next.name)
                     out[k] = (out[k] ?: 0) + 1
                     display.putIfAbsent(k, next.name)
@@ -210,6 +210,7 @@ fun SetlistAnalytics.transitionGraph(
         val songs = songsFor(show)
         for (i in 0 until songs.size - 1) {
             if (!songs[i].isConnected) continue
+            if (songs[i].setType != songs[i + 1].setType) continue
             val a = canonicalKey(songs[i].name)
             val b = canonicalKey(songs[i + 1].name)
             if (a == b) continue

@@ -5,7 +5,7 @@ DeadSet is a Grateful Dead setlist, segue, trivia, and tribute-show companion fo
 ## Before you do anything
 1. Read **[docs/PROGRESS.md](docs/PROGRESS.md)**: "Where the code is", "Next up", open decisions, environment notes, and the newest Handoff log entry.
 2. Background and reasoning for each step are in [docs/IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) (section 5 covers the external-review items).
-3. Check out the branch PROGRESS.md names as the working line before you change anything.
+3. Check out the branch PROGRESS.md names as the working line before you change anything. After a working-line PR merges into `main`, the next session's working line is `main` (or a new `phase-N-<slug>` cut from `main`) until PROGRESS.md names another branch.
 
 ## Workflow (one task per turn)
 1. Take **one** step from PROGRESS.md (first unchecked one in "Next up" order). Mark it `[~] (Cursor)` or `[~] (Claude Code)`.

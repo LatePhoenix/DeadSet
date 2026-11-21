@@ -10,13 +10,22 @@ The plan and its progress are in [docs/PROGRESS.md](docs/PROGRESS.md); the reaso
 
 ## Build
 
-1. Use Android Studio's bundled JDK:
-   - PowerShell: `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"`
-   - bash: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`
-2. Create a local debug keystore once (it's git-ignored; the build's `signingConfigs` expect it in the project root):
+1. Point `JAVA_HOME` at a JDK 17+ (Android Studio's bundled JBR works):
+   - Windows PowerShell: `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"`
+   - Windows bash / Git Bash: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`
+   - Linux: `export JAVA_HOME="/opt/android-studio/jbr"` (or wherever your Studio/JDK install lives)
+2. Create a local debug keystore once (it's git-ignored; the build's `signingConfigs` expect it in the project root). Invoke `keytool` from `$JAVA_HOME`:
+
+   ```bash
+   "$JAVA_HOME/bin/keytool" -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
    ```
-   keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+   PowerShell:
+
+   ```powershell
+   & "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
    ```
+
 3. Run the tests: `./gradlew :app:testDebugUnitTest`
 4. Build and install: `./gradlew :app:installDebug`
 

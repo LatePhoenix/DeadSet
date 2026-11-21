@@ -256,7 +256,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                         LaunchedEffect(Unit) { viewModel.loadSongNames() }
                                         LiveTrackerCard(
                                             showId = show.id,
-                                            lastSong = songs.lastOrNull()?.name,
+                                            songs = songs,
                                             predictionsFor = { last, set -> viewModel.predictNext(show.id, last, set) },
                                             allSongNames = names,
                                             onAddSong = { name, set -> viewModel.appendSongToShow(show.id, name, set) }

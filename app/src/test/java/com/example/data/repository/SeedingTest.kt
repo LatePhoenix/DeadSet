@@ -7,6 +7,7 @@ import com.example.TestSeeds
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
+import com.example.data.seed.CuratedShows
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -149,11 +150,12 @@ class SeedingTest {
     @Test
     fun `cleanup keeps attendance the user set on a show whose review was invented`() = runBlocking {
         val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        val invented = CuratedShows.legacySeedPersonalData.first { it.showId == veneta.id }
         // Old build's invented review/rating/favorite, but the user marked it attended themselves.
         dao.insertShow(
             veneta.copy(
-                isAttended = true, userRating = 5f, favoriteSong = "Dark Star",
-                userReview = "Sunshine Daydream! 100 degrees out in the field and the band was on fire."
+                isAttended = true, userRating = invented.rating, favoriteSong = invented.favoriteSong,
+                userReview = invented.inventedReview
             )
         )
 
@@ -167,10 +169,11 @@ class SeedingTest {
     @Test
     fun `cleanup leaves a show alone if the user changed any invented field`() = runBlocking {
         val veneta = TestSeeds.seed("1972-08-27-veneta").show
+        val invented = CuratedShows.legacySeedPersonalData.first { it.showId == veneta.id }
         // Same invented review, but the user re-rated it: treat it as theirs.
         val rerated = veneta.copy(
-            userRating = 3f, favoriteSong = "Dark Star",
-            userReview = "Sunshine Daydream! 100 degrees out in the field and the band was on fire."
+            userRating = 3f, favoriteSong = invented.favoriteSong,
+            userReview = invented.inventedReview
         )
         dao.insertShow(rerated)
 
@@ -187,7 +190,7 @@ class SeedingTest {
         // As an old build stored it: attended, with the invented review and companions.
         val invented = base.copy(
             isAttended = true, userRating = 5f, attendedWith = "College tape traders", favoriteSong = "Morning Dew",
-            userReview = "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection."
+            userReview = "The Barton Hall holy grail. The Scarlet -> Fire transition is sublime cosmic perfection, and Jerry's final crescendo on Morning Dew gave everyone in the room chills. Transcendent."
         )
         dao.insertShow(invented)
         val soldier = TestSeeds.seed("1995-07-09-soldier-field").show
@@ -203,6 +206,22 @@ class SeedingTest {
         val kept = dao.getShowById(soldier.id).first()!!
         assertTrue(kept.isAttended)
         assertEquals("I was really there!", kept.userReview)
+    }
+
+    @Test
+    fun `an appended note on an invented review is left alone`() = runBlocking {
+        val base = TestSeeds.seed("1977-05-08-cornell").show
+        val appended = base.copy(
+            isAttended = true, userRating = 5f, attendedWith = "College tape traders", favoriteSong = "Morning Dew",
+            userReview = CuratedShows.legacySeedPersonalData.first { it.showId == base.id }.inventedReview +
+                "\n\nP.S. I really was there."
+        )
+        dao.insertShow(appended)
+        repository.checkAndSeedDatabase()
+        val after = dao.getShowById(base.id).first()!!
+        assertTrue(after.isAttended)
+        assertEquals(appended.userReview, after.userReview)
+        assertEquals(5f, after.userRating)
     }
 
     @Test

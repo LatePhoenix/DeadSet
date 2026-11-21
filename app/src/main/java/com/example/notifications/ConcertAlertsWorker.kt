@@ -53,17 +53,19 @@ class ConcertAlertsWorker(context: Context, params: WorkerParameters) : Coroutin
 
         val tonight = ConcertAlertRules.tonightShows(db.showDao().getAllShowsOnce(), today, prefs.lastTonightReminder())
         if (tonight.isNotEmpty()) {
-            notify(TONIGHT_ID, ConcertAlertRules.tonightTitle(tonight), ConcertAlertRules.tonightBody(tonight))
-            prefs.setLastTonightReminder(today)
+            if (notify(TONIGHT_ID, ConcertAlertRules.tonightTitle(tonight), ConcertAlertRules.tonightBody(tonight))) {
+                prefs.setLastTonightReminder(today)
+            }
         }
         return Result.success()
     }
 
-    private fun notify(id: Int, title: String, body: String) {
+    /** Posts a notification; returns false when skipped (e.g. missing POST_NOTIFICATIONS on API 33+). */
+    private fun notify(id: Int, title: String, body: String): Boolean {
         val ctx = applicationContext
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) return false
         ensureChannel(ctx)
         val open = PendingIntent.getActivity(
             ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -78,6 +80,7 @@ class ConcertAlertsWorker(context: Context, params: WorkerParameters) : Coroutin
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(ctx).notify(id, notification)
+        return true
     }
 
     companion object {

@@ -35,6 +35,15 @@ object TransitionQuiz {
             val blanks = if (family.chain.size >= 3) 1 until family.chain.size - 1 else listOf(1)
             blanks.mapNotNull { blank ->
                 val answer = family.chain[blank]
+                val promptSong = family.chain[blank - 1]
+                val promptKey = SetlistAnalytics.canonicalKey(promptSong)
+                // Any family that declares a successor of the prompt song is also a defensible
+                // answer; keep those out of the distractor pool so the question stays unique.
+                val declaredSuccessors = SegueFamilies.all.flatMap { other ->
+                    other.chain.zipWithNext()
+                        .filter { (a, _) -> SetlistAnalytics.canonicalKey(a) == promptKey }
+                        .map { it.second }
+                }
                 val prompt = family.chain.mapIndexed { i, s -> if (i == blank) "???" else s }.joinToString(" -> ")
                 val id = "segue_chain_${family.id}_$blank"
                 question(
@@ -43,7 +52,7 @@ object TransitionQuiz {
                     text = "Complete the segue: $prompt",
                     answer = answer,
                     distractorPool = pool + SegueFamilies.all.flatMap { it.chain },
-                    exclude = family.chain,
+                    exclude = family.chain + declaredSuccessors,
                     note = "${family.nickname}: ${family.note}"
                 )
             }
@@ -111,6 +120,7 @@ object TransitionQuiz {
             val songs = songsFor(show)
             for (i in 0 until songs.size - 1) {
                 if (!songs[i].isConnected) continue
+                if (songs[i].setType != songs[i + 1].setType) continue
                 val pair = SetlistAnalytics.canonicalKey(songs[i].name) to SetlistAnalytics.canonicalKey(songs[i + 1].name)
                 erasByPair.getOrPut(pair) { mutableSetOf() } += era
                 labels.putIfAbsent(pair, "${songs[i].name} ${songs[i].transitionOut.symbol} ${songs[i + 1].name}")

@@ -191,7 +191,7 @@ class LiveConcertApiClient {
         val raw = runCatching {
             BuildConfig::class.java.getDeclaredField("BANDSINTOWN_APP_ID").get(null) as? String
         }.getOrNull().orEmpty().trim()
-        return if (raw.isBlank() || raw == "null") "deadset_companion_app" else raw
+        return if (raw.isBlank() || raw == "null" || raw == "YOUR_BANDSINTOWN_APP_ID") "" else raw
     }
 
     /**
@@ -203,8 +203,11 @@ class LiveConcertApiClient {
         val events = mutableListOf<LiveConcertEvent>()
         val reached = mutableSetOf<String>()
         val tmKey = getTicketmasterApiKey()
+        val bandsintownAppId = getBandsintownAppId()
         for (band in bandNames) {
-            fetchBandsintownArtistEvents(band)?.let { events += it; reached += "Bandsintown" }
+            if (bandsintownAppId.isNotBlank()) {
+                fetchBandsintownArtistEvents(band)?.let { events += it; reached += "Bandsintown" }
+            }
             if (tmKey.isNotBlank()) {
                 fetchTicketmasterEvents(band, tmKey)?.let { tm ->
                     reached += "Ticketmaster"

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SetType
+import com.example.data.model.SongEntry
 import com.example.data.setlist.SetlistAnalytics
 import com.example.ui.theme.*
 
@@ -26,7 +27,7 @@ import com.example.ui.theme.*
 @Composable
 fun LiveTrackerCard(
     showId: String,
-    lastSong: String?,
+    songs: List<SongEntry>,
     predictionsFor: (lastSong: String?, setType: SetType) -> List<String>,
     allSongNames: List<String>,
     onAddSong: (name: String, setType: SetType) -> Unit,
@@ -36,7 +37,8 @@ fun LiveTrackerCard(
     var input by remember { mutableStateOf("") }
     var hits by rememberSaveable(showId) { mutableIntStateOf(0) }
     var logged by rememberSaveable(showId) { mutableIntStateOf(0) }
-    val predictions = remember(lastSong, setType, predictionsFor) { predictionsFor(lastSong, setType) }
+    val lastInSet = remember(songs, setType) { songs.lastOrNull { it.setType == setType }?.name }
+    val predictions = remember(lastInSet, setType, predictionsFor) { predictionsFor(lastInSet, setType) }
     val knownKeys = remember(allSongNames) { allSongNames.map(SetlistAnalytics::canonicalKey).toSet() }
     val suggestions = remember(input, allSongNames) {
         val q = input.trim().lowercase()
@@ -68,8 +70,11 @@ fun LiveTrackerCard(
                     Text("Predicted $hits of $logged", color = StealieGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (s in listOf(SetType.SET_1, SetType.SET_2, SetType.ENCORE)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                for (s in SetType.entries) {
                     FilterChip(
                         selected = setType == s,
                         onClick = { setType = s },
@@ -83,7 +88,7 @@ fun LiveTrackerCard(
                 }
             }
             Text(
-                text = if (lastSong == null) "Likely openers:" else "After $lastSong, likely next:",
+                text = if (lastInSet == null) "Likely openers:" else "After $lastInSet, likely next:",
                 color = TextSecondaryDark,
                 fontSize = 12.sp
             )
