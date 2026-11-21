@@ -252,50 +252,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `live concert filter narrows events by band and Midwest region`() {
-        val apiClient = com.example.data.remote.LiveConcertApiClient()
-        // Test fixtures only — the app no longer ships any hard-coded schedule.
-        fun event(id: String, band: String, city: String, state: String) =
-            com.example.data.remote.LiveConcertEvent(
-                id = id, bandName = band, eventTitle = "$band in $city", date = "2099-01-0${id.last()}",
-                displayDate = "", venueName = "Test Venue", city = city, stateCode = state,
-                venueAddress = "", ticketUrl = "https://example.test/$id"
-            )
-        val allSchedule = listOf(
-            event("e1", "Dark Star Orchestra", "Chicago", "IL"),
-            event("e2", "Dark Star Orchestra", "Denver", "CO"),
-            event("e3", "Joe Russo's Almost Dead", "Milwaukee", "WI"),
-            event("e4", "Terrapin Flyer", "Chicago", "IL"),
-            event("e5", "Terrapin Flyer", "Asheville", "NC")
-        )
-
-        // Verify Midwest filter for Dark Star Orchestra
-        val dsoMidwest = apiClient.filterConcertEvents(
-            events = allSchedule,
-            bandFilter = com.example.data.remote.TributeBandFilter.DARK_STAR_ORCHESTRA,
-            midwestOnly = true
-        )
-        assertTrue("Dark Star Orchestra should have Midwest dates", dsoMidwest.isNotEmpty())
-        assertTrue(dsoMidwest.all { it.isMidwest && it.ticketUrl.startsWith("https://") })
-
-        // Verify Midwest filter for JRAD
-        val jradMidwest = apiClient.filterConcertEvents(
-            events = allSchedule,
-            bandFilter = com.example.data.remote.TributeBandFilter.JRAD,
-            midwestOnly = true
-        )
-        assertTrue("JRAD should have Midwest dates", jradMidwest.isNotEmpty())
-        assertTrue(jradMidwest.all { it.isMidwest && it.venueName.isNotBlank() && it.city.isNotBlank() })
-
-        // Verify Midwest filter for Terrapin Flyer
-        val terrapinMidwest = apiClient.filterConcertEvents(
-            events = allSchedule,
-            bandFilter = com.example.data.remote.TributeBandFilter.TERRAPIN_FLYER,
-            midwestOnly = true
-        )
-        assertTrue("Terrapin Flyer should have Midwest dates", terrapinMidwest.isNotEmpty())
-        assertTrue(terrapinMidwest.any { it.city == "Chicago" && it.stateCode == "IL" })
-
+    fun `deadhead artwork drawables exist`() {
         // Verify authentic Steal Your Face and Marching Bear drawables exist in resources
         val context = ApplicationProvider.getApplicationContext<Context>()
         assertNotNull(context.getDrawable(R.drawable.art_steal_your_face))

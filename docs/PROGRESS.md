@@ -141,11 +141,17 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 
 ## Phase 4: Tribute band tracking
 
-- [ ] **4.1 `bands` table.** Replace the `TributeBandFilter` enum. Seed Terrapin Flyer (starred default), DSO, JRAD, Melvin Seals & JGB, Bob Weir & Wolf Bros, Dead & Company; let the user add bands.
-- [ ] **4.2 `events` table + cache.** Store each event's source and last-checked time and show them on the card. Refresh with WorkManager about every 12 hours (new dependency).
-- [ ] **4.3 Credentials.** Register a Bandsintown app ID or drop that source; add a Ticketmaster key. Add setlist.fm for past tribute setlists.
-- [ ] **4.4 Manual add / paste-link import** for local shows (Terrapin Flyer).
-- [ ] **4.5 Near me.** Sort by distance from the profile home city, with a radius slider, replacing the hard-coded Midwest state set.
+- [x] **4.1 `bands` table.** Replace the `TributeBandFilter` enum. Seed Terrapin Flyer (starred default), DSO, JRAD, Melvin Seals & JGB, Bob Weir & Wolf Bros, Dead & Company; let the user add bands.
+- [x] **4.2 `events` table + cache.** Store each event's source and last-checked time and show them on the card. Refresh with WorkManager about every 12 hours (new dependency).
+- [ ] ⏸ **Needs owner:** **4.3 Credentials.** Register a Bandsintown app ID or drop that source; add a Ticketmaster key. Add setlist.fm for past tribute setlists.
+- [x] **4.4 Manual add / paste-link import** for local shows (Terrapin Flyer).
+- [x] **4.5 Near me.** Sort by distance from the profile home city, with a radius slider, replacing the hard-coded Midwest state set.
+  _As built (4.1, 4.2, 4.4, 4.5, branch `phase-4-tribute-a`, DB v7→v8):_
+  - **4.1:** `bands` table (`data/local/ConcertEntities.kt`). It's seeded with 6 real band names; Terrapin Flyer, DSO and JRAD are followed (the bands the app queried before). The Tickets tab has a **Bands** dialog to follow/unfollow and add your own (user-added bands can be deleted; built-ins can only be unfollowed). Terrapin Flyer's chip comes first. `TributeBandFilter`, `searchLiveConcerts`, `filterConcertEvents` and `isMidwest` were removed.
+  - **4.2:** `events` cache + `ConcertRepository`. `refresh()` runs when the tab opens or the refresh button is tapped, queries only followed bands, and **replaces the cache only if a source answered**, so a failed refresh never wipes good dates. Past dates are dropped. Each card shows "source · checked N min ago · ~N mi". The empty state says honestly which situation applies (no keys/connection, not following anything, filters too narrow, or no dates listed). Periodic background refresh is left to 4.6 (WorkManager).
+  - **4.4:** the show editor has a **Band** field with one-tap chips (Grateful Dead + followed bands). A new show counts as attended only if its date has passed; upcoming ones appear under "Upcoming". **Bug fixed:** editing a show used to rebuild it from scratch, wiping trivia, archive id, tags, companions and favorite song, and turning built-in shows into custom (deletable) ones. `buildEditedShow()` now copies the existing show. Paste-link import is not done (needs a parser per site; low value until 4.3 is decided).
+  - **4.5:** venue coordinates come from both APIs. The home city is geocoded on device with Android `Geocoder` (no key). Radius chips: any / ≤100 / ≤250 / ≤500 mi, replacing the Midwest toggle. Events without coordinates show only under "Any distance".
+  - **Checked on the emulator:** real v7→v8 upgrade; Chicago geocoded; with no keys the honest empty state appears (Bandsintown rejects the placeholder `app_id`, which confirms 4.3 needs the owner).
 - [ ] **4.6 Notifications.** New-date alerts for followed bands; day-of reminder.
 - [ ] **4.7 Song chase list** ("heard 112/180 live") and cross-band stats.
 - [ ] **4.8 DSO recreation link.** Match a tribute setlist to the original GD date and show them side by side.

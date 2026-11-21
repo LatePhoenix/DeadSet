@@ -158,7 +158,14 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 )
                             }
                             MainTab.LIVE_TICKETS -> {
-                                LiveConcertsScreen()
+                                val concerts by viewModel.concerts.collectAsStateWithLifecycle()
+                                LiveConcertsScreen(
+                                    state = concerts,
+                                    onRefresh = viewModel::refreshConcerts,
+                                    onAddBand = { viewModel.addBand(it) },
+                                    onSetFollowed = { id, f -> viewModel.setBandFollowed(id, f) },
+                                    onRemoveBand = { viewModel.removeBand(it) }
+                                )
                             }
                             MainTab.ATTENDANCE -> {
                                 val attended = uiState.shows.filter { it.isAttended }
@@ -246,6 +253,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         AddEditShowScreen(
                             existingShow = existing,
                             existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
+                            bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }.map { it.name },
                             onBack = { viewModel.navigateBack() },
                             onSave = viewModel::saveCustomShow
                         )

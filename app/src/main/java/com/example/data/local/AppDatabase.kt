@@ -12,7 +12,9 @@ import androidx.room.migration.Migration
         SongPerformanceEntity::class,
         SongEntity::class,
         SongAliasEntity::class,
-        ReviewCardEntity::class
+        ReviewCardEntity::class,
+        BandEntity::class,
+        EventEntity::class
     ],
     version = AppDatabase.VERSION,
     exportSchema = true
@@ -21,10 +23,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun showDao(): ShowDao
     abstract fun songDao(): SongDao
     abstract fun reviewDao(): ReviewDao
+    abstract fun concertDao(): ConcertDao
 
     companion object {
         /** Current schema version. Bump it, add a Migration, and commit the new schemas/N.json. */
-        const val VERSION = 7
+        const val VERSION = 8
 
         /** First version with an exported schema; every version from here on must be migratable. */
         const val BASELINE_VERSION = 3
@@ -35,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Every schema migration, in order. Add new ones here whenever [Database.version] is
          * bumped, together with the exported `schemas/.../N.json`.
          */
-        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
         /**
          * Versions released before schema export existed (step 1.1). Their exact schemas are

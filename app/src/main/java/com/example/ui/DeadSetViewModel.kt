@@ -16,6 +16,9 @@ import com.example.data.setlist.SetlistAnalytics
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
 import com.example.data.repository.ShowRepository
+import com.example.data.repository.ConcertRepository
+import com.example.data.LatLon
+import com.example.ui.screens.ConcertsUiState
 import com.example.data.seed.TriviaGameMode
 import com.example.data.seed.TriviaUserProgress
 import kotlinx.coroutines.flow.*
@@ -114,6 +117,43 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     private val reviewDao = database.reviewDao()
 
+    // --- Tickets tab (Phase 4): followed bands + cached upcoming dates ---
+    private val concertRepository = ConcertRepository(database.concertDao())
+    private val _concerts = MutableStateFlow(ConcertsUiState())
+    val concerts: StateFlow<ConcertsUiState> = _concerts.asStateFlow()
+
+    fun refreshConcerts() {
+        if (_concerts.value.isRefreshing) return
+        viewModelScope.launch {
+            _concerts.update { it.copy(isRefreshing = true) }
+            val outcome = runCatching { concertRepository.refresh() }.getOrNull()
+            _concerts.update { it.copy(isRefreshing = false, lastOutcome = outcome ?: it.lastOutcome) }
+        }
+    }
+
+    fun addBand(name: String) = viewModelScope.launch { concertRepository.addBand(name) }
+
+    fun setBandFollowed(bandId: String, followed: Boolean) =
+        viewModelScope.launch { concertRepository.setFollowed(bandId, followed) }
+
+    fun removeBand(bandId: String) = viewModelScope.launch { concertRepository.removeBand(bandId) }
+
+    /** Geocodes the profile's home city for "near me" (no network key needed; may be unavailable). */
+    private fun locateHome(homeCity: String) {
+        viewModelScope.launch {
+            val home = withContext(Dispatchers.IO) {
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    android.location.Geocoder(getApplication())
+                        .getFromLocationName(homeCity, 1)
+                        ?.firstOrNull()
+                        ?.let { LatLon(it.latitude, it.longitude) }
+                }.getOrNull()
+            }
+            _concerts.update { it.copy(home = home, homeLabel = homeCity.substringBefore(",").trim()) }
+        }
+    }
+
     init {
         viewModelScope.launch {
             reviewDao.observeAll().collect { cards ->
@@ -124,6 +164,15 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.checkAndSeedDatabase()
         }
+
+        viewModelScope.launch { concertRepository.ensureDefaultBands() }
+        viewModelScope.launch {
+            concertRepository.bands.collect { bands -> _concerts.update { it.copy(bands = bands) } }
+        }
+        viewModelScope.launch {
+            concertRepository.upcomingEvents().collect { events -> _concerts.update { it.copy(events = events) } }
+        }
+        locateHome(_uiState.value.userProfile.homeCity)
 
         viewModelScope.launch {
             repository.allShowsWithSongs.collect { rows ->
@@ -367,6 +416,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateUserProfile(profile: UserProfileData) {
+        if (profile.homeCity != _uiState.value.userProfile.homeCity) locateHome(profile.homeCity)
         userPrefs.saveProfile(
             UserPrefsStore.StoredProfile(
                 handle = profile.handle,
