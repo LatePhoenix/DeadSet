@@ -23,14 +23,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through PR #8 / `61b9622`): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3. DB **v10**. CI runs unit tests on push/PR.
-- Next branch: cut `phase-2-c1-importer-shared` from `main` for C1.
+- **`main` is the working line** (through C1): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1** (`:shared` + `tools:importer`). DB **v10**. CI runs `:app`, `:shared`, and `:tools:importer` unit tests.
+- Next branch: cut `phase-2-c2-fetch-cache` from `main` for C2.
 
 **Next up (in order):**
-1. **C1 / 2.2** `:shared` + `tools:importer` (hand YAML parser; peek one show block first).
-2. C2–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
+1. **C2** Fetch + cache gdshowsdb year files + `song_refs.yaml` + provenance.json.
+2. C3–C7, then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
 
 **Open decisions for the owner**
+- [x] **Importer set-type heuristic (C1).** _Decided (agent, reversible):_ 1–2 sets → `SET_1`/`SET_2`; 3+ sets → last is `ENCORE`, earlier `SET_1`…`SET_3` (capped). gdshowsdb has no set labels. Revisit when C5 maps into Room if real encores are mislabeled.
 - [ ] **A5 package/app IDs.** What should the Kotlin package and `applicationId` be (e.g. `app.deadset` / `app.deadset.android`)? Don't change them until the owner answers: changing the app ID orphans existing installs.
 - [x] **Seeded attendance and reviews.** _Decided (owner, relayed 2026-11-21): reset the six. Done on branch `phase-5-seed-reset`: seeds ship unattended with no review/rating/companions/favorite; existing installs are cleared only where the data still matches the invented fingerprint (`CuratedShows.legacySeedPersonalData`), so user edits survive. Follow-up (owner, 2026-11-21): the other 10 seeds' invented ratings, reviews and favorite songs are blanked too. Cleanup on existing installs now requires rating, favorite, companions and the full invented review to all match exactly, and resets attendance only for the six where it was invented._ Original note: The seed data marks **6 shows as attended** (5 Grateful Dead incl. Soldier Field '95, plus Terrapin Flyer at Martyrs' 2024), each with an invented first-person review, rating and companions. These show up in My Shows, stats and the chase list as if you went. Options: (a) reset all seed shows to unattended with blank reviews, leaving the shows themselves (recommended; your own edits on a device are kept); (b) keep as demo data; (c) tell me which of these you really attended.
 - [x] **Phase 2 dataset** (step 2.1). **Resolved: gdshowsdb** (https://github.com/jefmsmit/gdshowsdb). Verified 2026-11-21: `LICENSE.txt` is **MIT** ("Copyright (c) 2013 Jeff Smith"); data is `data/gdshowsdb/YYYY.yaml` (1965–1995) plus `song_refs.yaml`; each song has `:segued: true|false`. Setlists most likely derive from Deadlists (the repo has `deadlists_parser.rb`, but no explicit statement), so credit both. Rejected: setlist.fm (no copying allowed), gratefulstats.com (terms forbid scraping), jerrybase.com / gdsets.com (no license; owner may ask Jerrybase for permission separately). See Phase 2 below.
@@ -139,9 +140,8 @@ Do these after the working-line PR merges, one per PR (or batch A1–A3).
 Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39,774 song performances, ≈16,577 `:segued: true` flags, ≈282 shows with no setlist (figures from the external review; verify with importer output). `:segued:` is yes/no only, so map `true → SEGUE`, `false → NONE` (it can't tell `>` from `->`). Credit gdshowsdb **and** Deadlists in the app.
 
 - [x] **2.1 Choose dataset.** gdshowsdb (see above).
-- [ ] **C1 / 2.2 `tools/importer` module.** A Kotlin JVM Gradle module (`settings.gradle.kts` include), build-time only, adds nothing to the APK.
-  - Share normalization with the app: move `songKey()`, `SongCatalog`, `SongResolver` (`app/.../data/songs/SongNames.kt`, pure Kotlin) into a small pure-Kotlin `:shared` module used by both `:app` and `tools:importer`, so names normalize identically.
-  - Parse YAML with a small hand-written line parser (no YAML library). Before writing it, look at **one** sample: `curl` just `1977.yaml` and `grep -n -A40 "1977-05-08"` to see one show block. Don't read whole files into the chat.
+- [x] **C1 / 2.2 `tools/importer` module.** (`d7d1543`) Pure-Kotlin `:shared` holds `songKey` / `SongCatalog` / `SongResolver`; `:app` and `:tools:importer` depend on it. Hand YAML parser (`GdshowsYamlParser`) for gdshowsdb list-of-maps shape (`:sets` → `- :uuid:` → `:songs` → `:name`/`:segued`); skips `---` markers. Cornell fixture + year smoke (1977: 60 shows / 1233 songs / 398 segued). CI paths include `shared/**` and `tools/**`.
+  _Note:_ set-type heuristic documented under Open decisions (last of 3+ = ENCORE).
 - [ ] **C2 Fetch + cache.** Download the 31 year files + `song_refs.yaml` once into `tools/importer/cache/` (gitignored). Write `tools/importer/provenance.json` with the gdshowsdb commit SHA and fetch date.
 - [ ] **C3 Normalize.** Resolve every title through `SongResolver`. Write unmatched titles to `tools/importer/out/unmatched.csv` with counts. The owner (or the agent, with the owner's OK) adds aliases to `SongCatalog` **by hand**. Never auto-insert guessed matches.
 - [ ] **C4 Cross-check (optional `--crosscheck` flag).** Free Relisten API (no key; ~2,000 calls; cache every response; one request at a time with a delay; honest User-Agent). Compare dates/venues/segues, write `out/discrepancies.csv`, and **mark disagreeing shows uncertain** (a flag column) rather than picking a winner. Archive.org's GratefulDead collection is a second free option; its item identifiers can power a per-show "Listen" link (today's link searches by date).
@@ -228,6 +228,12 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (C1 :shared + importer)
+- Branch `phase-2-c1-importer-shared`: moved song normalization into `:shared`; added `tools:importer` with hand YAML parser + Cornell/empty-setlist/document-marker tests; app seed-title check stays in `:app`.
+- Tests: `:shared:test`, `:tools:importer:test`, `:app:testDebugUnitTest` green. Smoke-parsed cached `1977.yaml`.
+- **Decision (reversible):** 3+ sets → last `ENCORE` (see Open decisions).
+- **Next:** C2 fetch+cache on `phase-2-c2-fetch-cache` from updated `main`.
 
 ### 2026-11-21 · Cursor (A1–A3 done; pause before C1)
 - Merged PR #5 (`4604ad0` + CR fixes `f2812e0`), A1 PR #6 (`d9a971a`), A2 PR #7, A3 PR #8 (`06ebe67`/`d0547b8`, CI green).
