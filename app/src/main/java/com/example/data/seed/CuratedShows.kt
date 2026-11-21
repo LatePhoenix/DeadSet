@@ -6,6 +6,7 @@ import com.example.data.model.DeadEra
 import com.example.data.model.LegendarySegue
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
+import com.example.data.model.TransitionType
 
 object CuratedShows {
 
@@ -23,7 +24,7 @@ object CuratedShows {
         name = name,
         setType = set,
         position = pos,
-        isSegue = isSegue,
+        transitionOut = if (isSegue) TransitionType.SEGUE else TransitionType.NONE,
         durationMinutes = duration,
         notes = notes,
         isJamHighlight = isHighlight

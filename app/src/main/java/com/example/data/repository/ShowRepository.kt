@@ -162,11 +162,12 @@ class ShowRepository(
         )
     }
 
+    /** Cycles the song's transition into the next one: Stop → Segue → Transition → Jam → Stop. */
     suspend fun toggleSongTransition(show: ShowEntity, songIndex: Int) = withContext(Dispatchers.IO) {
         val songs = converters.toSongList(show.setlistJson).toMutableList()
         if (songIndex in songs.indices) {
             val current = songs[songIndex]
-            songs[songIndex] = current.copy(isSegue = !current.isSegue)
+            songs[songIndex] = current.copy(transitionOut = current.transitionOut.next())
             val updatedJson = converters.fromSongList(songs)
             showDao.updateSetlist(show.id, updatedJson)
             syncSongPerformancesForShow(show.id, songs, loadSongResolver())
@@ -249,7 +250,7 @@ class ShowRepository(
                     attendedSongMap[song.name] = (attendedSongMap[song.name] ?: 0) + 1
                 }
 
-                if (song.isSegue && i + 1 < songs.size) {
+                if (song.isConnected && i + 1 < songs.size) {
                     val nextSong = songs[i + 1]
                     val pair = "${song.name} ➔ ${nextSong.name}"
                     segueMap[pair] = (segueMap[pair] ?: 0) + 1

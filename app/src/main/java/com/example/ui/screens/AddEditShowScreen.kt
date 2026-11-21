@@ -25,6 +25,7 @@ import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
+import com.example.data.model.TransitionType
 import com.example.data.repository.ShowRepository
 import com.example.ui.components.SegueIndicatorPill
 import com.example.ui.theme.*
@@ -392,7 +393,7 @@ fun AddEditShowScreen(
                                                 name = newSongName.trim(),
                                                 setType = currentSetType,
                                                 position = pos,
-                                                isSegue = false
+                                                transitionOut = TransitionType.NONE
                                             )
                                         )
                                         newSongName = ""
@@ -465,9 +466,9 @@ fun AddEditShowScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 // Toggle Segue
                                 SegueIndicatorPill(
-                                    isSegue = song.isSegue,
+                                    transition = song.transitionOut,
                                     onToggle = {
-                                        songList[index] = song.copy(isSegue = !song.isSegue)
+                                        songList[index] = song.copy(transitionOut = song.transitionOut.next())
                                     }
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))

@@ -21,7 +21,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 ## Current focus
 
-**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.4 are done (DB is now **v4**). Next is **1.5** (`TransitionType`, migration 4→5); follow the recipe under 1.2 and reuse the table-rebuild pattern in `data/local/Migrations.kt`.
+**Phase 1: Data foundation**, on branch `phase-1-data-foundation`. Steps 1.1–1.5 are done (DB is now **v5**). Next is **1.6** (single source of truth, migration 5→6), the highest-risk step. Write the migration test first, and use `rewriteSetlistJson()` / raw SQL, never `Converters`, inside migrations.
 
 **Open decisions for the owner**
 - [ ] Demo show `2024-05-18-terrapin-flyer-martyrs` (`data/seed/CuratedShows.kt`) ships pre-marked as **attended**, with an invented review and companions. Choose one: delete it, keep it unattended as a demo, or replace it with a real show you attended.
@@ -41,7 +41,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | minSdk 24 | **Don't use `java.time`.** Core library desugaring is off. Use `com.example.data.todayIsoDate()` (`data/DateUtils.kt`) or `SimpleDateFormat`. |
 | Python | Not installed. Use the Kotlin/Gradle tools or shell scripts. |
 | Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (required by AI Studio). |
-| Git | Work on a branch per phase (`phase-N-<slug>`), fast-forward into `main`. `.idea/` is untracked; don't commit it. |
+| Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
+| GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
+| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). There's no CI. **Don't merge until CodeRabbit has posted**: PRs #1 and #2 merged too early and got no review ("Review failed: the pull request is closed"). |
 
 ## Conventions
 
@@ -87,8 +89,13 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
   - **Deviation:** `writers`/`debutDate` were left out. They'd ship empty, and those facts need sources (add them with 5.5, in their own migration).
   - Not normalized: free-text fields like `favoriteSong`, and trivia text.
   - Changing a canonical name later needs a migration; `ensureSongCatalog()` uses INSERT IGNORE and won't rename existing rows.
-- [ ] **1.5 `TransitionType`.** Add an enum (`NONE`, `SEGUE "->"`, `TRANSITION ">"`, `JAM_INTO "~>"`, `TEASE`). Replace `SongEntry.isSegue` / `SongPerformanceEntity.isSegue` with `transitionOut`. The migration maps `isSegue=1 → SEGUE`. Update `SegueIndicatorPill` to cycle through the types and `ShowDetailScreen` to show them.
-  _Migration 4→5._
+- [x] **1.5 `TransitionType`.** Add an enum (`NONE`, `SEGUE "->"`, `TRANSITION ">"`, `JAM_INTO "~>"`, `TEASE`). Replace `SongEntry.isSegue` / `SongPerformanceEntity.isSegue` with `transitionOut`. The migration maps `isSegue=1 → SEGUE`. Update `SegueIndicatorPill` to cycle through the types and `ShowDetailScreen` to show them.
+  _Migration 4→5._ (_see commit "Replace isSegue with TransitionType"_)
+  _As built:_
+  - `TransitionType { NONE, SEGUE "->", TRANSITION ">", JAM "~>" }` in `Models.kt`, with `next()` (pill cycles Stop → Segue → Transition → Jam) and `connects`. It's stored by enum **name** as TEXT (`song_performances.transitionOut`, JSON `transitionOut`); never rename a constant without a migration.
+  - `SongEntry.isConnected` (computed, not serialized) replaces boolean reads in stats, trivia, profile, and the setlist ribbon.
+  - **Deviation:** no `TEASE` value. A tease is inside one song, not a junction between two; it gets its own field later. Also `JAM_INTO` is named `JAM`.
+  - **Rule learned (applies to every future migration):** migrations must not parse setlists through `Converters`/`SongEntry` (they change over time). Use `rewriteSetlistJson()` (raw org.json) in `Migrations.kt`. `MIGRATION_3_4` was switched to this; the old version would have erased segue tags on v3 installs upgrading to v5. Covered by "a v3 install upgraded all the way keeps its segue tags".
 - [ ] **1.6 Single source of truth.** Make `song_performances` the canonical setlist store: search, stats, and the trivia generator all read from it. Drop `ShowEntity.setlistJson` (SQLite needs a table rebuild in the migration). Keep `position`, which `toSongEntry()` currently drops.
   _Migration 5→6. Highest-risk step: write the migration test first._
 - [ ] **1.7 Exact segue query.** Add a DAO query that matches adjacent rows: `a.songId = :from AND b.songId = :to AND b.trackOrder = a.trackOrder + 1 [AND a.transitionOut = 'SEGUE']`. Replace the word-matching segue filter in `DeadSetViewModel.applyFilters`. Add a test showing that "Playing in the Band ➔ Uncle John's Band" no longer matches unrelated shows.
@@ -148,6 +155,13 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Claude Code (step 1.5)
+- Step 1.4 merged as PR #2 (`64399d3`). Step 1.5 is on `phase-1-step-1.5-transitions`: DB v4→v5, `isSegue` → `transitionOut` (`TransitionType`), and the pill cycles 4 states with a color per type. `MIGRATION_3_4` decoupled from the model classes (see the rule under 1.5).
+- 33/33 tests pass. New: 4→5 test, v3→v5 chain test, `TransitionTypeTest` (4). Mutation check: making 3→4 drop `isSegue` fails both the 3→4 and the chain tests.
+- CodeRabbit didn't review PRs #1/#2 (merged too early). Leave the 1.5 PR open until it posts.
+- Not run on a device. The pill's new colors/labels haven't been seen on screen.
+- **Next:** push 1.5, open PR, wait for CodeRabbit, address findings, merge. Then step 1.6.
 
 ### 2026-11-21 · Claude Code (step 1.4)
 - DB v3→v4: `songs` + `song_aliases` tables, `song_performances.songId`, titles normalized everywhere setlists are written (save, seed, restore, repair) and in existing data via `MIGRATION_3_4`. `ShowRepository` now takes `(showDao, songDao)`.

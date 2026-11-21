@@ -55,19 +55,19 @@ class SeedingTest {
     fun `repair and restore keep the user's stored setlist edits`() = runBlocking {
         repository.checkAndSeedDatabase()
         val cornell = dao.getShowById("1977-05-08-cornell").first()!!
-        val firstSongWasSegue = repository.parseSongs(cornell).first().isSegue
+        val edited = repository.parseSongs(cornell).first().transitionOut.next()
         repository.toggleSongTransition(cornell, 0)
 
         // Repair path: wipe performance rows, re-run seeding.
         dao.getAllShows().first().forEach { dao.deleteSongPerformancesForShow(it.id) }
         repository.checkAndSeedDatabase()
-        assertEquals(!firstSongWasSegue, dao.getSongsForShow(cornell.id).first().first().isSegue)
+        assertEquals(edited.name, dao.getSongsForShow(cornell.id).first().first().transitionOut)
 
         // Restore path must not overwrite the edit with the original seed setlist either.
         repository.restoreCuratedOfflineCatalog()
-        assertEquals(!firstSongWasSegue, dao.getSongsForShow(cornell.id).first().first().isSegue)
+        assertEquals(edited.name, dao.getSongsForShow(cornell.id).first().first().transitionOut)
         val storedJson = repository.parseSongs(dao.getShowById(cornell.id).first()!!)
-        assertEquals(!firstSongWasSegue, storedJson.first().isSegue)
+        assertEquals(edited, storedJson.first().transitionOut)
     }
 
     @Test
@@ -79,7 +79,7 @@ class SeedingTest {
             isCustomShow = true,
             setlistJson = repository.serializeSongs(
                 listOf(
-                    com.example.data.model.SongEntry(name = "St Stephen", isSegue = true),
+                    com.example.data.model.SongEntry(name = "St Stephen", transitionOut = com.example.data.model.TransitionType.SEGUE),
                     com.example.data.model.SongEntry(name = "Samson & Delilah"),
                     com.example.data.model.SongEntry(name = "Brand New Tune")
                 )
@@ -95,7 +95,7 @@ class SeedingTest {
         assertEquals(expected, rows.map { it.songName })
         assertEquals(listOf("saint stephen", "samson and delilah", "brand new tune"), rows.map { it.songId })
         assertEquals("Brand New Tune", db.songDao().getSong("brand new tune")?.canonicalName)
-        assertTrue(rows.first().isSegue)
+        assertEquals("SEGUE", rows.first().transitionOut)
     }
 
     @Test
