@@ -172,7 +172,10 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             MainTab.TRANSITIONS -> {
                                 TransitionsScreen(
                                     stats = uiState.stats,
-                                    onFilterBySegue = viewModel::filterByLegendarySegue
+                                    onFilterBySegue = viewModel::filterBySegue,
+                                    families = uiState.familyStats,
+                                    shows = uiState.shows,
+                                    songsByShow = uiState.songsByShow
                                 )
                             }
                             MainTab.STATS -> {

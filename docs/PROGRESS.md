@@ -36,10 +36,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 |---|---|
 | JDK | Not on PATH. Use Android Studio's: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"` (bash) or `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"` (PowerShell) |
 | Run tests | `./gradlew --offline :app:testDebugUnitTest` (Robolectric, about 20 s once warm) |
-| Full build | `assembleDebug` fails at `validateSigningDebug` because `debug.keystore` is git-ignored and absent. This predates Phase 0. Build from Android Studio, or generate a local debug keystore. |
+| Full build | `assembleDebug` needs a local `debug.keystore` (git-ignored). One exists on this machine; elsewhere generate it with `keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US"`. |
 | Offline | `--offline` works with cached deps. **New dependencies need network** (e.g. `room-testing`, `navigation-compose`). |
 | minSdk 24 | **Don't use `java.time`.** Core library desugaring is off. Use `com.example.data.todayIsoDate()` (`data/DateUtils.kt`) or `SimpleDateFormat`. |
 | Python | Not installed. Use the Kotlin/Gradle tools or shell scripts. |
+| Emulator | AVD `Medium_Phone_API_37.0`. Start headless: `ANDROID_AVD_HOME='C:\Users\mhbro\.android\avd' "$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Medium_Phone_API_37.0 -no-window -no-audio -gpu swiftshader_indirect`. Then `adb install -r app/build/outputs/apk/debug/app-debug.apk`, `adb shell am start -n com.aistudio.deadset.kxwmtp/com.example.MainActivity`, `adb exec-out screencap -p > shot.png`. A local git-ignored `debug.keystore` was generated so `assembleDebug` works. |
 | Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (required by AI Studio). |
 | Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
 | GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
@@ -117,9 +118,16 @@ Goal: user data survives schema changes; one source of truth for setlists; trans
 
 ## Phase 3: Transitions
 
-- [ ] **3.1 Segue Families.** Replace `CuratedShows.legendaryTransitions` with a data-driven list (see the table in IMPROVEMENT_PLAN §2.2b). Compute era span and frequency from the catalog; hand-write only the notes. Fact-check the notes.
-- [ ] **3.2 Song "Ins & Outs" panel.** Show the top incoming and outgoing transitions with percentages, filterable by era.
-- [ ] **3.3 Set-structure flow view** on Show Detail (Set I | pre-Drums | Drums/Space | post-Space | Encore).
+- [x] **3.1 Segue Families.** Replace `CuratedShows.legendaryTransitions` with a data-driven list (see the table in IMPROVEMENT_PLAN §2.2b). Compute era span and frequency from the catalog; hand-write only the notes. Fact-check the notes.
+- [x] **3.2 Song "Ins & Outs" panel.** Show the top incoming and outgoing transitions with percentages, filterable by era.
+- [x] **3.3 Set-structure flow view** on Show Detail (Set I | pre-Drums | Drums/Space | post-Space | Encore).
+  _As built (3.1–3.3, branch `phase-3-transitions-a`):_
+  - `data/setlist/SetlistAnalytics.kt`: `SegueFamilies.all` (10 families), `familyStats()`, `songFlow()`, `notation()`/`notationBySet()`. Pure functions, covered by `SetlistAnalyticsTest`.
+  - **Facts policy:** family notes describe only the music (meter, feel, structure). Every date, count and "example show" is computed from the catalog ("3 shows in your catalog · 1977–1980"). The old `legendaryTransitions` and the `LegendarySegue` model, which made historical claims, were deleted.
+  - **3.2 deviation:** the Song Flow Explorer is a panel on the Segues tab (chips for the top songs), not a per-song page, because there is no song page yet. It has no era filter yet; add one when a song page exists (5.6 cross-linking).
+  - **3.3 deviation:** a "Setlist at a glance" card in standard notation (`Scarlet Begonias -> Fire on the Mountain, Estimated Prophet`), one line per set. The pre-Drums / Drums-Space / post-Space split was skipped: it only works once Drums/Space are reliably present (Phase 2 data).
+  - The pill and the ribbon below a song now share one color per transition type (`transitionAccent()`).
+  - **Checked on the emulator** (Medium_Phone_API_37.0): Segues tab, flow explorer, family → filtered show list (3 Scarlet > Fire shows), pill cycling on Cornell.
 - [ ] **3.4 Quiz modes.** "What comes next?" (distractors = real exits from song A), "Complete the suite," "Fill the sandwich," "Name that era," "Build Set Two."
 - [ ] **3.5 Spaced repetition.** A Leitner box per transition pair, stored in Room.
 - [ ] **3.6 Transition graph** (chord or force-directed); tapping an edge filters shows.

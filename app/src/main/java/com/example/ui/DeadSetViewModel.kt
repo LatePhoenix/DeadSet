@@ -7,7 +7,9 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
 import com.example.data.local.ShowEntity
 import com.example.data.local.isUpcoming
+import com.example.data.setlist.FamilyStat
 import com.example.data.setlist.SegueMatcher
+import com.example.data.setlist.SetlistAnalytics
 import com.example.data.model.*
 import com.example.data.repository.OverallStats
 import com.example.data.repository.ShowRepository
@@ -68,9 +70,20 @@ data class UiState(
     val songsByShow: Map<String, List<SongEntry>> = emptyMap(),
     val filteredShows: List<ShowEntity> = emptyList(),
     val stats: OverallStats? = null,
+    /** Each segue family with its play count and date range, computed from the catalog. */
+    val familyStats: List<FamilyStat> = emptyList(),
     val userProfile: UserProfileData = UserProfileData(),
     val triviaProgress: TriviaUserProgress = TriviaUserProgress(),
     val userFeedbackMessage: String? = null
+)
+
+/** Everything derived from one catalog emission, computed together off the main thread. */
+private data class CatalogSnapshot(
+    val shows: List<ShowEntity>,
+    val songsByShow: Map<String, List<SongEntry>>,
+    val filtered: List<ShowEntity>,
+    val stats: OverallStats,
+    val families: List<FamilyStat>
 )
 
 class DeadSetViewModel(application: Application) : AndroidViewModel(application) {
@@ -103,28 +116,33 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
             repository.allShowsWithSongs.collect { rows ->
                 val current = _uiState.value
                 // Stats and filtering walk every setlist; keep that off the main thread.
-                val (snapshot, stats) = withContext(Dispatchers.Default) {
+                val snapshot = withContext(Dispatchers.Default) {
                     val allShowsList = rows.map { it.show }
                     val songsByShow = rows.associate { it.show.id to it.orderedSongs }
-                    val filtered = applyFilters(
-                        shows = allShowsList,
-                        query = current.searchQuery,
-                        era = current.selectedEra,
-                        attendance = current.attendanceFilter,
-                        sort = current.sortOrder,
-                        segueFilter = current.selectedSegueFilter,
-                        songsByShow = songsByShow
-                    )
-                    Triple(allShowsList, songsByShow, filtered) to
-                        repository.computeOverallStats(allShowsList) { songsByShow[it.id].orEmpty() }
-                }
-                val (allShowsList, songsByShow, filtered) = snapshot
-                _uiState.update {
-                    it.copy(
+                    val songsFor = { show: ShowEntity -> songsByShow[show.id].orEmpty() }
+                    CatalogSnapshot(
                         shows = allShowsList,
                         songsByShow = songsByShow,
-                        filteredShows = filtered,
-                        stats = stats
+                        filtered = applyFilters(
+                            shows = allShowsList,
+                            query = current.searchQuery,
+                            era = current.selectedEra,
+                            attendance = current.attendanceFilter,
+                            sort = current.sortOrder,
+                            segueFilter = current.selectedSegueFilter,
+                            songsByShow = songsByShow
+                        ),
+                        stats = repository.computeOverallStats(allShowsList, songsFor),
+                        families = SetlistAnalytics.familyStats(allShowsList, songsFor)
+                    )
+                }
+                _uiState.update {
+                    it.copy(
+                        shows = snapshot.shows,
+                        songsByShow = snapshot.songsByShow,
+                        filteredShows = snapshot.filtered,
+                        stats = snapshot.stats,
+                        familyStats = snapshot.families
                     )
                 }
             }
@@ -229,7 +247,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun filterByLegendarySegue(segueTitle: String) {
+    fun filterBySegue(segueTitle: String) {
         _uiState.update { current ->
             val newFilter = if (current.selectedSegueFilter == segueTitle) null else segueTitle
             val updated = current.copy(

@@ -2,7 +2,6 @@ package com.example.data.seed
 
 import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
-import com.example.data.model.LegendarySegue
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
@@ -794,60 +793,5 @@ object CuratedShows {
     val retiredSeedShowIds = listOf(
         "2026-11-20-terrapin-flyer-thalia",
         "2026-12-31-terrapin-flyer-vic"
-    )
-
-    val legendaryTransitions = listOf(
-        LegendarySegue(
-            songA = "Scarlet Begonias",
-            songB = "Fire on the Mountain",
-            description = "The definitive two-song dance party segue born in 1977. Seamlessly bridges funk into cosmic reggae.",
-            iconEmoji = "🔥"
-        ),
-        LegendarySegue(
-            songA = "China Cat Sunflower",
-            songB = "I Know You Rider",
-            description = "The most played transition in Dead history. Melodic interlocking guitars carrying right into traditional folk bliss.",
-            iconEmoji = "🌻"
-        ),
-        LegendarySegue(
-            songA = "Help on the Way",
-            songB = "Slipknot!",
-            thirdSong = "Franklin's Tower",
-            description = "The Holy Trinity suite from Blues for Allah. Jazz fusion complexities cascading into rolling exuberance.",
-            iconEmoji = "⚡"
-        ),
-        LegendarySegue(
-            songA = "Estimated Prophet",
-            songB = "Eyes of the World",
-            description = "7/4 California desert prophecy transforming into breezy 4/4 jazz-fusion light and swing.",
-            iconEmoji = "👁️"
-        ),
-        LegendarySegue(
-            songA = "Playing in the Band",
-            songB = "Uncle John's Band",
-            thirdSong = "Playing in the Band",
-            description = "The iconic palindrome sandwich jam favored throughout the late 70s and 80s.",
-            iconEmoji = "🥪"
-        ),
-        LegendarySegue(
-            songA = "Dark Star",
-            songB = "Saint Stephen",
-            thirdSong = "The Eleven",
-            description = "The psychedelic heart of Live/Dead (1969). Uncharted deep space into ecstatic counterculture anthem.",
-            iconEmoji = "⭐"
-        ),
-        LegendarySegue(
-            songA = "Drums",
-            songB = "Space",
-            thirdSong = "The Wheel",
-            description = "The post-drums ambient realm giving birth to the optimistic spin of The Wheel.",
-            iconEmoji = "🥁"
-        ),
-        LegendarySegue(
-            songA = "Bertha",
-            songB = "Good Lovin'",
-            description = "High-energy rock 'n roll one-two punch to kick off summer stadium sets.",
-            iconEmoji = "🌹"
-        )
     )
 }
