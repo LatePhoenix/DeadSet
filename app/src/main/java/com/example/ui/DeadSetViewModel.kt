@@ -510,7 +510,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     fun saveCustomShow(show: ShowEntity, songs: List<SongEntry>) {
         viewModelScope.launch {
             repository.saveShow(show, songs)
-            navCommands.trySend(NavCommand.ToShow(show.id))
+            navCommands.trySend(NavCommand.AfterSaveShow(show.id))
             _uiState.update {
                 it.copy(userFeedbackMessage = "Show saved to your offline Room catalog! 🎸")
             }

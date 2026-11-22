@@ -40,5 +40,7 @@ sealed class NavCommand {
     data object ToAlmanacArticles : NavCommand()
     /** Switch to Shows tab (e.g. after a segue filter). */
     data object ToShowsTab : NavCommand()
+    /** After Add/Edit save: leave the editor, then open the show detail. */
+    data class AfterSaveShow(val showId: String) : NavCommand()
     data object Back : NavCommand()
 }

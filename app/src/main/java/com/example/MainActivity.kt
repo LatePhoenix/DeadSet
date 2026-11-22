@@ -166,19 +166,27 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         restoreState = true
                     }
                 }
-                NavCommand.Back -> {
+                is NavCommand.AfterSaveShow -> {
+                    // Leave Add/Edit, then open detail so Back does not return to the editor.
                     navController.popBackStack()
+                    navController.navigate(DeadSetRoutes.showDetail(cmd.showId)) {
+                        launchSingleTop = true
+                    }
+                }
+                NavCommand.Back -> {
+                    if (uiState.almanacOverlayArticleId != null) {
+                        viewModel.clearAlmanacOverlay()
+                    } else {
+                        navController.popBackStack()
+                    }
                 }
             }
         }
     }
 
-    BackHandler(enabled = uiState.almanacOverlayArticleId != null || !onTabRoot) {
-        if (uiState.almanacOverlayArticleId != null) {
-            viewModel.clearAlmanacOverlay()
-        } else {
-            navController.popBackStack()
-        }
+    // Only for stacked detail routes — overlay Back is handled on the overlay itself.
+    BackHandler(enabled = uiState.almanacOverlayArticleId == null && !onTabRoot) {
+        navController.popBackStack()
     }
 
     val tabs = listOf(
@@ -460,16 +468,46 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                 ) { entry ->
                     val raw = entry.arguments?.getString("showId").orEmpty()
                     val showId = raw.takeIf { it.isNotBlank() }?.let { DeadSetRoutes.decode(it) }
-                    val existing = showId?.let { id -> uiState.shows.firstOrNull { it.id == id } }
-                    AddEditShowScreen(
-                        existingShow = existing,
-                        existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
-                        bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
-                            .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
-                            .map { it.name },
-                        onBack = { navController.popBackStack() },
-                        onSave = viewModel::saveCustomShow
-                    )
+                    if (showId == null) {
+                        AddEditShowScreen(
+                            existingShow = null,
+                            existingSongs = emptyList(),
+                            bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
+                                .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
+                                .map { it.name },
+                            onBack = { navController.popBackStack() },
+                            onSave = viewModel::saveCustomShow
+                        )
+                    } else {
+                        val existing = uiState.shows.firstOrNull { it.id == showId }
+                        when {
+                            existing != null -> AddEditShowScreen(
+                                existingShow = existing,
+                                existingSongs = viewModel.songsFor(existing),
+                                bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
+                                    .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
+                                    .map { it.name },
+                                onBack = { navController.popBackStack() },
+                                onSave = viewModel::saveCustomShow
+                            )
+                            uiState.shows.isEmpty() -> Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = StealieGold)
+                            }
+                            else -> Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Show not found",
+                                    color = TextSecondaryDark,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
                 composable(DeadSetRoutes.ABOUT) {
                     AboutCreditsScreen(onBack = { navController.popBackStack() })
@@ -505,6 +543,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
             }
 
             uiState.almanacOverlayArticleId?.let { overlayId ->
+                // Takes Back before NavHost / Trivia handlers so quiz state stays alive.
+                BackHandler { viewModel.clearAlmanacOverlay() }
                 val article = remember(overlayId) {
                     AlmanacRepository(context).loadArticle(overlayId)
                 }
