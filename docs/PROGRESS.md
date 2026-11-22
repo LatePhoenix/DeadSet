@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through 5.3): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.3/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v11**.
-- Next: **5.4** Almanac article format / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **`main` is the working line** (through 5.4): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.4/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v11**.
+- Next: **5.5** Almanac article sets / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **5.4** Article format (Markdown + front matter in `assets/almanac/`).
-2. Phase 5 remainder / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
+1. **5.5** Article sets (Song Stories, Spotlights, Band & Era, Tribute profiles).
+2. **5.6** Cross-linking, then Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -211,7 +211,8 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
   _As built (branch `phase-5-almanac-a`):_ every quiz answer, in every mode, now updates the per-question Leitner state in `review_cards` (previously Segue School only). Classic/Blitz/category decks lead with **unseen** questions, then due/weak ones, then mastered-not-due ones (Segue School keeps due-first for review). The Trivia hub shows "Your accuracy by category" (`AnswerHistory.byCategory`). A test enforces that question ids are unique, since they key the history.
 - [x] **5.2 Fact-check pass** (`b25ccc1`) `TriviaQuestion.sourceUrl` required for curated deck (`CuratedTriviaQuestions.kt`); UI Source link. Softened liner notes / cleared unverified `historicTrivia`. Fixed Cornell Registry year **2011** (was 2012). Vault-generated questions stay catalog-sourced (null URL).
 - [x] **5.3 New question types.** (`16c31bd`) `TriviaFormat` + `TypedTriviaQuestions.kt` (T/F, order-dates as MC permutations, who-sang, venue→city, lyric paraphrase). Vault also emits venue→city. Format chip in UI; 50/50 disabled when <4 options. All typed items sourced; no quoted lyrics.
-- [ ] **5.4 Article format.** _(Drafting rule from D4: if trivia or articles are ever machine-drafted, do it offline, e.g. a local Ollama run, and fact-check every claim against the catalog or a cited source before committing. Never call an LLM API from the app.)_ Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
+- [x] **5.4 Article format.** (`4d2119a`) Markdown + front matter in `assets/almanac/`; hand parser (no YAML/MD libs); list/article screens from Trivia hub; four seed articles (Cornell spotlight, Scarlet→Fire story, Wall of Sound era, Terrapin Flyer profile). Links via Compose `LinkAnnotation`.
+  _Decision (reversible):_ Almanac entry stays under Trivia until 6.1 tabs; related-show taps open Show Detail (back then lands on Main, not Almanac).
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
@@ -232,6 +233,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (5.4 Almanac Markdown)
+- Branch `phase-5-54-almanac-markdown`: `AlmanacMarkdown`/`AlmanacRepository`, assets under `assets/almanac/`, list+article UI, ScreenState, Trivia hub card.
+- **Decision:** lean hand front-matter parser; no Markdown library. Seed articles cite LOC / dead.net / Archive / band sites only.
+- **Next:** 5.5 expand article sets (data-driven Song Stories + more spotlights). C4 deferred. Skip A5 / keys until owner.
 
 ### 2026-11-21 · Cursor (5.3 trivia formats)
 - Branch `phase-5-53-trivia-types`: TriviaFormat + typed curated deck; vault venue→city; UI chip; 50/50 guard.

@@ -217,7 +217,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
                                     onOpenShowDetail = viewModel::openShowDetail,
                                     reviewStates = uiState.reviewStates,
-                                    onCardAnswered = viewModel::recordCardAnswer
+                                    onCardAnswered = viewModel::recordCardAnswer,
+                                    onOpenAlmanac = viewModel::openAlmanac
                                 )
                             }
                             MainTab.PROFILE -> {
@@ -314,6 +315,38 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
 
                     is ScreenState.AboutCredits -> {
                         AboutCreditsScreen(onBack = { viewModel.navigateBack() })
+                    }
+
+                    is ScreenState.AlmanacList -> {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val articles = remember {
+                            com.example.data.almanac.AlmanacRepository(context).loadArticles()
+                        }
+                        AlmanacListScreen(
+                            articles = articles,
+                            onOpenArticle = viewModel::openAlmanacArticle,
+                            onBack = { viewModel.navigateBack() }
+                        )
+                    }
+
+                    is ScreenState.AlmanacArticle -> {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val article = remember(screen.articleId) {
+                            com.example.data.almanac.AlmanacRepository(context).loadArticle(screen.articleId)
+                        }
+                        if (article != null) {
+                            AlmanacArticleScreen(
+                                article = article,
+                                onOpenShow = viewModel::openShowDetail,
+                                onBack = { viewModel.navigateBack() }
+                            )
+                        } else {
+                            AlmanacListScreen(
+                                articles = emptyList(),
+                                onOpenArticle = viewModel::openAlmanacArticle,
+                                onBack = { viewModel.navigateBack() }
+                            )
+                        }
                     }
                 }
             }
