@@ -1,19 +1,11 @@
 package com.example.data.remote
 
 import com.example.BuildConfig
-import com.squareup.moshi.Json
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
-import retrofit2.http.GET
-import retrofit2.http.Path
-import retrofit2.http.Query
-import java.net.URLEncoder
+import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,140 +30,16 @@ data class LiveConcertEvent(
     val longitude: Double? = null
 )
 
-// --- Bandsintown Public API v4 DTOs & Retrofit Interface ---
-
-data class BandsintownEventDto(
-    @Json(name = "id") val id: String = "",
-    @Json(name = "title") val title: String = "",
-    @Json(name = "datetime") val datetime: String = "",
-    @Json(name = "description") val description: String = "",
-    @Json(name = "url") val url: String = "",
-    @Json(name = "lineup") val lineup: List<String> = emptyList(),
-    @Json(name = "venue") val venue: BandsintownVenueDto? = null,
-    @Json(name = "offers") val offers: List<BandsintownOfferDto> = emptyList()
-)
-
-data class BandsintownVenueDto(
-    @Json(name = "name") val name: String = "",
-    @Json(name = "city") val city: String = "",
-    @Json(name = "region") val region: String = "",
-    @Json(name = "country") val country: String = "US",
-    @Json(name = "street_address") val streetAddress: String = "",
-    @Json(name = "latitude") val latitude: String? = null,
-    @Json(name = "longitude") val longitude: String? = null
-)
-
-data class BandsintownOfferDto(
-    @Json(name = "type") val type: String = "Tickets",
-    @Json(name = "url") val url: String = "",
-    @Json(name = "status") val status: String = "available"
-)
-
-interface BandsintownApiService {
-    @GET("artists/{artist}/events")
-    suspend fun getArtistEvents(
-        @Path("artist", encoded = false) artistName: String,
-        @Query("app_id") appId: String,
-        @Query("date") date: String = "upcoming"
-    ): Response<List<BandsintownEventDto>>
-}
-
-// --- Ticketmaster Discovery API v2 DTOs & Retrofit Interface ---
-
-data class TicketmasterDiscoveryResponse(
-    @Json(name = "_embedded") val embedded: TicketmasterEmbeddedEvents? = null
-)
-
-data class TicketmasterEmbeddedEvents(
-    @Json(name = "events") val events: List<TicketmasterEventDto> = emptyList()
-)
-
-data class TicketmasterEventDto(
-    @Json(name = "id") val id: String = "",
-    @Json(name = "name") val name: String = "",
-    @Json(name = "url") val url: String = "",
-    @Json(name = "info") val info: String = "",
-    @Json(name = "dates") val dates: TicketmasterDatesDto? = null,
-    @Json(name = "priceRanges") val priceRanges: List<TicketmasterPriceRangeDto> = emptyList(),
-    @Json(name = "_embedded") val embedded: TicketmasterEventVenueEmbedded? = null
-)
-
-data class TicketmasterDatesDto(
-    @Json(name = "start") val start: TicketmasterStartDateDto? = null
-)
-
-data class TicketmasterStartDateDto(
-    @Json(name = "localDate") val localDate: String = "",
-    @Json(name = "localTime") val localTime: String = "20:00:00"
-)
-
-data class TicketmasterPriceRangeDto(
-    @Json(name = "min") val min: Double = 0.0,
-    @Json(name = "max") val max: Double = 0.0,
-    @Json(name = "currency") val currency: String = "USD"
-)
-
-data class TicketmasterEventVenueEmbedded(
-    @Json(name = "venues") val venues: List<TicketmasterVenueDto> = emptyList()
-)
-
-data class TicketmasterVenueDto(
-    @Json(name = "name") val name: String = "",
-    @Json(name = "city") val city: TicketmasterCityDto? = null,
-    @Json(name = "state") val state: TicketmasterStateDto? = null,
-    @Json(name = "address") val address: TicketmasterAddressDto? = null,
-    @Json(name = "location") val location: TicketmasterLocationDto? = null
-)
-
-data class TicketmasterCityDto(
-    @Json(name = "name") val name: String = ""
-)
-
-data class TicketmasterStateDto(
-    @Json(name = "stateCode") val stateCode: String = ""
-)
-
-data class TicketmasterLocationDto(
-    @Json(name = "latitude") val latitude: String? = null,
-    @Json(name = "longitude") val longitude: String? = null
-)
-
-data class TicketmasterAddressDto(
-    @Json(name = "line1") val line1: String = ""
-)
-
-interface TicketmasterDiscoveryApiService {
-    @GET("discovery/v2/events.json")
-    suspend fun searchMusicEvents(
-        @Query("apikey") apiKey: String? = null,
-        @Query("keyword") keyword: String,
-        @Query("classificationName") classificationName: String = "music",
-        @Query("sort") sort: String = "date,asc",
-        @Query("size") size: Int = 25
-    ): Response<TicketmasterDiscoveryResponse>
-}
-
 /**
- * Live Concert API Client integrating the Bandsintown Public API and Ticketmaster Discovery API v2.
- * Only events returned by those sources are shown; there is no hard-coded fallback schedule.
+ * Live concert client using OkHttp + org.json (no Retrofit/Moshi).
+ * Only events returned by Bandsintown / Ticketmaster are shown.
  */
-class LiveConcertApiClient {
-
-    private val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
-
-    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+class LiveConcertApiClient(
+    private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
-
-    private val bandsintownService: BandsintownApiService = Retrofit.Builder()
-        .baseUrl("https://rest.bandsintown.com/")
-        .client(okHttpClient)
-        .addConverterFactory(MoshiConverterFactory.create(moshi))
-        .build()
-        .create(BandsintownApiService::class.java)
+) {
 
     fun ticketmasterAccess(): TicketmasterAccess = TicketmasterAccess.fromBuildConfig()
 
@@ -184,14 +52,6 @@ class LiveConcertApiClient {
         }.getOrNull().orEmpty().trim()
         return if (raw.isBlank() || raw == "null" || raw == "YOUR_BANDSINTOWN_APP_ID") "" else raw
     }
-
-    private fun ticketmasterService(baseUrl: String): TicketmasterDiscoveryApiService =
-        Retrofit.Builder()
-            .baseUrl(baseUrl)
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-            .create(TicketmasterDiscoveryApiService::class.java)
 
     /**
      * Upcoming events for each of [bandNames] from Bandsintown and (when a proxy or debug key
@@ -211,7 +71,6 @@ class LiveConcertApiClient {
             if (tm.isConfigured) {
                 fetchTicketmasterEvents(band, tm)?.let { list ->
                     reached += "Ticketmaster"
-                    // Keyword search can return unrelated acts; keep events naming the band.
                     events += list.filter {
                         it.bandName.contains(band, ignoreCase = true) ||
                             it.eventTitle.contains(band, ignoreCase = true)
@@ -235,95 +94,50 @@ class LiveConcertApiClient {
         val ticketmasterConfigured: Boolean
     )
 
-    /** Null when the request fails or is rejected (e.g. unregistered app_id), empty when there are no events. */
-    private suspend fun fetchBandsintownArtistEvents(artistName: String): List<LiveConcertEvent>? {
+    /** Null when the request fails or is rejected (e.g. unregistered app_id), empty when none. */
+    private fun fetchBandsintownArtistEvents(artistName: String): List<LiveConcertEvent>? {
         return runCatching {
-            val response = bandsintownService.getArtistEvents(
-                artistName = artistName,
-                appId = getBandsintownAppId()
-            )
-            if (!response.isSuccessful) return null
-            val dtos = response.body().orEmpty()
-            dtos.mapNotNull { dto ->
-                val venue = dto.venue ?: return@mapNotNull null
-                val datePart = dto.datetime.substringBefore("T").ifBlank { return@mapNotNull null }
-                val offerUrl = dto.offers.firstOrNull { it.url.isNotBlank() }?.url.orEmpty()
-                val ticketLink = when {
-                    offerUrl.isNotBlank() -> offerUrl
-                    dto.url.isNotBlank() -> dto.url
-                    else -> "https://www.bandsintown.com/e/${dto.id}"
-                }
-                val band = dto.lineup.firstOrNull() ?: artistName
-                LiveConcertEvent(
-                    id = "bit-${dto.id.ifBlank { "$band-$datePart" }}",
-                    bandName = band,
-                    eventTitle = dto.title.ifBlank { "$band Live in ${venue.city}" },
-                    date = datePart,
-                    displayDate = datePart,
-                    venueName = venue.name,
-                    city = venue.city,
-                    stateCode = venue.region,
-                    country = venue.country,
-                    venueAddress = listOf(venue.streetAddress, venue.city, venue.region)
-                        .filter { it.isNotBlank() }
-                        .joinToString(", "),
-                    ticketUrl = ticketLink,
-                    priceRange = "See tickets",
-                    apiSource = "Bandsintown API",
-                    tourNote = dto.description.take(120),
-                    latitude = venue.latitude?.toDoubleOrNull(),
-                    longitude = venue.longitude?.toDoubleOrNull()
-                )
-            }
+            val url = "https://rest.bandsintown.com/artists/${artistName.encodePathSegment()}/events"
+                .toHttpUrl()
+                .newBuilder()
+                .addQueryParameter("app_id", getBandsintownAppId())
+                .addQueryParameter("date", "upcoming")
+                .build()
+            val body = httpGet(url.toString()) ?: return null
+            LiveConcertJson.parseBandsintownEvents(body, artistName)
         }.getOrNull()
     }
 
     /** Null when the request fails or is rejected, empty when there are no events. */
-    private suspend fun fetchTicketmasterEvents(
+    private fun fetchTicketmasterEvents(
         keyword: String,
         access: TicketmasterAccess
     ): List<LiveConcertEvent>? {
         return runCatching {
-            // Proxy injects the secret; omit apikey so it never leaves the device path unused.
-            val response = ticketmasterService(access.baseUrl).searchMusicEvents(
-                apiKey = access.apiKey.ifBlank { null },
-                keyword = keyword
-            )
-            if (!response.isSuccessful) return null
-            val events = response.body()?.embedded?.events.orEmpty()
-            val encodedKeyword = URLEncoder.encode(keyword, "UTF-8")
-            events.mapNotNull { dto ->
-                val venue = dto.embedded?.venues?.firstOrNull() ?: return@mapNotNull null
-                val dateStr = dto.dates?.start?.localDate.orEmpty().ifBlank { return@mapNotNull null }
-                val city = venue.city?.name.orEmpty()
-                val state = venue.state?.stateCode.orEmpty()
-                val pr = dto.priceRanges.firstOrNull()
-                val priceText = if (pr != null && pr.min > 0.0 && pr.max > 0.0) {
-                    "$${pr.min.toInt()} – $${pr.max.toInt()}"
-                } else {
-                    "See tickets"
-                }
-
-                LiveConcertEvent(
-                    id = "tm-${dto.id}",
-                    bandName = dto.name,
-                    eventTitle = dto.name,
-                    date = dateStr,
-                    displayDate = dateStr,
-                    venueName = venue.name,
-                    city = city,
-                    stateCode = state,
-                    venueAddress = listOf(venue.address?.line1.orEmpty(), city, state)
-                        .filter { it.isNotBlank() }
-                        .joinToString(", "),
-                    ticketUrl = dto.url.ifBlank { "https://www.ticketmaster.com/search?q=$encodedKeyword" },
-                    priceRange = priceText,
-                    apiSource = "Ticketmaster Discovery API",
-                    tourNote = dto.info.take(120),
-                    latitude = venue.location?.latitude?.toDoubleOrNull(),
-                    longitude = venue.location?.longitude?.toDoubleOrNull()
-                )
+            val base = access.baseUrl.trimEnd('/')
+            val builder = "$base/discovery/v2/events.json".toHttpUrl().newBuilder()
+                .addQueryParameter("keyword", keyword)
+                .addQueryParameter("classificationName", "music")
+                .addQueryParameter("sort", "date,asc")
+                .addQueryParameter("size", "25")
+            // Proxy injects the secret; omit apikey so it never leaves the device unused.
+            if (access.apiKey.isNotBlank()) {
+                builder.addQueryParameter("apikey", access.apiKey)
             }
+            val body = httpGet(builder.build().toString()) ?: return null
+            LiveConcertJson.parseTicketmasterEvents(body, keyword)
         }.getOrNull()
     }
+
+    private fun httpGet(url: String): String? {
+        val request = Request.Builder().url(url).get().build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            return response.body?.string()
+        }
+    }
+
+    /** Path-segment encode without turning spaces into `+` (Bandsintown expects `%20`). */
+    private fun String.encodePathSegment(): String =
+        java.net.URLEncoder.encode(this, Charsets.UTF_8.name()).replace("+", "%20")
 }

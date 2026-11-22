@@ -59,10 +59,28 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
+      - name: Generate CI release keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore my-upload-key.jks \
+            -storepass android \
+            -alias upload \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=DeadSet CI,O=DeadSet,C=US"
+
       - name: Unit tests
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :shared:test :tools:importer:test
+
+      - name: Release R8 shrink check
+        env:
+          STORE_PASSWORD: android
+          KEY_PASSWORD: android
+        run: ./gradlew --no-daemon :app:minifyReleaseWithR8
 
       - name: Upload test results
         if: always()

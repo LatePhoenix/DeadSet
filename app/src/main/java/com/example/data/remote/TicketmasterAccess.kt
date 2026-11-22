@@ -10,7 +10,7 @@ import com.example.BuildConfig
  */
 data class TicketmasterAccess(
     val mode: Mode,
-    /** Retrofit base URL ending with `/`, empty when [Mode.OFF]. */
+    /** OkHttp base URL ending with `/`, empty when [Mode.OFF]. */
     val baseUrl: String,
     /** Empty when using the proxy (Worker injects the secret). */
     val apiKey: String
