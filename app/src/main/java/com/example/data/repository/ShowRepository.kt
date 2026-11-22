@@ -166,7 +166,7 @@ class ShowRepository(
     }
 
     suspend fun toggleAttendance(id: String, isAttended: Boolean) = withContext(Dispatchers.IO) {
-        showDao.updateAttendance(id, isAttended)
+        showDao.updateAttendanceEnsured(id, isAttended)
     }
 
     suspend fun saveUserReview(

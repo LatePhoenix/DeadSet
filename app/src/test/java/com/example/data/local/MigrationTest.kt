@@ -590,7 +590,48 @@ class MigrationTest {
         db.close()
     }
 
-    /** v6+ shows table (no setlistJson / isUpcoming). */
+    @Test
+    fun `10 to 11 moves user fields into user_show_data and keeps setlist`() {
+        helper.createDatabase(dbName, 10).apply {
+            insertV10Show(this, "kept-show", review = "Mine", attended = true, rating = 4.5f)
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('bertha', 'Bertha')")
+            execSQL(
+                "INSERT INTO song_performances (showId, songId, songName, setType, trackOrder, " +
+                    "transitionOut, durationMinutes, notes, isJamHighlight) VALUES " +
+                    "('kept-show', 'bertha', 'Bertha', 'SET_1', 0, 'SEGUE', NULL, NULL, 0)"
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 11, true, MIGRATION_10_11)
+        // User columns must be gone from shows.
+        db.query("PRAGMA table_info(shows)").use { c ->
+            val cols = buildList { while (c.moveToNext()) add(c.getString(1)) }
+            assertTrue("isAttended must leave shows", "isAttended" !in cols)
+            assertTrue("userReview must leave shows", "userReview" !in cols)
+        }
+        db.query(
+            "SELECT isAttended, userRating, userReview, favoriteSong FROM user_show_data WHERE showId = 'kept-show'"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+            assertEquals(4.5f, c.getFloat(1))
+            assertEquals("Mine", c.getString(2))
+            assertEquals("Bertha", c.getString(3))
+        }
+        db.query("SELECT songName, transitionOut FROM song_performances WHERE showId = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Bertha", c.getString(0))
+            assertEquals("SEGUE", c.getString(1))
+        }
+        db.query("SELECT isAttended, userReview FROM shows_with_user WHERE id = 'kept-show'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+            assertEquals("Mine", c.getString(1))
+        }
+        db.close()
+    }
+
+    /** v6–v9 shows table (user columns still on shows; no recreatesShowId). */
     private fun insertV6Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         id: String,
@@ -606,6 +647,27 @@ class MigrationTest {
                 1, 5.0, ?, '', '', '', '', 0, '', '', 'Grateful Dead', '', 99)
             """.trimIndent(),
             arrayOf<Any?>(id, review)
+        )
+    }
+
+    /** v10 shows table (includes recreatesShowId; user columns still on shows). */
+    private fun insertV10Show(
+        db: androidx.sqlite.db.SupportSQLiteDatabase,
+        id: String,
+        review: String,
+        attended: Boolean,
+        rating: Float
+    ) {
+        db.execSQL(
+            """
+            INSERT INTO shows (id, date, venue, city, stateOrCountry, eraId, tourName,
+                isAttended, userRating, userReview, attendedWith, favoriteSong, archiveIdentifier,
+                tapeQuality, isCustomShow, tags, historicTrivia, bandName, venueAddress,
+                recreatesShowId, lastUpdatedTimestamp)
+            VALUES (?, '1977-05-08', 'Barton Hall', 'Ithaca', 'NY', 'spring_77', 'Spring',
+                ?, ?, ?, '', 'Bertha', '', '', 0, '', '', 'Grateful Dead', '', NULL, 99)
+            """.trimIndent(),
+            arrayOf<Any?>(id, if (attended) 1 else 0, rating, review)
         )
     }
 

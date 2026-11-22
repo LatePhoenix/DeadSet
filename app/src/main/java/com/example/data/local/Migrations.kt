@@ -452,3 +452,114 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         db.execSQL("ALTER TABLE `shows` ADD COLUMN `recreatesShowId` TEXT")
     }
 }
+
+/**
+ * 10 → 11: move user fields out of `shows` into `user_show_data` so a catalog asset refresh
+ * cannot wipe attendance/reviews. Creates the `shows_with_user` view (Room also creates it from
+ * the @DatabaseView; we create it here so pre-Room SQL checks see it).
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Copy user columns first into a table *without* FK so rebuilding `shows` cannot cascade-wipe them.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `user_show_data_new` (`showId` TEXT NOT NULL, " +
+                "`isAttended` INTEGER NOT NULL, `userRating` REAL NOT NULL, `userReview` TEXT NOT NULL, " +
+                "`attendedWith` TEXT NOT NULL, `favoriteSong` TEXT NOT NULL, PRIMARY KEY(`showId`))"
+        )
+        db.execSQL(
+            "INSERT INTO `user_show_data_new` (`showId`, `isAttended`, `userRating`, `userReview`, " +
+                "`attendedWith`, `favoriteSong`) " +
+                "SELECT `id`, `isAttended`, `userRating`, `userReview`, `attendedWith`, `favoriteSong` " +
+                "FROM `shows`"
+        )
+
+        // Rebuild shows without user columns. Park performances first (FK to shows).
+        db.execSQL("CREATE TABLE `song_performances_backup` AS SELECT * FROM `song_performances`")
+        db.execSQL("DROP TABLE `song_performances`")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `shows_new` (`id` TEXT NOT NULL, `date` TEXT NOT NULL, " +
+                "`venue` TEXT NOT NULL, `city` TEXT NOT NULL, `stateOrCountry` TEXT NOT NULL, " +
+                "`eraId` TEXT NOT NULL, `tourName` TEXT NOT NULL, `archiveIdentifier` TEXT NOT NULL, " +
+                "`tapeQuality` TEXT NOT NULL, `isCustomShow` INTEGER NOT NULL, `tags` TEXT NOT NULL, " +
+                "`historicTrivia` TEXT NOT NULL, `bandName` TEXT NOT NULL, `venueAddress` TEXT NOT NULL, " +
+                "`recreatesShowId` TEXT, `lastUpdatedTimestamp` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        db.execSQL(
+            "INSERT INTO `shows_new` (`id`, `date`, `venue`, `city`, `stateOrCountry`, `eraId`, " +
+                "`tourName`, `archiveIdentifier`, `tapeQuality`, `isCustomShow`, `tags`, " +
+                "`historicTrivia`, `bandName`, `venueAddress`, `recreatesShowId`, `lastUpdatedTimestamp`) " +
+                "SELECT `id`, `date`, `venue`, `city`, `stateOrCountry`, `eraId`, `tourName`, " +
+                "`archiveIdentifier`, `tapeQuality`, `isCustomShow`, `tags`, `historicTrivia`, " +
+                "`bandName`, `venueAddress`, `recreatesShowId`, `lastUpdatedTimestamp` FROM `shows`"
+        )
+        db.execSQL("DROP TABLE `shows`")
+        db.execSQL("ALTER TABLE `shows_new` RENAME TO `shows`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_date` ON `shows` (`date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_venue` ON `shows` (`venue`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_city` ON `shows` (`city`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shows_eraId` ON `shows` (`eraId`)")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `song_performances` (`performanceId` INTEGER PRIMARY KEY " +
+                "AUTOINCREMENT NOT NULL, `showId` TEXT NOT NULL, `songId` TEXT NOT NULL, `songName` TEXT NOT NULL, " +
+                "`setType` TEXT NOT NULL, `trackOrder` INTEGER NOT NULL, `transitionOut` TEXT NOT NULL, " +
+                "`durationMinutes` INTEGER, `notes` TEXT, `isJamHighlight` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`showId`) REFERENCES `shows`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`songId`) REFERENCES `songs`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )"
+        )
+        val perfColumns = "performanceId, showId, songId, songName, setType, trackOrder, transitionOut, " +
+            "durationMinutes, notes, isJamHighlight"
+        db.execSQL(
+            "INSERT INTO `song_performances` ($perfColumns) SELECT $perfColumns FROM `song_performances_backup`"
+        )
+        db.execSQL("DROP TABLE `song_performances_backup`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_showId` ON `song_performances` (`showId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songName` ON `song_performances` (`songName`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_song_performances_songId` ON `song_performances` (`songId`)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_song_performances_showId_trackOrder` " +
+                "ON `song_performances` (`showId`, `trackOrder`)"
+        )
+
+        // Re-create user_show_data with the FK Room expects, now that `shows` is stable.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `user_show_data` (`showId` TEXT NOT NULL, " +
+                "`isAttended` INTEGER NOT NULL, `userRating` REAL NOT NULL, `userReview` TEXT NOT NULL, " +
+                "`attendedWith` TEXT NOT NULL, `favoriteSong` TEXT NOT NULL, PRIMARY KEY(`showId`), " +
+                "FOREIGN KEY(`showId`) REFERENCES `shows`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL(
+            "INSERT INTO `user_show_data` (`showId`, `isAttended`, `userRating`, `userReview`, " +
+                "`attendedWith`, `favoriteSong`) SELECT `showId`, `isAttended`, `userRating`, " +
+                "`userReview`, `attendedWith`, `favoriteSong` FROM `user_show_data_new`"
+        )
+        db.execSQL("DROP TABLE `user_show_data_new`")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_user_show_data_showId` ON `user_show_data` (`showId`)"
+        )
+
+        // SQL must match schemas/.../11.json / @DatabaseView exactly (Room compares the string).
+        db.execSQL("DROP VIEW IF EXISTS `shows_with_user`")
+        db.execSQL(SHOW_WITH_USER_VIEW_CREATE_SQL)
+    }
+}
+
+/**
+ * Keep in lockstep with [ShowEntity]'s `@DatabaseView` and `schemas/.../11.json`.
+ * Room validates migrations by comparing this SQL to the exported schema.
+ */
+const val SHOW_WITH_USER_VIEW_CREATE_SQL =
+    "CREATE VIEW `shows_with_user` AS SELECT s.id AS id, s.date AS date, s.venue AS venue, s.city AS city,\n" +
+        "            s.stateOrCountry AS stateOrCountry, s.eraId AS eraId, s.tourName AS tourName,\n" +
+        "            COALESCE(u.isAttended, 0) AS isAttended,\n" +
+        "            COALESCE(u.userRating, 0) AS userRating,\n" +
+        "            COALESCE(u.userReview, '') AS userReview,\n" +
+        "            COALESCE(u.attendedWith, '') AS attendedWith,\n" +
+        "            COALESCE(u.favoriteSong, '') AS favoriteSong,\n" +
+        "            s.archiveIdentifier AS archiveIdentifier, s.tapeQuality AS tapeQuality,\n" +
+        "            s.isCustomShow AS isCustomShow, s.tags AS tags, s.historicTrivia AS historicTrivia,\n" +
+        "            s.bandName AS bandName, s.venueAddress AS venueAddress,\n" +
+        "            s.recreatesShowId AS recreatesShowId, s.lastUpdatedTimestamp AS lastUpdatedTimestamp\n" +
+        "        FROM shows AS s\n" +
+        "        LEFT JOIN user_show_data AS u ON u.showId = s.id"

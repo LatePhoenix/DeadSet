@@ -8,6 +8,7 @@ import java.io.File
  * Usage:
  * - `--fetch [--force]` — download cache + write provenance.json
  * - `--normalize` — parse cache year files, write out/unmatched.csv
+ * - `--build-catalog` — build app/src/main/assets/catalog.db from schema + cache
  * - `<year.yaml>…` — parse + summarize
  */
 fun main(args: Array<String>) {
@@ -50,6 +51,17 @@ fun main(args: Array<String>) {
                 println("  … ${result.unmatched.size - 15} more")
             }
         }
+        "--build-catalog" -> {
+            val cacheDir = File(moduleDir, "cache")
+            val schema = resolveSchemaFile(moduleDir)
+            val output = resolveCatalogOutput(moduleDir)
+            val shows = loadCachedShows(cacheDir)
+            val result = CatalogDbBuilder.build(schema, shows, output)
+            println(
+                "catalog.db: ${result.showCount} shows, ${result.songCount} songs, " +
+                    "${result.performanceCount} performances → ${result.output.absolutePath}"
+            )
+        }
         else -> summarizeYears(args)
     }
 }
@@ -67,6 +79,21 @@ fun loadCachedShows(cacheDir: File): List<ParsedShow> {
         shows += GdshowsYamlParser.parseYearFile(file.readText())
     }
     return shows
+}
+
+fun resolveSchemaFile(moduleDir: File): File {
+    val candidates = listOf(
+        File(moduleDir, "../../app/schemas/com.example.data.local.AppDatabase/11.json"),
+        File(moduleDir, "app/schemas/com.example.data.local.AppDatabase/11.json")
+    )
+    return candidates.map { it.canonicalFile }.firstOrNull { it.isFile }
+        ?: throw IllegalStateException("Room schema 11.json not found (run :app:kspDebugKotlin)")
+}
+
+fun resolveCatalogOutput(moduleDir: File): File {
+    val assets = File(moduleDir, "../../app/src/main/assets/catalog.db").canonicalFile
+    assets.parentFile?.mkdirs()
+    return assets
 }
 
 private fun summarizeYears(paths: Array<String>) {
@@ -92,5 +119,6 @@ private fun printUsage() {
     System.err.println("Usage:")
     System.err.println("  ImporterMain --fetch [--force]")
     System.err.println("  ImporterMain --normalize")
+    System.err.println("  ImporterMain --build-catalog")
     System.err.println("  ImporterMain <year.yaml> [year.yaml…]")
 }

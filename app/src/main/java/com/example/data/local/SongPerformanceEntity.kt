@@ -12,14 +12,14 @@ import com.example.data.model.TransitionType
 
 /**
  * Normalized Room entity storing individual song performances for each show.
- * Linked to [ShowEntity] (CASCADE delete) and to [SongEntity] via [songId]. [songName] holds the
- * song's canonical name at write time, kept for display and existing LIKE queries.
+ * Linked to [ShowCatalogEntity] (CASCADE delete) and to [SongEntity] via [songId]. [songName]
+ * holds the song's canonical name at write time, kept for display and existing LIKE queries.
  */
 @Entity(
     tableName = "song_performances",
     foreignKeys = [
         ForeignKey(
-            entity = ShowEntity::class,
+            entity = ShowCatalogEntity::class,
             parentColumns = ["id"],
             childColumns = ["showId"],
             onDelete = ForeignKey.CASCADE
