@@ -220,4 +220,23 @@ interface ShowDao {
         ensureUserRow(id)
         updateAttendance(id, isAttended)
     }
+
+    /**
+     * Shows where [fromSongId] is immediately followed by [toSongId] (adjacent trackOrder).
+     * When [requireSegue] is true, the first song must have `transitionOut = 'SEGUE'`.
+     */
+    @Query(
+        """
+        SELECT DISTINCT a.showId FROM song_performances a
+        INNER JOIN song_performances b
+          ON a.showId = b.showId AND b.trackOrder = a.trackOrder + 1
+        WHERE a.songId = :fromSongId AND b.songId = :toSongId
+          AND (:requireSegue = 0 OR a.transitionOut = 'SEGUE')
+        """
+    )
+    suspend fun showIdsWithAdjacentSongs(
+        fromSongId: String,
+        toSongId: String,
+        requireSegue: Boolean
+    ): List<String>
 }
