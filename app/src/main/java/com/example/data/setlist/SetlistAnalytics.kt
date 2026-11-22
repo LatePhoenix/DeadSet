@@ -181,7 +181,60 @@ object SetlistAnalytics {
             val inSet = songs.filter { it.setType == set }
             if (inSet.isEmpty()) null else set to notation(inSet)
         }
+
+    /**
+     * Setlist-at-a-glance segments. Set I and Encore stay whole; Set II/III with Drums and/or
+     * Space split into pre-Drums · Drums/Space · post-Space. Sets without Drums/Space stay one line.
+     */
+    fun structureSegments(songs: List<SongEntry>): List<StructureSegment> {
+        if (songs.isEmpty()) return emptyList()
+        val out = mutableListOf<StructureSegment>()
+        for (set in SetType.entries) {
+            val inSet = songs.filter { it.setType == set }
+            if (inSet.isEmpty()) continue
+            when (set) {
+                SetType.SET_1 -> out += StructureSegment("Set I", notation(inSet))
+                SetType.ENCORE -> out += StructureSegment("Encore", notation(inSet))
+                SetType.SET_2, SetType.SET_3 -> out += splitAroundDrumsSpace(set, inSet)
+            }
+        }
+        return out
+    }
+
+    private fun splitAroundDrumsSpace(set: SetType, inSet: List<SongEntry>): List<StructureSegment> {
+        val firstDs = inSet.indexOfFirst(::isDrumsOrSpace)
+        val lastDs = inSet.indexOfLast(::isDrumsOrSpace)
+        if (firstDs < 0) {
+            return listOf(StructureSegment(set.shortLabel, notation(inSet)))
+        }
+        val segments = mutableListOf<StructureSegment>()
+        if (firstDs > 0) {
+            segments += StructureSegment(
+                "${set.shortLabel} (pre-Drums)",
+                notation(inSet.subList(0, firstDs))
+            )
+        }
+        segments += StructureSegment(
+            "Drums/Space",
+            notation(inSet.subList(firstDs, lastDs + 1))
+        )
+        if (lastDs < inSet.lastIndex) {
+            segments += StructureSegment(
+                "${set.shortLabel} (post-Space)",
+                notation(inSet.subList(lastDs + 1, inSet.size))
+            )
+        }
+        return segments
+    }
+
+    private fun isDrumsOrSpace(song: SongEntry): Boolean {
+        val key = canonicalKey(song.name)
+        return key == songKey("Drums") || key == songKey("Space")
+    }
 }
+
+/** One labeled block of setlist notation for the Show Detail glance card. */
+data class StructureSegment(val label: String, val notation: String)
 
 /** One directed, connected transition between two songs and how often it happened. */
 data class GraphEdge(val from: String, val to: String, val count: Int) {

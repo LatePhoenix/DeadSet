@@ -85,6 +85,41 @@ class SetlistAnalyticsTest {
     }
 
     @Test
+    fun `structure segments split Set II around Drums and Space`() {
+        val songs = listOf(
+            s("Bertha", set = SetType.SET_1),
+            s("Scarlet Begonias", SEGUE, SetType.SET_2),
+            s("Fire on the Mountain", set = SetType.SET_2),
+            s("Drums", SEGUE, SetType.SET_2),
+            s("Space", JAM, SetType.SET_2),
+            s("The Wheel", set = SetType.SET_2),
+            s("U.S. Blues", set = SetType.ENCORE)
+        )
+        assertEquals(
+            listOf(
+                StructureSegment("Set I", "Bertha"),
+                StructureSegment("Set 2 (pre-Drums)", "Scarlet Begonias -> Fire on the Mountain"),
+                StructureSegment("Drums/Space", "Drums -> Space"),
+                StructureSegment("Set 2 (post-Space)", "The Wheel"),
+                StructureSegment("Encore", "U.S. Blues")
+            ),
+            SetlistAnalytics.structureSegments(songs)
+        )
+    }
+
+    @Test
+    fun `structure segments keep Set II whole without Drums or Space`() {
+        val songs = listOf(
+            s("Scarlet Begonias", SEGUE, SetType.SET_2),
+            s("Fire on the Mountain", set = SetType.SET_2)
+        )
+        assertEquals(
+            listOf(StructureSegment("Set 2", "Scarlet Begonias -> Fire on the Mountain")),
+            SetlistAnalytics.structureSegments(songs)
+        )
+    }
+
+    @Test
     fun `family evidence text matches the counts`() {
         val stats = SetlistAnalytics.familyStats(shows, songsFor).associateBy { it.family.id }
         assertEquals("2 shows in your catalog · 1977–1978", familyEvidence(stats.getValue("scarlet-fire")))

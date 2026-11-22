@@ -506,9 +506,9 @@ fun ShowDetailScreen(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp
                             )
-                            for ((setType, line) in SetlistAnalytics.notationBySet(songs)) {
+                            for (segment in SetlistAnalytics.structureSegments(songs)) {
                                 Text(
-                                    text = "${setType.shortLabel}: $line",
+                                    text = "${segment.label}: ${segment.notation}",
                                     color = TextPrimaryDark,
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp
