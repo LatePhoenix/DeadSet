@@ -31,6 +31,26 @@ class AlmanacLinkIndexTest {
     }
 
     @Test
+    fun `month-day prefers show spotlight over song story relatedShows`() {
+        val articles = listOf(
+            article(
+                id = "scarlet-fire",
+                type = AlmanacArticleType.SONG_STORY,
+                songs = listOf("Scarlet Begonias"),
+                shows = listOf("1977-03-18-winterland")
+            ),
+            article(
+                id = "winterland-1977-03-18",
+                type = AlmanacArticleType.SHOW_SPOTLIGHT,
+                songs = emptyList(),
+                shows = listOf("1977-03-18-winterland")
+            )
+        )
+        val index = AlmanacLinkIndex(articles)
+        assertEquals("winterland-1977-03-18", index.articleForIsoDate("1977-03-18"))
+    }
+
+    @Test
     fun `curated trivia maps include known article ids`() {
         val linked = com.example.data.seed.DeadTriviaSeed.getAllAvailableQuestions(
             emptyList()

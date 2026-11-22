@@ -61,7 +61,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
         }
     }
 
-    val isRootScreen = uiState.screenState is ScreenState.Main
+    val isRootScreen =
+        uiState.screenState is ScreenState.Main && uiState.almanacOverlayArticleId == null
 
     Scaffold(
         snackbarHost = {
@@ -371,6 +372,31 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             )
                         }
                     }
+                }
+            }
+
+            // Overlay keeps Main (Trivia quiz remember-state) composed underneath.
+            uiState.almanacOverlayArticleId?.let { overlayId ->
+                val article = remember(overlayId) {
+                    AlmanacRepository(context).loadArticle(overlayId)
+                }
+                if (article != null) {
+                    val panels = remember(article, uiState.shows, uiState.songsByShow) {
+                        com.example.data.almanac.SongStoryComposer.panelsFor(
+                            article = article,
+                            shows = uiState.shows,
+                            songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
+                        )
+                    }
+                    AlmanacArticleScreen(
+                        article = article,
+                        onOpenShow = { showId ->
+                            viewModel.navigateBack()
+                            viewModel.openShowDetail(showId)
+                        },
+                        onBack = { viewModel.navigateBack() },
+                        songStoryPanels = panels
+                    )
                 }
             }
         }

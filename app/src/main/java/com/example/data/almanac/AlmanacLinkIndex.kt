@@ -31,15 +31,9 @@ class AlmanacLinkIndex(articles: List<AlmanacArticle>) {
             }
             for (showId in article.relatedShows) {
                 showMap[showId] = article.id
-                monthDay(showId)?.let { dayMap.putIfAbsent(it, article.id) }
+                monthDay(showId)?.let { md -> putDay(dayMap, md, article) }
             }
-            monthDay(article.id)?.let { md ->
-                if (article.type == AlmanacArticleType.SHOW_SPOTLIGHT) {
-                    dayMap[md] = article.id
-                } else {
-                    dayMap.putIfAbsent(md, article.id)
-                }
-            }
+            monthDay(article.id)?.let { md -> putDay(dayMap, md, article) }
         }
         bySong = songMap
         byShowId = showMap
@@ -62,6 +56,19 @@ class AlmanacLinkIndex(articles: List<AlmanacArticle>) {
         fun monthDay(raw: String): String? {
             val m = ISO_DATE.find(raw) ?: return null
             return "${m.groupValues[2]}-${m.groupValues[3]}"
+        }
+
+        /** Prefer Show Spotlights for calendar dates; keep first non-spotlight as fallback. */
+        private fun putDay(
+            dayMap: MutableMap<String, String>,
+            md: String,
+            article: AlmanacArticle
+        ) {
+            if (article.type == AlmanacArticleType.SHOW_SPOTLIGHT) {
+                dayMap[md] = article.id
+            } else {
+                dayMap.putIfAbsent(md, article.id)
+            }
         }
     }
 }
