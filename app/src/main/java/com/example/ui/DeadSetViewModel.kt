@@ -65,6 +65,7 @@ sealed class ScreenState {
     data object Main : ScreenState()
     data class ShowDetail(val showId: String) : ScreenState()
     data class AddEditShow(val showId: String? = null) : ScreenState()
+    data object AboutCredits : ScreenState()
 }
 
 data class UiState(
@@ -312,6 +313,10 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     fun openEditShow(showId: String) {
         _uiState.update { it.copy(screenState = ScreenState.AddEditShow(showId)) }
+    }
+
+    fun openAboutCredits() {
+        _uiState.update { it.copy(screenState = ScreenState.AboutCredits) }
     }
 
     fun navigateBack(): Boolean {

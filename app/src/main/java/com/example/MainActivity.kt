@@ -231,7 +231,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     onUpdateProfile = viewModel::updateUserProfile,
                                     onShowClick = viewModel::openShowDetail,
                                     onToggleAttendance = viewModel::toggleAttendance,
-                                    onExploreCatalogClick = { viewModel.setTab(MainTab.SHOWS) }
+                                    onExploreCatalogClick = { viewModel.setTab(MainTab.SHOWS) },
+                                    onAboutCreditsClick = viewModel::openAboutCredits
                                 )
                             }
                         }
@@ -309,6 +310,10 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             onBack = { viewModel.navigateBack() },
                             onSave = viewModel::saveCustomShow
                         )
+                    }
+
+                    is ScreenState.AboutCredits -> {
+                        AboutCreditsScreen(onBack = { viewModel.navigateBack() })
                     }
                 }
             }
