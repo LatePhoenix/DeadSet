@@ -17,6 +17,10 @@
 local.properties
 .env
 debug.keystore
+my-upload-key.jks
+*.jks
+*.keystore
+.cursor/
 
 # Local IDE state and build-time importer data
 .idea/
