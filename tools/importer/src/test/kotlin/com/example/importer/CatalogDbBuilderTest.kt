@@ -34,7 +34,7 @@ class CatalogDbBuilderTest {
             conn.createStatement().use { st ->
                 st.executeQuery("SELECT identity_hash FROM room_master_table WHERE id = 42").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals("161312bafd2f1c05c328fcb8a20165a9", rs.getString(1))
+                    assertEquals("d710cb34570583b68f8749acbcc69364", rs.getString(1))
                 }
                 st.executeQuery("SELECT COUNT(*) FROM user_show_data").use { rs ->
                     assertTrue(rs.next())
@@ -50,7 +50,7 @@ class CatalogDbBuilderTest {
                 }
                 st.executeQuery("PRAGMA user_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(11, rs.getInt(1))
+                    assertEquals(12, rs.getInt(1))
                 }
             }
         }
