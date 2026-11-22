@@ -58,19 +58,19 @@ class CatalogDbBuilderTest {
 
     private fun findSchemaFile(): File {
         val candidates = listOf(
-            File("../../app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File("app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File("../app/schemas/com.example.data.local.AppDatabase/11.json")
+            File("../../app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File("app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File("../app/schemas/com.example.data.local.AppDatabase/12.json")
         )
         // Resolve from repo root when tests run from tools/importer project dir.
         val fromUserDir = File(System.getProperty("user.dir"))
         val rooted = listOf(
-            File(fromUserDir, "app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File(fromUserDir, "../../app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File(fromUserDir.parentFile?.parentFile, "app/schemas/com.example.data.local.AppDatabase/11.json")
+            File(fromUserDir, "app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File(fromUserDir, "../../app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File(fromUserDir.parentFile?.parentFile, "app/schemas/com.example.data.local.AppDatabase/12.json")
         )
         return (candidates + rooted).firstOrNull { it.isFile }
-            ?: error("11.json not found (cwd=${fromUserDir.absolutePath})")
+            ?: error("12.json not found (cwd=${fromUserDir.absolutePath})")
     }
 
     companion object {

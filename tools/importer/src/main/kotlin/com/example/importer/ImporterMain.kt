@@ -83,11 +83,11 @@ fun loadCachedShows(cacheDir: File): List<ParsedShow> {
 
 fun resolveSchemaFile(moduleDir: File): File {
     val candidates = listOf(
-        File(moduleDir, "../../app/schemas/com.example.data.local.AppDatabase/11.json"),
-        File(moduleDir, "app/schemas/com.example.data.local.AppDatabase/11.json")
+        File(moduleDir, "../../app/schemas/com.example.data.local.AppDatabase/12.json"),
+        File(moduleDir, "app/schemas/com.example.data.local.AppDatabase/12.json")
     )
     return candidates.map { it.canonicalFile }.firstOrNull { it.isFile }
-        ?: throw IllegalStateException("Room schema 11.json not found (run :app:kspDebugKotlin)")
+        ?: throw IllegalStateException("Room schema 12.json not found (run :app:kspDebugKotlin)")
 }
 
 fun resolveCatalogOutput(moduleDir: File): File {

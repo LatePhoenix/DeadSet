@@ -335,10 +335,18 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             com.example.data.almanac.AlmanacRepository(context).loadArticle(screen.articleId)
                         }
                         if (article != null) {
+                            val panels = remember(article, uiState.shows, uiState.songsByShow) {
+                                com.example.data.almanac.SongStoryComposer.panelsFor(
+                                    article = article,
+                                    shows = uiState.shows,
+                                    songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
+                                )
+                            }
                             AlmanacArticleScreen(
                                 article = article,
                                 onOpenShow = viewModel::openShowDetail,
-                                onBack = { viewModel.navigateBack() }
+                                onBack = { viewModel.navigateBack() },
+                                songStoryPanels = panels
                             )
                         } else {
                             AlmanacListScreen(

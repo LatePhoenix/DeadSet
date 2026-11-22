@@ -546,6 +546,17 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
 }
 
 /**
+ * 11 → 12: nullable sourced [writers] / [debutDate] on `songs` for Almanac Song Stories (5.5).
+ * Values stay null until [com.example.data.almanac.SongStoryFacts] applies a cited fact.
+ */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `writers` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `songs` ADD COLUMN `debutDate` TEXT DEFAULT NULL")
+    }
+}
+
+/**
  * Keep in lockstep with [ShowEntity]'s `@DatabaseView` and `schemas/.../11.json`.
  * Room validates migrations by comparing this SQL to the exported schema.
  */

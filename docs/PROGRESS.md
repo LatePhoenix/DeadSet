@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through 5.4): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.4/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v11**.
-- Next: **5.5** Almanac article sets / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **`main` is the working line** (through 5.5): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.5/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v12**.
+- Next: **5.6** Almanac cross-linking / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **5.5** Article sets (Song Stories, Spotlights, Band & Era, Tribute profiles).
-2. **5.6** Cross-linking, then Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
+1. **5.6** Cross-linking (setlist → Song Story; quiz → Read more; Today in Dead History → Spotlight).
+2. Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -213,7 +213,8 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **5.3 New question types.** (`16c31bd`) `TriviaFormat` + `TypedTriviaQuestions.kt` (T/F, order-dates as MC permutations, who-sang, venue→city, lyric paraphrase). Vault also emits venue→city. Format chip in UI; 50/50 disabled when <4 options. All typed items sourced; no quoted lyrics.
 - [x] **5.4 Article format.** (`4d2119a`) Markdown + front matter in `assets/almanac/`; hand parser (no YAML/MD libs); list/article screens from Trivia hub; four seed articles (Cornell spotlight, Scarlet→Fire story, Wall of Sound era, Terrapin Flyer profile). Links via Compose `LinkAnnotation`.
   _Decision (reversible):_ Almanac entry stays under Trivia until 6.1 tabs; related-show taps open Show Detail (back then lands on Main, not Almanac).
-- [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
+- [x] **5.5 Article sets.** DB **v12** nullable `songs.writers`/`debutDate` + `SongStoryFacts` (dead.net–sourced; debut only when cited). `SongStoryComposer` merges catalog play counts/ins-outs with credits. Expanded MD set: Help→Slip→Franklin's, Winterland NYE '78, keyboard lineage, DSO (+ prior four). Importer schema path → `12.json`. CatalogPerfTest uses `applyMigrationPolicy` for asset upgrades.
+  _Decision:_ omit debut dates unless a cited page states first live performance (Fire only for now). Slipknot writers = Kreutzmann per dead.net (not multi-writer ASCAP lists).
 - [ ] **5.6 Cross-linking.** Setlist song → Song Story; quiz explanation → "Read more"; Today in Dead History → Spotlight.
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
   _Decision:_ removed (commented out in 5.7, then fully dropped in A1) `firebase-ai`, App Check, Firebase BoM and google-services. No code used them. Re-add only if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2).
@@ -233,6 +234,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (5.5 Almanac article sets)
+- Branch `phase-5-55-article-sets`: v12 writers/debutDate; SongStoryFacts + Composer; more articles; CatalogPerf migration fix.
+- **Decision:** debutDate only when cited (Fire 1977-03-18); writers from dead.net Music/Lyrics By.
+- **Next:** 5.6 cross-linking. C4 deferred. Skip A5 / keys until owner. Rebuild local `catalog.db` with `12.json` when convenient (asset still migrates 11→12 on open).
 
 ### 2026-11-21 · Cursor (5.4 Almanac Markdown)
 - Branch `phase-5-54-almanac-markdown`: `AlmanacMarkdown`/`AlmanacRepository`, assets under `assets/almanac/`, list+article UI, ScreenState, Trivia hub card.

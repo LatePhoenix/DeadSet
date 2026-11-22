@@ -126,6 +126,18 @@ class ShowRepository(
                 SongAliasEntity(aliasKey = aliasKey, songId = songKey(canonical))
             }
         )
+        applySongStoryFacts()
+    }
+
+    /** Writes sourced Almanac Song Story credits into Room (nulls stay null). */
+    private suspend fun applySongStoryFacts() {
+        for (fact in com.example.data.almanac.SongStoryFacts.all) {
+            songDao.updateSongFacts(
+                id = songKey(fact.canonicalName),
+                writers = fact.writers,
+                debutDate = fact.debutDate
+            )
+        }
     }
 
     /** Resolves a typed title to its canonical song (creating it if new); null for blank input. */
