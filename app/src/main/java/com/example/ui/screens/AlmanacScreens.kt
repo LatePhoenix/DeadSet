@@ -57,16 +57,20 @@ import com.example.ui.theme.TextTertiaryDark
 fun AlmanacListScreen(
     articles: List<AlmanacArticle>,
     onOpenArticle: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** When false (Almanac tab root), omit the back chevron. */
+    showBack: Boolean = true
 ) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = {
-                Text("Almanac", color = StealieGold, fontWeight = FontWeight.Bold)
+                Text("Articles", color = StealieGold, fontWeight = FontWeight.Bold)
             },
             navigationIcon = {
-                IconButton(onClick = onBack, modifier = Modifier.testTag("almanac_back")) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = StealieGold)
+                if (showBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.testTag("almanac_back")) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = StealieGold)
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = StealieMidnight)

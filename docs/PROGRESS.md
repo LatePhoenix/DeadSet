@@ -23,11 +23,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through 5.6): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v12**.
-- Next: **Phase 6** (6.1 Navigation-Compose tabs). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
+- Next: **6.2** ViewModel split. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **6.1** Navigation-Compose + 5 tabs (Shows · Live · Segues · Almanac · Me).
+1. **6.2** Split `DeadSetViewModel` into per-feature ViewModels; DI container.
 2. Phase 6 remainder. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -222,7 +222,8 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 
 ## Phase 6: Polish & architecture
 
-- [ ] **6.1 Navigation-Compose + 5 tabs:** Shows · Live · Segues · Almanac · Me.
+- [x] **6.1 Navigation-Compose + 5 tabs:** Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
+  _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [ ] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container.
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
@@ -235,6 +236,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (6.1 Navigation-Compose tabs)
+- Branch `phase-6-61-nav-compose`: 5-tab NavHost; Almanac/Me panes; NavCommand from ViewModel; removed ScreenState.
+- **Decision:** string routes; SecondaryTabRow for Almanac/Me panes; keep almanac overlay for quiz.
+- **Next:** 6.2 ViewModel split. C4 deferred. Skip A5 / keys until owner.
 
 ### 2026-11-21 · Cursor (5.6 Almanac cross-linking)
 - Branch `phase-5-56-cross-linking`: AlmanacLinkIndex; setlist/trivia/Today History deep links; article returnTo stack.
