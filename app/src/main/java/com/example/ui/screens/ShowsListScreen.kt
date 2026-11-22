@@ -50,6 +50,8 @@ fun ShowsListScreen(
     onAddShowClick: () -> Unit,
     onRestoreOfflineCatalog: () -> Unit = {},
     songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
+    spotlightArticleId: ((com.example.data.local.ShowEntity) -> String?)? = null,
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showOfflineVaultDialog by remember { mutableStateOf(false) }
@@ -544,6 +546,8 @@ fun ShowsListScreen(
                         TodayInDeadHistoryCard(
                             shows = allCatalogShows,
                             onOpenShow = onShowClick,
+                            spotlightArticleId = spotlightArticleId,
+                            onOpenAlmanacArticle = onOpenAlmanacArticle,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }

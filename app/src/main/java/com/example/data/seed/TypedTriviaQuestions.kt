@@ -270,4 +270,16 @@ internal fun typedTriviaQuestions(): List<TriviaQuestion> = listOf(
         sourceUrl = "https://www.dead.net/song/box-rain",
         format = TriviaFormat.LYRIC_PARAPHRASE
     )
+).map { q ->
+    val articleId = TYPED_ARTICLE_LINKS[q.id] ?: return@map q
+    q.copy(relatedArticleId = articleId)
+}
+
+private val TYPED_ARTICLE_LINKS = mapOf(
+    "tf_cornell_registry" to "cornell-1977-05-08",
+    "tf_wall_of_sound_year" to "wall-of-sound",
+    "tf_scarlet_fire_76" to "scarlet-fire",
+    "venue_barton_hall" to "cornell-1977-05-08",
+    "venue_winterland" to "winterland-1978-12-31",
+    "para_mountain_fire_weather" to "scarlet-fire"
 )

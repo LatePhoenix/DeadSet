@@ -67,7 +67,8 @@ sealed class ScreenState {
     data class AddEditShow(val showId: String? = null) : ScreenState()
     data object AboutCredits : ScreenState()
     data object AlmanacList : ScreenState()
-    data class AlmanacArticle(val articleId: String) : ScreenState()
+    /** [returnTo] is where back goes when the article was opened from outside the Almanac list. */
+    data class AlmanacArticle(val articleId: String, val returnTo: ScreenState? = null) : ScreenState()
 }
 
 data class UiState(
@@ -326,14 +327,23 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openAlmanacArticle(articleId: String) {
-        _uiState.update { it.copy(screenState = ScreenState.AlmanacArticle(articleId)) }
+        _uiState.update { current ->
+            val returnTo = when (val s = current.screenState) {
+                is ScreenState.AlmanacList -> ScreenState.AlmanacList
+                is ScreenState.AlmanacArticle -> s.returnTo ?: ScreenState.AlmanacList
+                else -> s
+            }
+            current.copy(screenState = ScreenState.AlmanacArticle(articleId, returnTo = returnTo))
+        }
     }
 
     fun navigateBack(): Boolean {
         return when (val current = _uiState.value.screenState) {
             is ScreenState.Main -> false
             is ScreenState.AlmanacArticle -> {
-                _uiState.update { it.copy(screenState = ScreenState.AlmanacList) }
+                _uiState.update {
+                    it.copy(screenState = current.returnTo ?: ScreenState.AlmanacList)
+                }
                 true
             }
             else -> {

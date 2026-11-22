@@ -37,6 +37,8 @@ import java.util.*
 fun TodayInDeadHistoryCard(
     shows: List<ShowEntity>,
     onOpenShow: (String) -> Unit,
+    spotlightArticleId: ((ShowEntity) -> String?)? = null,
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (shows.isEmpty()) return
@@ -301,6 +303,23 @@ fun TodayInDeadHistoryCard(
                         contentDescription = "Add to Calendar",
                         modifier = Modifier.size(20.dp)
                     )
+                }
+
+                val spotlightId = spotlightArticleId?.invoke(matchedShow)
+                if (spotlightId != null) {
+                    FilledTonalButton(
+                        onClick = { onOpenAlmanacArticle(spotlightId) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = StealieMidnight,
+                            contentColor = StealieGold
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .testTag("today_in_history_spotlight_button")
+                    ) {
+                        Text("Spotlight", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 // Explore Full Setlist
