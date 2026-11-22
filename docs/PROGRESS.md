@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through C5): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5**. DB **v11** (`user_show_data` + `shows_with_user` view). Importer: `--fetch`, `--normalize`, `--build-catalog`.
-- Next: **C6** catalog tests + DAO segue query (then C7).
+- **`main` is the working line** (through C6): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C6**. DB **v11**.
+- Next: **C7** About / credits screen.
 
 **Next up (in order):**
-1. **C6** Show-count / Cornell setlist / no-future-date tests against built DB; DAO next-song segue query.
-2. **C7** About / credits; then D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
+1. **C7** About / credits (gdshowsdb MIT + Deadlists; Relisten/Archive if used).
+2. D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -150,7 +150,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **C3 Normalize.** (`76ac69a`) `--normalize` parses the cache through `SongResolver`, writes gitignored `out/unmatched.csv` (count, song_key, sample_name). Corpus run: 14746 catalog-matched / 25028 unmatched performances / **399** distinct keys outside the seed-sized `SongCatalog` (expected; C5 will insert corpus songs — aliases still hand-added, never auto-guessed).
 - [ ] **C4 Cross-check (optional `--crosscheck` flag).** _Deferred until after C5._ Free Relisten API (no key; ~2,000 calls; cache every response; one request at a time with a delay; honest User-Agent). Compare dates/venues/segues, write `out/discrepancies.csv`, and **mark disagreeing shows uncertain** (a flag column) rather than picking a winner. Archive.org's GratefulDead collection is a second free option; its item identifiers can power a per-show "Listen" link (today's link searches by date).
 - [x] **C5 / 2.3 Build `catalog.db` + user-table split.** (`bcd975c`) DB **v11**: `ShowCatalogEntity` / `user_show_data` / `shows_with_user` view; MIGRATION_10_11 + MigrationTest. UI still reads `ShowEntity` (view). `--build-catalog` builds Room-valid SQLite from `schemas/.../11.json` + cache (2358 shows / 438 songs / 39774 perfs; empty `user_show_data`). Asset gitignored (~10MB); `createFromAsset` when present. Merge policy: upsert catalog by id, never touch user tables.
-- [ ] **C6 Tests.** Show count ≈2,358 (allow a small range); no future dates; 1977-05-08 setlist matches exactly; add the DAO next-song segue query (B1) and test it against the built DB.
+- [x] **C6 Tests.** `ShowDao.showIdsWithAdjacentSongs` (optional SEGUE filter) + `SegueDaoTest`. `CatalogIntegrityTest` builds from cache: 2358 shows / 39774 perfs, no future dates, Cornell 20-song setlist + Scarlet→Fire SEGUE (skips when cache absent).
 - [ ] **C7 About / credits screen.** gdshowsdb (MIT, with license text), Deadlists, plus Relisten / Archive.org if used.
 - [ ] **2.4 Perf check.** Shows, Stats, Segues and the transition map stay smooth with ~2,400 shows (stats already run off the main thread; consider SQL aggregates if needed). Re-enable the 3.3 Drums/Space set-structure split once real data is in.
 
@@ -232,6 +232,10 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (C6 catalog tests + DAO segue)
+- Branch `phase-2-c6-catalog-tests`: adjacent-song DAO query + SegueDaoTest; CatalogIntegrityTest vs built corpus.
+- **Next:** C7 About/credits. C4 still deferred.
 
 ### 2026-11-21 · Cursor (C5 user_show_data + catalog builder)
 - Branch `phase-2-c5-user-show-data`: DB v11 — user fields → `user_show_data`; `shows_with_user` view keeps UI `ShowEntity`. MigrationTest 10→11. Importer `--build-catalog` → local `app/src/main/assets/catalog.db` (gitignored).
