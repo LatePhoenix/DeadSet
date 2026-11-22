@@ -72,6 +72,7 @@ fun TriviaScreen(
     onOpenShowDetail: (String) -> Unit,
     reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
     onCardAnswered: (cardId: String, correct: Boolean) -> Unit = { _, _ -> },
+    onOpenAlmanac: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var stage by remember { mutableStateOf(TriviaStage.HUB) }
@@ -247,6 +248,7 @@ fun TriviaScreen(
                     onSelectDifficulty = { selectedDifficulty = it },
                     onStartMode = { mode -> startQuiz(mode) },
                     reviewStates = reviewStates,
+                    onOpenAlmanac = onOpenAlmanac,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -385,6 +387,7 @@ private fun TriviaHubContent(
     onSelectDifficulty: (TriviaDifficulty?) -> Unit,
     onStartMode: (TriviaGameMode) -> Unit,
     reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
+    onOpenAlmanac: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val allAvailableQuestions = remember(shows) {
@@ -655,6 +658,19 @@ private fun TriviaHubContent(
                 buttonText = if (isDailyCompletedToday) "Replay Today's Daily Five 🌹" else "Play Daily Deadhead Five 🌹",
                 testTag = "start_daily_trivia_btn",
                 onClick = { onStartMode(TriviaGameMode.DAILY_DEADHEAD) }
+            )
+        }
+
+        // Almanac essays (step 5.4)
+        item {
+            TriviaModeCard(
+                title = "Almanac",
+                subtitle = "Bundled Markdown essays with cited sources — song stories, show spotlights, band guides, tributes",
+                badgeText = "📖 Sourced articles",
+                accentColor = StealieGold,
+                buttonText = "Open Almanac →",
+                testTag = "open_almanac_btn",
+                onClick = onOpenAlmanac
             )
         }
 
