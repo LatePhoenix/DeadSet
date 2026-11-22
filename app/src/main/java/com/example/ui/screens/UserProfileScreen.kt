@@ -48,6 +48,7 @@ fun UserProfileScreen(
     onShowClick: (String) -> Unit,
     onToggleAttendance: (ShowEntity) -> Unit,
     onExploreCatalogClick: () -> Unit,
+    onAboutCreditsClick: () -> Unit = {},
     songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
@@ -415,6 +416,30 @@ fun UserProfileScreen(
                             }
                         }
                     }
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onAboutCreditsClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("about_credits_button"),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "About & Credits",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
