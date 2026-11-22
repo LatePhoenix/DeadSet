@@ -86,4 +86,20 @@ class LiveConcertJsonTest {
     fun `ticketmaster empty embedded yields empty list`() {
         assertTrue(LiveConcertJson.parseTicketmasterEvents("{}", "X").isEmpty())
     }
+
+    @Test
+    fun `JSON null url falls back instead of literal null string`() {
+        val json = """
+            [{
+              "id": "9",
+              "datetime": "2099-01-01T20:00:00",
+              "url": null,
+              "lineup": ["Terrapin Flyer"],
+              "venue": { "name": "V", "city": "C", "region": "IL", "country": "US" },
+              "offers": [{"url": null}]
+            }]
+        """.trimIndent()
+        val e = LiveConcertJson.parseBandsintownEvents(json, "Terrapin Flyer").single()
+        assertEquals("https://www.bandsintown.com/e/9", e.ticketUrl)
+    }
 }

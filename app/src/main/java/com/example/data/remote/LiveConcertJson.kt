@@ -16,15 +16,15 @@ object LiveConcertJson {
         for (i in 0 until root.length()) {
             val dto = root.optJSONObject(i) ?: continue
             val venue = dto.optJSONObject("venue") ?: continue
-            val datetime = dto.optString("datetime")
+            val datetime = dto.jsonString("datetime")
             val datePart = datetime.substringBefore("T")
             if (datePart.isBlank()) continue
-            val id = dto.optString("id")
-            val title = dto.optString("title")
-            val description = dto.optString("description")
-            val url = dto.optString("url")
+            val id = dto.jsonString("id")
+            val title = dto.jsonString("title")
+            val description = dto.jsonString("description")
+            val url = dto.jsonString("url")
             val lineup = dto.optJSONArray("lineup")
-            val band = lineup?.optString(0)?.takeIf { it.isNotBlank() } ?: artistName
+            val band = lineup?.jsonString(0)?.takeIf { it.isNotBlank() } ?: artistName
             val offers = dto.optJSONArray("offers")
             val offerUrl = firstOfferUrl(offers)
             val ticketLink = when {
@@ -32,26 +32,26 @@ object LiveConcertJson {
                 url.isNotBlank() -> url
                 else -> "https://www.bandsintown.com/e/$id"
             }
-            val city = venue.optString("city")
-            val region = venue.optString("region")
-            val street = venue.optString("street_address")
+            val city = venue.jsonString("city")
+            val region = venue.jsonString("region")
+            val street = venue.jsonString("street_address")
             out += LiveConcertEvent(
                 id = "bit-${id.ifBlank { "$band-$datePart" }}",
                 bandName = band,
                 eventTitle = title.ifBlank { "$band Live in $city" },
                 date = datePart,
                 displayDate = datePart,
-                venueName = venue.optString("name"),
+                venueName = venue.jsonString("name"),
                 city = city,
                 stateCode = region,
-                country = venue.optString("country").ifBlank { "US" },
+                country = venue.jsonString("country").ifBlank { "US" },
                 venueAddress = listOf(street, city, region).filter { it.isNotBlank() }.joinToString(", "),
                 ticketUrl = ticketLink,
                 priceRange = "See tickets",
                 apiSource = "Bandsintown API",
                 tourNote = description.take(120),
-                latitude = venue.optString("latitude").toDoubleOrNull(),
-                longitude = venue.optString("longitude").toDoubleOrNull()
+                latitude = venue.jsonString("latitude").toDoubleOrNull(),
+                longitude = venue.jsonString("longitude").toDoubleOrNull()
             )
         }
         return out
@@ -68,17 +68,17 @@ object LiveConcertJson {
             val venue = venues?.optJSONObject(0) ?: continue
             val dateStr = dto.optJSONObject("dates")
                 ?.optJSONObject("start")
-                ?.optString("localDate")
+                ?.jsonString("localDate")
                 .orEmpty()
             if (dateStr.isBlank()) continue
-            val city = venue.optJSONObject("city")?.optString("name").orEmpty()
-            val state = venue.optJSONObject("state")?.optString("stateCode").orEmpty()
-            val line1 = venue.optJSONObject("address")?.optString("line1").orEmpty()
+            val city = venue.optJSONObject("city")?.jsonString("name").orEmpty()
+            val state = venue.optJSONObject("state")?.jsonString("stateCode").orEmpty()
+            val line1 = venue.optJSONObject("address")?.jsonString("line1").orEmpty()
             val location = venue.optJSONObject("location")
-            val name = dto.optString("name")
-            val id = dto.optString("id")
-            val url = dto.optString("url")
-            val info = dto.optString("info")
+            val name = dto.jsonString("name")
+            val id = dto.jsonString("id")
+            val url = dto.jsonString("url")
+            val info = dto.jsonString("info")
             val priceRanges = dto.optJSONArray("priceRanges")
             val pr = priceRanges?.optJSONObject(0)
             val min = pr?.optDouble("min", 0.0) ?: 0.0
@@ -94,7 +94,7 @@ object LiveConcertJson {
                 eventTitle = name,
                 date = dateStr,
                 displayDate = dateStr,
-                venueName = venue.optString("name"),
+                venueName = venue.jsonString("name"),
                 city = city,
                 stateCode = state,
                 venueAddress = listOf(line1, city, state).filter { it.isNotBlank() }.joinToString(", "),
@@ -102,8 +102,8 @@ object LiveConcertJson {
                 priceRange = priceText,
                 apiSource = "Ticketmaster Discovery API",
                 tourNote = info.take(120),
-                latitude = location?.optString("latitude")?.toDoubleOrNull(),
-                longitude = location?.optString("longitude")?.toDoubleOrNull()
+                latitude = location?.jsonString("latitude")?.toDoubleOrNull(),
+                longitude = location?.jsonString("longitude")?.toDoubleOrNull()
             )
         }
         return out
@@ -112,9 +112,25 @@ object LiveConcertJson {
     private fun firstOfferUrl(offers: JSONArray?): String {
         if (offers == null) return ""
         for (i in 0 until offers.length()) {
-            val url = offers.optJSONObject(i)?.optString("url").orEmpty()
+            val url = offers.optJSONObject(i)?.jsonString("url").orEmpty()
             if (url.isNotBlank()) return url
         }
         return ""
+    }
+
+    /**
+     * Android's [JSONObject.optString] turns JSON `null` into the literal `"null"`.
+     * Treat missing / JSON-null / the string `"null"` as blank.
+     */
+    private fun JSONObject.jsonString(key: String): String {
+        if (!has(key) || isNull(key)) return ""
+        val value = optString(key, "")
+        return if (value == "null") "" else value
+    }
+
+    private fun JSONArray.jsonString(index: Int): String {
+        if (isNull(index)) return ""
+        val value = optString(index, "")
+        return if (value == "null") "" else value
     }
 }
