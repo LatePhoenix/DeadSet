@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through 2.4): Phases 0–1, 2 (except C4), 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C7**. DB **v11**.
-- Next: **D1** Ticketmaster proxy (Worker source; deploy needs owner CF account), then D2 / Phase 5 / Phase 6.
+- **`main` is the working line** (through D1 source): Phases 0–1, 2 (except C4), 3, 4 (except live keys), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4**. DB **v11**.
+- Next: **D2** slim release / R8, then Phase 5 / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **D1** Ticketmaster proxy under `tools/proxy/` + app feature flag (deploy blocked on owner Cloudflare).
-2. D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key (needed to exercise D1 live).
+1. **D2** Slim release build (R8 + OkHttp/org.json instead of Retrofit/Moshi reflect).
+2. Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -201,7 +201,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **4.9 Live setlist capture + next-song predictor** at shows (uses the Phase 3 transition probabilities).
   _As built (branch `phase-4-tribute-c`):_ a "Track it live" card on Show Detail for shows that haven't happened yet (`ui/components/LiveTrackerCard.kt`). Pick the set; it suggests the 3 likeliest next songs from what followed the last song (same set, any transition) across the catalog, or the set's usual openers when empty (`SetlistAnalytics.predictNext`). Tap a guess or type any song (same known-title/explicit-new rule as the chase list). `ShowRepository.appendSong` inserts at the end of the chosen set. A "Predicted N of M" score is kept for the session. Uses all adjacency, not only connected transitions, because "what's next" includes stops.
   - **Bugs fixed while testing on the emulator:** (1) the Setlists header's **Add Show button was squeezed to zero width** on phones, so you couldn't add a show unless the list was empty. The title column now takes `weight(1f)` and the button is a compact icon button. (2) An **upcoming show couldn't be saved without a setlist**; now only past shows require one. (3) Terrapin Flyer is listed first among the editor's band chips.
-- [ ] **D1 Keep the Ticketmaster key out of the APK.** Anything in `BuildConfig` can be extracted. Build a tiny proxy (e.g. a Cloudflare Worker, key held as a Worker secret, exposing only the one Discovery query the app needs, with a per-IP rate limit). App points at the proxy URL behind a feature flag; debug builds may still call Ticketmaster directly with a local key. Commit the Worker source under `tools/proxy/`, never the secret. Deploying it needs the owner's Cloudflare account.
+- [x] **D1 Keep the Ticketmaster key out of the APK.** (`87fa878`) Worker at `tools/proxy/ticketmaster/` (Discovery path only, secret `TICKETMASTER_API_KEY`, ~30/IP/min). App: `TICKETMASTER_PROXY_URL` → proxy; debug may use direct key; release without proxy = Ticketmaster off. Deploy still needs owner Cloudflare account + real key (4.3).
 - [ ] **D2 Slim the release build.** Turn on R8 (`isMinifyEnabled = true`) with keep rules for Room entities/DAOs. Replace Retrofit + Moshi + `KotlinJsonAdapterFactory` (pulls in kotlin-reflect for two endpoints) with plain OkHttp + `org.json`, mirroring how `ConcertRepository` already uses an injectable fetch. Add `:app:minifyReleaseWithR8` to CI.
 - [ ] **D3 (note, don't build yet) Past tribute setlists from setlist.fm.** Free non-commercial API key; fetch on demand, show attribution, don't bundle or keep long-term copies (its terms). Tours stay with Ticketmaster/Bandsintown (SeatGeek is another option).
 
@@ -232,6 +232,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (D1 Ticketmaster proxy source)
+- Branch `phase-4-d1-ticketmaster-proxy`: Worker under `tools/proxy/ticketmaster/`; app `TicketmasterAccess` (proxy > debug key > off).
+- **Blocked for live use:** owner Cloudflare deploy + Ticketmaster API key (4.3).
+- **Next:** D2 release slim; C4 still deferred. Skip A5 until owner answers.
 
 ### 2026-11-21 · Cursor (2.4 corpus perf + Drums/Space glance)
 - Branch `phase-2-24-perf-check`: `CatalogPerfTest` budgets; `structureSegments` restores Set II pre-Drums / Drums/Space / post-Space on Show Detail.

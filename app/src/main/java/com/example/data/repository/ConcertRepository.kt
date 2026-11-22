@@ -63,7 +63,7 @@ class ConcertRepository(
         val today = todayIsoDate()
         dao.deletePastEvents(today)
         val followed = dao.followedBands().map { it.name }
-        if (followed.isEmpty()) return@withContext RefreshOutcome(0, emptySet(), api.getTicketmasterApiKey().isNotBlank())
+        if (followed.isEmpty()) return@withContext RefreshOutcome(0, emptySet(), api.isTicketmasterConfigured())
         val result = fetchEvents(followed)
         if (result.sourcesReached.isNotEmpty()) {
             val now = clock()

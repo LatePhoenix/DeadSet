@@ -405,7 +405,7 @@ private fun EmptyConcertsCard(
         state.bands.none { it.isFollowed } -> "You're not following any bands" to
             "Tap Bands to follow Terrapin Flyer, DSO, or any band you like."
         outcome != null && !outcome.anySourceReached -> "Couldn't reach any date source" to
-            "Bandsintown needs a registered app ID and Ticketmaster needs an API key. Without them, " +
+            "Bandsintown needs a registered app ID and Ticketmaster needs a proxy URL (or a debug API key). Without them, " +
             "or without a connection, no dates can be shown. You can still add a show yourself from the Setlists tab."
         else -> "No upcoming dates found" to
             "None of the bands you follow have dates listed right now. Dates come only from real sources; " +
@@ -456,7 +456,7 @@ private fun ConcertSourcesDialog(outcome: RefreshOutcome?, onDismiss: () -> Unit
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Upcoming dates come only from Bandsintown and, if an API key is set up, Ticketmaster. " +
+                    "Upcoming dates come only from Bandsintown and, if a Ticketmaster proxy (or debug key) is set up, Ticketmaster. " +
                         "Nothing is filled in by hand. Each card shows its source and when it was last checked. " +
                         "Dates are kept offline and refreshed when you open this tab.",
                     fontSize = 12.sp,
@@ -474,7 +474,7 @@ private fun ConcertSourcesDialog(outcome: RefreshOutcome?, onDismiss: () -> Unit
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    text = "Ticketmaster key: " + if (outcome?.ticketmasterConfigured == true) "set" else "not set",
+                    text = "Ticketmaster: " + if (outcome?.ticketmasterConfigured == true) "configured" else "not set",
                     color = TextPrimaryDark,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
