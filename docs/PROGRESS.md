@@ -222,7 +222,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 
 ## Phase 6: Polish & architecture
 
-- [x] **6.1 Navigation-Compose + 5 tabs:** Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
+- [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [ ] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container.
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
