@@ -23,12 +23,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through C7): Phases 0–1, 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C7**. DB **v11**.
-- Next: **2.4** corpus perf check, then D1 / Phase 5 / Phase 6.
+- **`main` is the working line** (through 2.4): Phases 0–1, 2 (except C4), 3, 4 (except 4.3), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C7**. DB **v11**.
+- Next: **D1** Ticketmaster proxy (Worker source; deploy needs owner CF account), then D2 / Phase 5 / Phase 6.
 
 **Next up (in order):**
-1. **2.4** Perf check with ~2,400-show catalog (Shows / Stats / Segues / transition map).
-2. D1/D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key.
+1. **D1** Ticketmaster proxy under `tools/proxy/` + app feature flag (deploy blocked on owner Cloudflare).
+2. D2 / Phase 5 / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key (needed to exercise D1 live).
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -152,7 +152,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **C5 / 2.3 Build `catalog.db` + user-table split.** (`bcd975c`) DB **v11**: `ShowCatalogEntity` / `user_show_data` / `shows_with_user` view; MIGRATION_10_11 + MigrationTest. UI still reads `ShowEntity` (view). `--build-catalog` builds Room-valid SQLite from `schemas/.../11.json` + cache (2358 shows / 438 songs / 39774 perfs; empty `user_show_data`). Asset gitignored (~10MB); `createFromAsset` when present. Merge policy: upsert catalog by id, never touch user tables.
 - [x] **C6 Tests.** (`80f8da0`) `ShowDao.showIdsWithAdjacentSongs` (optional SEGUE filter) + `SegueDaoTest`. `CatalogIntegrityTest` builds from cache: 2358 shows / 39774 perfs, no future dates, Cornell 20-song setlist + Scarlet→Fire SEGUE (skips when cache absent).
 - [x] **C7 About / credits screen.** (`2bff429`) Profile → About / Credits (`ScreenState.AboutCredits`). `CatalogCredits` lists gdshowsdb (MIT text verified), Deadlists, Archive.org. Relisten omitted (C4 unused). Unit test covers required names + MIT body.
-- [ ] **2.4 Perf check.** Shows, Stats, Segues and the transition map stay smooth with ~2,400 shows (stats already run off the main thread; consider SQL aggregates if needed). Re-enable the 3.3 Drums/Space set-structure split once real data is in.
+- [x] **2.4 Perf check.** (`PENDING_HASH`) `CatalogPerfTest`: synthetic 2358×17 corpus — stats ~16ms, familyStats ~382ms, songFlow ~28ms, transitionGraph ~16ms (all under soft budgets; still on Default). Optional Room `createFromAsset` load ~1.4s when `catalog.db` present (skipped in CI). **No SQL aggregates needed yet.** Re-enabled 3.3 Drums/Space glance split via `SetlistAnalytics.structureSegments` (Show Detail).
 
 ## Phase 3: Transitions
 
@@ -232,6 +232,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (2.4 corpus perf + Drums/Space glance)
+- Branch `phase-2-24-perf-check`: `CatalogPerfTest` budgets; `structureSegments` restores Set II pre-Drums / Drums/Space / post-Space on Show Detail.
+- **Decision:** keep in-memory analytics (familyStats hottest ~0.4s); defer SQL aggregates until measured regression.
+- **Next:** D1 Ticketmaster Worker under `tools/proxy/` (app flag; deploy = owner CF). C4 still deferred.
 
 ### 2026-11-21 · Cursor (C7 About / credits)
 - Branch `phase-2-c7-about-credits`: `CatalogCredits` + `AboutCreditsScreen` from Profile; MIT license text for gdshowsdb; Deadlists + Archive.org credited. Relisten not credited (feature unused until C4).
