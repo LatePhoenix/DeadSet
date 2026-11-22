@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -1186,6 +1187,21 @@ private fun ActiveQuizContent(
                             fontSize = 13.sp,
                             lineHeight = 19.sp
                         )
+                        val sourceUrl = question.sourceUrl
+                        if (!sourceUrl.isNullOrBlank()) {
+                            val uriHandler = LocalUriHandler.current
+                            TextButton(
+                                onClick = { uriHandler.openUri(sourceUrl) },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Source",
+                                    color = StealieCyan,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(14.dp))
 

@@ -48,10 +48,13 @@ class ExampleRobolectricTest {
     @Test
     fun `curated shows include historic trivia and user reviews`() {
         val shows = CuratedShows.getInitialShows()
+        // historicTrivia may be blank after the 5.2 fact-check (uncertain blurbs cleared).
+        assertTrue(shows.any { it.show.historicTrivia.isNotBlank() })
         for (show in shows.map { it.show }) {
             assertTrue("Show should have valid date", show.date.isNotBlank())
-            assertTrue("Show should have historic trivia", show.historicTrivia.isNotBlank())
         }
+        val cornell = shows.map { it.show }.first { it.date == "1977-05-08" }
+        assertTrue(cornell.historicTrivia.contains("2011"))
     }
 
     @Test
