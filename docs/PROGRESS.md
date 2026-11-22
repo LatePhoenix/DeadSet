@@ -24,11 +24,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **6.2** ViewModel split. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- Next: **R1** curated seeds vs catalog (Phase 2b), then R2–R7 before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **6.2** Split `DeadSetViewModel` into per-feature ViewModels; DI container.
-2. Phase 6 remainder. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
+1. **Review fixes R1–R7** (Phase 2b below), **before 6.2**. R1–R3 mean the full catalog currently reaches no one's device. Do R1 → R2 → R3 → R4 → R5, then R6/R7.
+2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
@@ -220,6 +220,18 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
   _Decision:_ removed (commented out in 5.7, then fully dropped in A1) `firebase-ai`, App Check, Firebase BoM and google-services. No code used them. Re-add only if Gemini-assisted drafting is wanted later; any drafted facts would still need a human source check (5.2).
 
+## Phase 2b: Review fixes (Claude Code review of PRs #6–#23, 2026-11-21)
+
+CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so Claude Code reviewed `4604ad0..ada1e20`. One step per PR, as usual. **Wait for CodeRabbit to actually post** (a "Review rate limited" check counts as *not reviewed*; comment `@coderabbitai review` once the limit lifts) before merging.
+
+- [ ] **R1 Curated seeds vs. bundled catalog.** With `catalog.db` present, `ShowRepository.checkAndSeedDatabase` skips the curated seeds (`getShowsCount() != 0`), so fresh installs lose Terrapin Flyer, archive IDs, `historicTrivia` (Today in Dead History) and curated setlists. "Restore offline catalog" then inserts the seeds under their own ids (`1977-05-08-cornell`) next to the catalog's gdshowsdb UUIDs, so seeded dates appear **twice**. Fix: match each GD seed to its catalog row (date + venue) and merge the curated fields onto it (or give catalog rows stable ids the seeds share). Always insert non-GD seeds (Terrapin Flyer). Never overwrite `user_show_data`. Test: build a DB from a small fixture catalog + seeds and assert no duplicate dates and Terrapin Flyer present.
+- [ ] **R2 Catalog for existing installs.** `createFromAsset` only runs when no DB file exists, so every upgraded install (the owner's phone included) keeps just the 16 seeds. The "upsert by PK" merge in Open decisions is documented but not implemented. Fix: a one-time import gated on a catalog version (prefs or a small meta table): open the asset read-only (e.g. `ATTACH`), upsert shows / songs / aliases / performances, never touch `user_show_data`, and don't replace performances of user-edited or custom shows. Test: v12 DB with seeds + user data, run import, assert catalog count and user data unchanged.
+- [ ] **R3 Catalog must ship in builds.** `app/src/main/assets/catalog.db` is gitignored and nothing builds it, so CI and any clean checkout produce an APK without it, and `assetExists()` hides that. Fix: either wire the importer into the app build (e.g. a task `:app:preBuild` depends on, using the cached YAML) or commit the generated DB (~10 MB) after asking the owner. At minimum, fail `assembleRelease` when the asset is missing. Update the "Catalog asset in git" decision above to match.
+- [ ] **R4 Almanac date links ignore the year.** `AlmanacLinkIndex.byMonthDay` keys on MM-DD, and `MainActivity` falls back to `articleForIsoDate(show.date)` for every show, so every May 8 show links to the Cornell 5/8/77 spotlight. Fix: key on the full `yyyy-MM-dd`; keep month-day only for an explicit "on this day" card that names the year. Add a test that 1981-05-08 gets no Cornell link.
+- [ ] **R5 Proxy rate limit is a no-op.** `tools/proxy/ticketmaster/src/index.js` counts requests with `caches.default`, which has no effect on `*.workers.dev` (where the README deploys) and is per-colo/non-atomic elsewhere. The endpoint is unauthenticated, so anyone with the URL can drain the Ticketmaster quota. Fix: use the Workers Rate Limiting binding (or KV / a Durable Object); optionally require a shared app header. Update the README.
+- [ ] **R6 Verify the Slipknot! credit.** `SongStoryFacts` lists writers "Kreutzmann" alone; dead.net is believed to credit Garcia / Godchaux / Kreutzmann / Lesh / Weir. Check https://www.dead.net/song/slipknot, then correct it or set `writers = null`. While there, spot-check the other five credits against their cited pages.
+- [ ] **R7 Wrangler compatibility date.** `wrangler.jsonc` uses `compatibility_date: "2026-11-21"` (the day it was written); older Wrangler releases reject dates newer than their runtime. Set a date the pinned Wrangler supports and note the Wrangler version in the proxy README.
+
 ## Phase 6: Polish & architecture
 
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
@@ -240,7 +252,11 @@ _Newest first. Keep entries short: what changed, what's half-done, next action._
 ### 2026-11-21 · Cursor (6.1 Navigation-Compose tabs)
 - Branch `phase-6-61-nav-compose`: 5-tab NavHost; Almanac/Me panes; NavCommand from ViewModel; removed ScreenState.
 - **Decision:** string routes; SecondaryTabRow for Almanac/Me panes; keep almanac overlay for quiz.
-- **Next:** 6.2 ViewModel split. C4 deferred. Skip A5 / keys until owner.
+- **Next:** R1 (seeds vs catalog), then R2–R7 before 6.2. C4 deferred. Skip A5 / keys until owner. Don't merge while CodeRabbit is only "rate limited" without a real review when possible.
+
+### 2026-11-21 · Claude Code (review of unreviewed PRs #6–#23)
+- CodeRabbit reviewed only 3 of the 18 merged PRs (rate limit). Claude Code reviewed the range and added **Phase 2b, R1–R7**. No code changed.
+- **Next (Cursor):** finish 6.1 / PR #24, then R1 before 6.2. Don't merge while CodeRabbit shows "Review rate limited".
 
 ### 2026-11-21 · Cursor (5.6 Almanac cross-linking)
 - Branch `phase-5-56-cross-linking`: AlmanacLinkIndex; setlist/trivia/Today History deep links; article returnTo stack.
