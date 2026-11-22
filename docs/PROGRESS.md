@@ -23,11 +23,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through D2): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v11**.
-- Next: **Phase 5** (5.2 fact-check) / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **`main` is the working line** (through 5.2): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1/5.2/5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v11**.
+- Next: **5.3** new trivia question types / Phase 6. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **5.2** Fact-check trivia / historicTrivia + `sourceUrl` on `TriviaQuestion`.
+1. **5.3** New question types (T/F, order-the-dates, who-sang-it, venue→city, paraphrase lyric→song).
 2. Phase 5 remainder / Phase 6. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -209,7 +209,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 
 - [x] **5.1 Per-question answer history.** Stop repeating questions the user has mastered; show accuracy by category.
   _As built (branch `phase-5-almanac-a`):_ every quiz answer, in every mode, now updates the per-question Leitner state in `review_cards` (previously Segue School only). Classic/Blitz/category decks lead with **unseen** questions, then due/weak ones, then mastered-not-due ones (Segue School keeps due-first for review). The Trivia hub shows "Your accuracy by category" (`AnswerHistory.byCategory`). A test enforces that question ids are unique, since they key the history.
-- [ ] **5.2 Fact-check pass** on `DeadTriviaSeed` and `historicTrivia`. Add a `sourceUrl` to `TriviaQuestion`.
+- [x] **5.2 Fact-check pass** (`PENDING_HASH`) `TriviaQuestion.sourceUrl` required for curated deck (`CuratedTriviaQuestions.kt`); UI Source link. Softened liner notes / cleared unverified `historicTrivia`. Fixed Cornell Registry year **2011** (was 2012). Vault-generated questions stay catalog-sourced (null URL).
 - [ ] **5.3 New question types.** True/false, order-the-dates, who-sang-it, venue→city, lyric→song (paraphrase only, never quoted lyrics).
 - [ ] **5.4 Article format.** _(Drafting rule from D4: if trivia or articles are ever machine-drafted, do it offline, e.g. a local Ollama run, and fact-check every claim against the catalog or a cited source before committing. Never call an LLM API from the app.)_ Markdown with front matter in `assets/almanac/`, rendered by a small Compose Markdown renderer.
 - [ ] **5.5 Article sets.** Song Stories (data-driven + notes), Show Spotlights, Band & Era Guides, Tribute Band Profiles (Terrapin Flyer first).
@@ -232,6 +232,11 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (5.2 trivia sources)
+- Branch `phase-5-52-trivia-sources`: curated `sourceUrl`s; historicTrivia scrub; LOC year fix.
+- **Decision:** blank uncertain historicTrivia rather than invent; curated must have sourceUrl (test-enforced).
+- **Next:** 5.3 question types. C4 deferred. D1 deploy owner-blocked.
 
 ### 2026-11-21 · Cursor (D2 R8 + drop Retrofit/Moshi)
 - Branch `phase-4-d2-slim-release`: OkHttp/`LiveConcertJson`; release minify+shrink; CI minifyReleaseWithR8.

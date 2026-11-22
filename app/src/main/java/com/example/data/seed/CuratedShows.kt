@@ -108,7 +108,7 @@ object CuratedShows {
                 archiveIdentifier = "gd77-05-08.sbd.hicks.4982.sbeok.shnf",
                 tapeQuality = "Betty Cantor-Jackson SBD Soundboard",
                 tags = "All-Time Classic,Scarlet->Fire,Epic Dew,Spring 77",
-                historicTrivia = "Selected for preservation in the National Recording Registry of the Library of Congress as one of the most culturally significant recordings in American history."
+                historicTrivia = "Barton Hall 5/8/77 recording added to the Library of Congress National Recording Registry in 2011."
             ),
 
             // 2. VENETA 8/27/72 (Sunshine Daydream)
@@ -155,7 +155,7 @@ object CuratedShows {
                 archiveIdentifier = "gd72-08-27.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "16-track Master Reel Soundboard",
                 tags = "Sunshine Daydream,Dark Star,Bird Song,China->Rider",
-                historicTrivia = "Organized as a benefit to rescue Ken Kesey's brother's yogurt creamery from bankruptcy. Performed outdoors in scorching 100-degree Oregon heat."
+                historicTrivia = "Springfield Creamery benefit Field Trip (Sunshine Daydream); see dead.net show page for Veneta 8/27/72."
             ),
 
             // 3. FILLMORE WEST 2/27/69 (Live/Dead Core)
@@ -191,7 +191,7 @@ object CuratedShows {
                 archiveIdentifier = "gd69-02-27.sbd.16trk.flac",
                 tapeQuality = "16-Track Bear Recording",
                 tags = "Live/Dead,Pigpen,Dark Star,The Eleven,Primal",
-                historicTrivia = "Captured using a cutting-edge 16-track mobile studio, this show provided the definitive recordings for side 1 and 2 of 'Live/Dead'."
+                historicTrivia = "Fillmore West run recorded for the Live/Dead album (1969)."
             ),
 
             // 4. HARPUR COLLEGE 5/2/70
@@ -235,7 +235,7 @@ object CuratedShows {
                 archiveIdentifier = "gd70-05-02.sbd.miller.88500.sbeok.flac16",
                 tapeQuality = "Soundboard Reel",
                 tags = "Dick's Picks 8,Acoustic Set,Dancin->Other One",
-                historicTrivia = "The campus gym had no air conditioning and was so packed with students that condensation ran down the walls during the 4-hour marathon."
+                historicTrivia = ""
             ),
 
             // 5. FREEDOM HALL 6/18/74 (Wall of Sound)
@@ -280,7 +280,7 @@ object CuratedShows {
                 archiveIdentifier = "gd74-06-18.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Wall of Sound Multi-Mic SBD",
                 tags = "Wall of Sound,Road Trips 2.3,Eyes->China Doll",
-                historicTrivia = "Showcased the 604-speaker Wall of Sound. Phil Lesh's quadraphonic bass solos rattled Freedom Hall's concrete foundation."
+                historicTrivia = "Wall of Sound era show (Owsley Stanley system, 1974)."
             ),
 
             // 6. BUFFALO 5/9/77
@@ -327,7 +327,7 @@ object CuratedShows {
                 archiveIdentifier = "gd77-05-09.sbd.unknown.1234.sbeok.shnf",
                 tapeQuality = "Betty Board SBD",
                 tags = "Help->Slip->Frank,Spring 77,Comes a Time",
-                historicTrivia = "Performed just 24 hours after Barton Hall. Many veteran tapers insist the second-set Comes a Time is Jerry's single greatest guitar solo ever."
+                historicTrivia = "Played the night after Barton Hall (5/9/77)."
             ),
 
             // 7. RACEWAY PARK ENGLISHTOWN 9/3/77
@@ -372,7 +372,7 @@ object CuratedShows {
                 archiveIdentifier = "gd77-09-03.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard Master",
                 tags = "Dick's Picks 15,100k Crowd,Truckin Bustout,Half-Step",
-                historicTrivia = "Drew over 107,000 ticket buyers, making it the largest paid ticket concert on the East Coast at the time. Traffic backed up 20 miles on the NJ Turnpike."
+                historicTrivia = "Raceway Park, Englishtown — later issued as Dick's Picks Vol. 15."
             ),
 
             // 8. RED ROCKS 7/8/78
@@ -420,7 +420,7 @@ object CuratedShows {
                 archiveIdentifier = "gd78-07-08.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard Master",
                 tags = "Red Rocks,Wharf->Franklin,Werewolves,Colorado",
-                historicTrivia = "The Dead's debut headline at Colorado's iconic red sandstone monoliths. A full moon rose over the mountain as they encored with Werewolves of London."
+                historicTrivia = ""
             ),
 
             // 9. FOX THEATRE ATLANTA 11/30/80
@@ -467,7 +467,7 @@ object CuratedShows {
                 archiveIdentifier = "gd80-11-30.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Soundboard SBD",
                 tags = "Brent Era,Fox Theatre,Bird Song,Scarlet->Fire",
-                historicTrivia = "The band personally fought to keep the grand historic Fox Theatre from being demolished, delivering one of their warmest Southern performances."
+                historicTrivia = ""
             ),
 
             // 10. RADIO CITY MUSIC HALL HALLOWEEN 10/31/80 (Matching Today in Dead History!)
@@ -515,7 +515,7 @@ object CuratedShows {
                 archiveIdentifier = "gd80-10-31.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Dead Ahead 24-Track Video Soundtrack SBD",
                 tags = "Halloween,Radio City,Dead Ahead,Acoustic Set,Oct 31",
-                historicTrivia = "Broadcast live via closed-circuit satellite to movie theaters nationwide. Deadheads arrived in full Halloween costumes and danced in the ornate aisles of Radio City Music Hall."
+                historicTrivia = ""
             ),
 
             // 11. TRUCKIN UP TO BUFFALO 7/4/89
@@ -562,7 +562,7 @@ object CuratedShows {
                 archiveIdentifier = "gd89-07-04.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Multi-Track Soundboard / Official Release",
                 tags = "Truckin Up to Buffalo,4th of July,Watchtower->Dew,Late 80s",
-                historicTrivia = "Jerry wore an American flag tie on stage for Independence Day. Over 70,000 fans danced as fireworks erupted above the open-air football stadium."
+                historicTrivia = ""
             ),
 
             // 12. HAMPTON 10/9/89 (Formerly The Warlocks)
@@ -608,7 +608,7 @@ object CuratedShows {
                 archiveIdentifier = "gd89-10-09.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "UltraMatrix Soundboard",
                 tags = "Warlocks,Dark Star Bustout,Attics,Hampton Mothership",
-                historicTrivia = "Billed cryptically as 'Formerly The Warlocks'. When Jerry played the first note of Dark Star for the first time in 5 years, the collective roar drowned out the PA system."
+                historicTrivia = "Billed as Formerly the Warlocks (Hampton Coliseum, October 1989)."
             ),
 
             // 13. NASSAU 3/29/90 (with Branford Marsalis)
@@ -651,7 +651,7 @@ object CuratedShows {
                 archiveIdentifier = "gd90-03-29.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "24-Track Digital Master SBD",
                 tags = "Branford Marsalis,Wake Up to Find Out,Eyes,Spring 90",
-                historicTrivia = "Branford was only scheduled to sit in for Bird Song in Set 1, but was so blown away he stayed for the entire rest of the concert, creating a jazz-rock masterpiece."
+                historicTrivia = "Branford Marsalis guest appearance; documented on Wake Up to Find Out."
             ),
 
             // 14. BOSTON GARDEN 9/25/91 (Bruce Hornsby Era)
@@ -698,7 +698,7 @@ object CuratedShows {
                 archiveIdentifier = "gd91-09-25.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Digital DAT SBD",
                 tags = "Bruce Hornsby,Boston Garden,Crazy Fingers",
-                historicTrivia = "Part of a historic 6-night residency at Boston Garden. Bruce Hornsby's presence pushed Jerry into rapid-fire jazz countermelodies all evening."
+                historicTrivia = ""
             ),
 
             // 15. SOLDIER FIELD 7/9/95 (The Final Show)
@@ -742,7 +742,7 @@ object CuratedShows {
                 archiveIdentifier = "gd95-07-09.sbd.miller.88600.sbeok.flac16",
                 tapeQuality = "Digital Soundboard SBD",
                 tags = "Final Show,So Many Roads,Black Muddy River,Chicago 95",
-                historicTrivia = "The 2,318th and final Grateful Dead concert. Jerry Garcia's impassioned performance on 'So Many Roads' became his live musical epitaph."
+                historicTrivia = "Final Grateful Dead concert with Jerry Garcia (July 9, 1995)."
             ),
 
             // 18. TERRAPIN FLYER - MARTYRS' CHICAGO (Attended Local Classic)
@@ -779,7 +779,7 @@ object CuratedShows {
                 archiveIdentifier = "",
                 tapeQuality = "Audience Matrix Recording",
                 tags = "Terrapin Flyer,Martyrs,Chicago,Attended",
-                historicTrivia = "Martyrs' on Lincoln Ave has been a sanctuary for live roots and jam music in Chicago for decades, and one of Terrapin Flyer's long-running home venues.",
+                historicTrivia = "Terrapin Flyer at Martyrs' (Chicago).",
                 bandName = "Terrapin Flyer",
                 venueAddress = "3855 N Lincoln Ave, Chicago, IL 60613"
             )
