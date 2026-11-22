@@ -105,7 +105,9 @@ data class TriviaQuestion(
     val isVaultGenerated: Boolean = false,
     /** Primary citation for curated claims; null for catalog-generated vault questions. */
     val sourceUrl: String? = null,
-    val format: TriviaFormat = TriviaFormat.MULTIPLE_CHOICE
+    val format: TriviaFormat = TriviaFormat.MULTIPLE_CHOICE,
+    /** Bundled Almanac article id for "Read more" (5.6); null when no essay exists. */
+    val relatedArticleId: String? = null
 )
 
 data class TriviaBadge(

@@ -403,4 +403,19 @@ internal fun curatedTriviaQuestions(): List<TriviaQuestion> = listOf(
         relatedShowId = "1995-07-09",
         sourceUrl = "https://www.dead.net/show/july-9-1995"
     )
+).map { q ->
+    val articleId = CURATED_ARTICLE_LINKS[q.id] ?: return@map q
+    q.copy(relatedArticleId = articleId)
+}
+
+/** Trivia question id → bundled Almanac article (5.6). Only when an essay exists. */
+private val CURATED_ARTICLE_LINKS = mapOf(
+    "q_cornell_77_venue" to "cornell-1977-05-08",
+    "q_cornell_77_opener" to "cornell-1977-05-08",
+    "q_wall_of_sound_designer" to "wall-of-sound",
+    "q_wall_of_sound_mics" to "wall-of-sound",
+    "q_scarlet_fire_debut" to "scarlet-fire",
+    "q_help_slip_frank" to "help-slip-franklins",
+    "q_keyboardists_timeline" to "keyboard-lineage",
+    "q_terrapin_flyer_hometown" to "terrapin-flyer"
 )

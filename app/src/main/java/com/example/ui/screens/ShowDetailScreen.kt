@@ -56,6 +56,9 @@ fun ShowDetailScreen(
     liveTracker: (@Composable () -> Unit)? = null,
     /** Tribute show ↔ the GD show it recreates (step 4.8). */
     recreation: (@Composable () -> Unit)? = null,
+    /** Almanac Song Story id for a setlist title, when one exists (5.6). */
+    songStoryArticleId: (String) -> String? = { null },
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -585,11 +588,19 @@ fun ShowDetailScreen(
 
                                     Column {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
+                                            val articleId = songStoryArticleId(song.name)
                                             Text(
                                                 text = song.name,
-                                                color = TextPrimaryDark,
+                                                color = if (articleId != null) StealieCyan else TextPrimaryDark,
                                                 fontSize = 15.sp,
-                                                fontWeight = FontWeight.SemiBold
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = if (articleId != null) {
+                                                    Modifier
+                                                        .clickable { onOpenAlmanacArticle(articleId) }
+                                                        .testTag("setlist_song_story_${song.name}")
+                                                } else {
+                                                    Modifier
+                                                }
                                             )
                                             if (song.isJamHighlight) {
                                                 Spacer(modifier = Modifier.width(6.dp))

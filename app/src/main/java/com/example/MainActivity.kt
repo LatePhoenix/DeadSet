@@ -13,12 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.almanac.AlmanacLinkIndex
+import com.example.data.almanac.AlmanacRepository
 import com.example.ui.*
 import com.example.ui.screens.*
 import com.example.ui.theme.*
@@ -42,6 +45,10 @@ class MainActivity : ComponentActivity() {
 fun DeadSetApp(viewModel: DeadSetViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val almanacLinks = remember {
+        AlmanacLinkIndex(AlmanacRepository(context).loadArticles())
+    }
 
     LaunchedEffect(uiState.userFeedbackMessage) {
         val msg = uiState.userFeedbackMessage
@@ -54,7 +61,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
         }
     }
 
-    val isRootScreen = uiState.screenState is ScreenState.Main
+    val isRootScreen =
+        uiState.screenState is ScreenState.Main && uiState.almanacOverlayArticleId == null
 
     Scaffold(
         snackbarHost = {
@@ -156,7 +164,12 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     onClearSegueFilter = viewModel::clearSegueFilter,
                                     onShowClick = viewModel::openShowDetail,
                                     onAddShowClick = viewModel::openAddShow,
-                                    onRestoreOfflineCatalog = viewModel::restoreOfflineCatalog
+                                    onRestoreOfflineCatalog = viewModel::restoreOfflineCatalog,
+                                    spotlightArticleId = { show ->
+                                        almanacLinks.articleForShowId(show.id)
+                                            ?: almanacLinks.articleForIsoDate(show.date)
+                                    },
+                                    onOpenAlmanacArticle = viewModel::openAlmanacArticle
                                 )
                             }
                             MainTab.LIVE_TICKETS -> {
@@ -218,7 +231,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                     onOpenShowDetail = viewModel::openShowDetail,
                                     reviewStates = uiState.reviewStates,
                                     onCardAnswered = viewModel::recordCardAnswer,
-                                    onOpenAlmanac = viewModel::openAlmanac
+                                    onOpenAlmanac = viewModel::openAlmanac,
+                                    onOpenAlmanacArticle = viewModel::openAlmanacArticle
                                 )
                             }
                             MainTab.PROFILE -> {
@@ -252,6 +266,8 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 onSaveReviewAndNotes = viewModel::saveReviewAndNotes,
                                 onEditShow = viewModel::openEditShow,
                                 onDeleteShow = viewModel::deleteShow,
+                                songStoryArticleId = almanacLinks::articleForSong,
+                                onOpenAlmanacArticle = viewModel::openAlmanacArticle,
                                 liveTracker = if (show.isUpcoming) {
                                     {
                                         val names by viewModel.songNames.collectAsStateWithLifecycle()
@@ -356,6 +372,31 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                             )
                         }
                     }
+                }
+            }
+
+            // Overlay keeps Main (Trivia quiz remember-state) composed underneath.
+            uiState.almanacOverlayArticleId?.let { overlayId ->
+                val article = remember(overlayId) {
+                    AlmanacRepository(context).loadArticle(overlayId)
+                }
+                if (article != null) {
+                    val panels = remember(article, uiState.shows, uiState.songsByShow) {
+                        com.example.data.almanac.SongStoryComposer.panelsFor(
+                            article = article,
+                            shows = uiState.shows,
+                            songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
+                        )
+                    }
+                    AlmanacArticleScreen(
+                        article = article,
+                        onOpenShow = { showId ->
+                            viewModel.navigateBack()
+                            viewModel.openShowDetail(showId)
+                        },
+                        onBack = { viewModel.navigateBack() },
+                        songStoryPanels = panels
+                    )
                 }
             }
         }

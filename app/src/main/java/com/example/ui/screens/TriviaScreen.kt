@@ -73,6 +73,7 @@ fun TriviaScreen(
     reviewStates: Map<String, com.example.data.review.ReviewState> = emptyMap(),
     onCardAnswered: (cardId: String, correct: Boolean) -> Unit = { _, _ -> },
     onOpenAlmanac: () -> Unit = {},
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var stage by remember { mutableStateOf(TriviaStage.HUB) }
@@ -344,6 +345,7 @@ fun TriviaScreen(
                             }
                         },
                         onOpenShowDetail = onOpenShowDetail,
+                        onOpenAlmanacArticle = onOpenAlmanacArticle,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -359,6 +361,7 @@ fun TriviaScreen(
                     onPlayAgain = { startQuiz(activeMode) },
                     onBackToHub = { stage = TriviaStage.HUB },
                     onOpenShowDetail = onOpenShowDetail,
+                    onOpenAlmanacArticle = onOpenAlmanacArticle,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -369,6 +372,7 @@ fun TriviaScreen(
                         DeadTriviaSeed.getAllAvailableQuestions(shows, parseSongs)
                     },
                     onOpenShowDetail = onOpenShowDetail,
+                    onOpenAlmanacArticle = onOpenAlmanacArticle,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -852,6 +856,7 @@ private fun ActiveQuizContent(
     onUseFlipTapeSkip: () -> Unit,
     onNextQuestion: () -> Unit,
     onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val progressTarget = ((questionIndex + 1).toFloat() / totalQuestions.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
@@ -1237,6 +1242,20 @@ private fun ActiveQuizContent(
                                 )
                             }
                         }
+                        question.relatedArticleId?.let { articleId ->
+                            TextButton(
+                                onClick = { onOpenAlmanacArticle(articleId) },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                modifier = Modifier.testTag("trivia_read_more")
+                            ) {
+                                Text(
+                                    text = "Read more →",
+                                    color = StealieGold,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -1275,6 +1294,7 @@ private fun QuizSummaryContent(
     onPlayAgain: () -> Unit,
     onBackToHub: () -> Unit,
     onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val totalAnswered = answeredHistory.size.coerceAtLeast(1)
@@ -1467,6 +1487,16 @@ private fun QuizSummaryContent(
                             }
                         )
                     }
+                    rec.question.relatedArticleId?.let { articleId ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Read more →",
+                            color = StealieGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onOpenAlmanacArticle(articleId) }
+                        )
+                    }
                 }
             }
         }
@@ -1477,6 +1507,7 @@ private fun QuizSummaryContent(
 private fun FlashcardDeckContent(
     questions: List<TriviaQuestion>,
     onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedCategory by remember { mutableStateOf(TriviaCategory.ALL) }
@@ -1605,6 +1636,16 @@ private fun FlashcardDeckContent(
                                     modifier = Modifier.clickable {
                                         onOpenShowDetail(q.relatedShowId)
                                     }
+                                )
+                            }
+                            q.relatedArticleId?.let { articleId ->
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Read more →",
+                                    color = StealieGold,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { onOpenAlmanacArticle(articleId) }
                                 )
                             }
                         }

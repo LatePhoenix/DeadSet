@@ -67,7 +67,8 @@ sealed class ScreenState {
     data class AddEditShow(val showId: String? = null) : ScreenState()
     data object AboutCredits : ScreenState()
     data object AlmanacList : ScreenState()
-    data class AlmanacArticle(val articleId: String) : ScreenState()
+    /** [returnTo] is where back goes when the article was opened from outside the Almanac list. */
+    data class AlmanacArticle(val articleId: String, val returnTo: ScreenState? = null) : ScreenState()
 }
 
 data class UiState(
@@ -89,7 +90,12 @@ data class UiState(
     val triviaProgress: TriviaUserProgress = TriviaUserProgress(),
     /** Segue School spaced-repetition state by card (question) id. */
     val reviewStates: Map<String, ReviewState> = emptyMap(),
-    val userFeedbackMessage: String? = null
+    val userFeedbackMessage: String? = null,
+    /**
+     * Almanac article shown over [ScreenState.Main] without leaving the tab (keeps Trivia quiz
+     * `remember` state alive). Cleared on back.
+     */
+    val almanacOverlayArticleId: String? = null
 )
 
 /** Everything derived from one catalog emission, computed together off the main thread. */
@@ -326,14 +332,32 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openAlmanacArticle(articleId: String) {
-        _uiState.update { it.copy(screenState = ScreenState.AlmanacArticle(articleId)) }
+        _uiState.update { current ->
+            // Stay on Main (Trivia/Shows) so composable remember-state (quiz) is not disposed.
+            if (current.screenState is ScreenState.Main) {
+                return@update current.copy(almanacOverlayArticleId = articleId)
+            }
+            val returnTo = when (val s = current.screenState) {
+                is ScreenState.AlmanacList -> ScreenState.AlmanacList
+                is ScreenState.AlmanacArticle -> s.returnTo ?: ScreenState.AlmanacList
+                else -> s
+            }
+            current.copy(screenState = ScreenState.AlmanacArticle(articleId, returnTo = returnTo))
+        }
     }
 
     fun navigateBack(): Boolean {
-        return when (val current = _uiState.value.screenState) {
+        val state = _uiState.value
+        if (state.almanacOverlayArticleId != null) {
+            _uiState.update { it.copy(almanacOverlayArticleId = null) }
+            return true
+        }
+        return when (val current = state.screenState) {
             is ScreenState.Main -> false
             is ScreenState.AlmanacArticle -> {
-                _uiState.update { it.copy(screenState = ScreenState.AlmanacList) }
+                _uiState.update {
+                    it.copy(screenState = current.returnTo ?: ScreenState.AlmanacList)
+                }
                 true
             }
             else -> {
