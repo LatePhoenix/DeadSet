@@ -143,7 +143,7 @@ data class TicketmasterAddressDto(
 interface TicketmasterDiscoveryApiService {
     @GET("discovery/v2/events.json")
     suspend fun searchMusicEvents(
-        @Query("apikey") apiKey: String,
+        @Query("apikey") apiKey: String? = null,
         @Query("keyword") keyword: String,
         @Query("classificationName") classificationName: String = "music",
         @Query("sort") sort: String = "date,asc",
@@ -173,19 +173,10 @@ class LiveConcertApiClient {
         .build()
         .create(BandsintownApiService::class.java)
 
-    private val ticketmasterService: TicketmasterDiscoveryApiService = Retrofit.Builder()
-        .baseUrl("https://app.ticketmaster.com/")
-        .client(okHttpClient)
-        .addConverterFactory(MoshiConverterFactory.create(moshi))
-        .build()
-        .create(TicketmasterDiscoveryApiService::class.java)
+    fun ticketmasterAccess(): TicketmasterAccess = TicketmasterAccess.fromBuildConfig()
 
-    fun getTicketmasterApiKey(): String {
-        val raw = runCatching {
-            BuildConfig::class.java.getDeclaredField("TICKETMASTER_API_KEY").get(null) as? String
-        }.getOrNull().orEmpty().trim()
-        return if (raw == "YOUR_TICKETMASTER_API_KEY" || raw == "null") "" else raw
-    }
+    /** True when a proxy URL is set, or (debug only) a local Discovery API key. */
+    fun isTicketmasterConfigured(): Boolean = ticketmasterAccess().isConfigured
 
     fun getBandsintownAppId(): String {
         val raw = runCatching {
@@ -194,26 +185,37 @@ class LiveConcertApiClient {
         return if (raw.isBlank() || raw == "null" || raw == "YOUR_BANDSINTOWN_APP_ID") "" else raw
     }
 
+    private fun ticketmasterService(baseUrl: String): TicketmasterDiscoveryApiService =
+        Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(TicketmasterDiscoveryApiService::class.java)
+
     /**
-     * Upcoming events for each of [bandNames] from Bandsintown and (when a key is configured)
-     * Ticketmaster, de-duplicated across sources, past dates dropped. Each source fails quietly;
-     * [FetchResult.sourcesReached] says which ones answered so the UI can explain an empty list.
+     * Upcoming events for each of [bandNames] from Bandsintown and (when a proxy or debug key
+     * is configured) Ticketmaster, de-duplicated across sources, past dates dropped. Each source
+     * fails quietly; [FetchResult.sourcesReached] says which ones answered so the UI can explain
+     * an empty list.
      */
     suspend fun fetchEventsForBands(bandNames: List<String>): FetchResult = withContext(Dispatchers.IO) {
         val events = mutableListOf<LiveConcertEvent>()
         val reached = mutableSetOf<String>()
-        val tmKey = getTicketmasterApiKey()
+        val tm = ticketmasterAccess()
         val bandsintownAppId = getBandsintownAppId()
         for (band in bandNames) {
             if (bandsintownAppId.isNotBlank()) {
                 fetchBandsintownArtistEvents(band)?.let { events += it; reached += "Bandsintown" }
             }
-            if (tmKey.isNotBlank()) {
-                fetchTicketmasterEvents(band, tmKey)?.let { tm ->
+            if (tm.isConfigured) {
+                fetchTicketmasterEvents(band, tm)?.let { list ->
                     reached += "Ticketmaster"
                     // Keyword search can return unrelated acts; keep events naming the band.
-                    events += tm.filter { it.bandName.contains(band, ignoreCase = true) || it.eventTitle.contains(band, ignoreCase = true) }
-                        .map { it.copy(bandName = band) }
+                    events += list.filter {
+                        it.bandName.contains(band, ignoreCase = true) ||
+                            it.eventTitle.contains(band, ignoreCase = true)
+                    }.map { it.copy(bandName = band) }
                 }
             }
         }
@@ -223,7 +225,7 @@ class LiveConcertApiClient {
                 .filter { it.date >= today }
                 .distinctBy { "${it.bandName.lowercase()}-${it.date}-${it.city.lowercase()}" },
             sourcesReached = reached,
-            ticketmasterConfigured = tmKey.isNotBlank()
+            ticketmasterConfigured = tm.isConfigured
         )
     }
 
@@ -277,10 +279,14 @@ class LiveConcertApiClient {
     }
 
     /** Null when the request fails or is rejected, empty when there are no events. */
-    private suspend fun fetchTicketmasterEvents(keyword: String, apiKey: String): List<LiveConcertEvent>? {
+    private suspend fun fetchTicketmasterEvents(
+        keyword: String,
+        access: TicketmasterAccess
+    ): List<LiveConcertEvent>? {
         return runCatching {
-            val response = ticketmasterService.searchMusicEvents(
-                apiKey = apiKey,
+            // Proxy injects the secret; omit apikey so it never leaves the device path unused.
+            val response = ticketmasterService(access.baseUrl).searchMusicEvents(
+                apiKey = access.apiKey.ifBlank { null },
                 keyword = keyword
             )
             if (!response.isSuccessful) return null

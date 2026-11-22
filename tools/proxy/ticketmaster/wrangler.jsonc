@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "deadset-ticketmaster-proxy",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-21",
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  }
+  // Secret (never commit): wrangler secret put TICKETMASTER_API_KEY
+}
