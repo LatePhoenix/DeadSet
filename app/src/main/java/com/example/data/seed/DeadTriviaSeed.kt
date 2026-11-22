@@ -38,6 +38,16 @@ enum class TriviaDifficulty(
     ARCHIVIST_GURU("archivist", "Vault Archivist", 300, StealieGold)
 }
 
+/** Presentation shape for a question (step 5.3). All formats still use [TriviaQuestion.options]. */
+enum class TriviaFormat(val label: String) {
+    MULTIPLE_CHOICE("Multiple choice"),
+    TRUE_FALSE("True / False"),
+    ORDER_DATES("Order the dates"),
+    WHO_SANG("Who sang it"),
+    VENUE_CITY("Venue → city"),
+    LYRIC_PARAPHRASE("Paraphrase → song")
+}
+
 enum class TriviaGameMode(
     val id: String,
     val title: String,
@@ -94,7 +104,8 @@ data class TriviaQuestion(
     val relatedShowId: String? = null,
     val isVaultGenerated: Boolean = false,
     /** Primary citation for curated claims; null for catalog-generated vault questions. */
-    val sourceUrl: String? = null
+    val sourceUrl: String? = null,
+    val format: TriviaFormat = TriviaFormat.MULTIPLE_CHOICE
 )
 
 data class TriviaBadge(
@@ -176,7 +187,8 @@ object DeadTriviaSeed {
         )
     )
 
-    fun getCuratedQuestions(): List<TriviaQuestion> = curatedTriviaQuestions()
+    fun getCuratedQuestions(): List<TriviaQuestion> =
+        curatedTriviaQuestions() + typedTriviaQuestions()
 
 
     /**
@@ -194,12 +206,14 @@ object DeadTriviaSeed {
             .ifEmpty { shows }
 
         val allVenues = shows.map { "${it.venue} (${it.city})" }.distinct()
+        val allCities = shows.map { "${it.city}, ${it.stateOrCountry}" }.distinct()
         val generated = mutableListOf<TriviaQuestion>()
 
         for (show in historicalShows) {
             val era = DeadEra.fromId(show.eraId)
             val songs = parseSongs(show)
             val correctVenueLabel = "${show.venue} (${show.city})"
+            val correctCityLabel = "${show.city}, ${show.stateOrCountry}"
 
             // 1. Venue & City Question for this show date
             val distractorVenues = allVenues.filter { it != correctVenueLabel }.shuffled(Random(show.id.hashCode())).take(3)
@@ -218,6 +232,28 @@ object DeadTriviaSeed {
                         linerNoteFact = "${show.tourName}: Performed on ${show.date} at ${show.venue} in ${show.city}, ${show.stateOrCountry}. ${show.historicTrivia.take(150)}",
                         relatedShowId = show.id,
                         isVaultGenerated = true
+                    )
+                )
+            }
+
+            // 1b. Venue → city (step 5.3) from the user's catalog
+            val distractorCities = allCities.filter { it != correctCityLabel }
+                .shuffled(Random(show.id.hashCode() + 19)).take(3)
+            if (distractorCities.size == 3 && show.venue.isNotBlank()) {
+                val cityOpts = (distractorCities + correctCityLabel).shuffled(Random(show.venue.hashCode()))
+                generated.add(
+                    TriviaQuestion(
+                        id = "vault_venue_city_${show.id}",
+                        category = TriviaCategory.VAULT_CHALLENGE,
+                        difficulty = TriviaDifficulty.SHAKEDOWN_ROOKIE,
+                        era = era,
+                        question = "In which city is ${show.venue}?",
+                        options = cityOpts,
+                        correctIndex = cityOpts.indexOf(correctCityLabel),
+                        linerNoteFact = "${show.venue} is in ${show.city}, ${show.stateOrCountry} (from your catalog show on ${show.date}).",
+                        relatedShowId = show.id,
+                        isVaultGenerated = true,
+                        format = TriviaFormat.VENUE_CITY
                     )
                 )
             }

@@ -157,8 +157,8 @@ class ExampleRobolectricTest {
         )
         assertEquals(10, classicDeck.size)
         classicDeck.forEach { q ->
-            assertEquals("Each question must have 4 options", 4, q.options.size)
-            assertTrue("Correct index must be valid", q.correctIndex in 0..3)
+            assertTrue("Each question needs ≥2 options", q.options.size >= 2)
+            assertTrue("Correct index must be valid", q.correctIndex in q.options.indices)
             assertTrue("Liner note explanation must be non-empty", q.linerNoteFact.isNotBlank())
         }
     }

@@ -290,7 +290,11 @@ fun TriviaScreen(
                             }
                         },
                         onUseAskBear5050 = {
-                            if (!usedAskBear5050 && selectedOptionIndex == null) {
+                            // Need ≥4 options so hiding two wrong answers leaves a real choice
+                            // (True/False and some typed formats only have 2).
+                            if (!usedAskBear5050 && selectedOptionIndex == null &&
+                                currentQ.options.size >= 4
+                            ) {
                                 usedAskBear5050 = true
                                 val wrongIndices = currentQ.options.indices
                                     .filter { it != currentQ.correctIndex }
@@ -966,6 +970,20 @@ private fun ActiveQuizContent(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (question.format != TriviaFormat.MULTIPLE_CHOICE) {
+                                Surface(
+                                    color = StealiePurple.copy(alpha = 0.16f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = question.format.label,
+                                        color = StealiePurple,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
                             if (question.era != DeadEra.ALL) {
                                 Surface(
                                     color = question.era.color.copy(alpha = 0.16f),
@@ -1014,7 +1032,8 @@ private fun ActiveQuizContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val canUse5050 = !usedAskBear5050 && selectedOptionIndex == null
+                val canUse5050 = !usedAskBear5050 && selectedOptionIndex == null &&
+                    question.options.size >= 4
                 OutlinedButton(
                     onClick = onUseAskBear5050,
                     enabled = canUse5050,
