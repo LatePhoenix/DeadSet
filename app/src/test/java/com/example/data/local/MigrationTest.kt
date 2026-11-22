@@ -631,6 +631,27 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun `11 to 12 adds nullable writers and debutDate on songs`() {
+        helper.createDatabase(dbName, 11).apply {
+            execSQL("INSERT INTO songs (id, canonicalName) VALUES ('bertha', 'Bertha')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 12, true, MIGRATION_11_12)
+        db.query("PRAGMA table_info(songs)").use { c ->
+            val cols = buildList { while (c.moveToNext()) add(c.getString(1)) }
+            assertTrue("writers", "writers" in cols)
+            assertTrue("debutDate", "debutDate" in cols)
+        }
+        db.query("SELECT canonicalName, writers, debutDate FROM songs WHERE id = 'bertha'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Bertha", c.getString(0))
+            assertTrue(c.isNull(1))
+            assertTrue(c.isNull(2))
+        }
+        db.close()
+    }
+
     /** v6–v9 shows table (user columns still on shows; no recreatesShowId). */
     private fun insertV6Show(
         db: androidx.sqlite.db.SupportSQLiteDatabase,

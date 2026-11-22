@@ -1,6 +1,7 @@
 package com.example.data.setlist
 
 import com.example.data.local.AppDatabase
+import com.example.data.local.AppDatabase.Companion.applyMigrationPolicy
 import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
@@ -76,6 +77,7 @@ class CatalogPerfTest {
         context.getDatabasePath("perf_catalog.db").delete()
         val db = androidx.room.Room.databaseBuilder(context, AppDatabase::class.java, "perf_catalog.db")
             .createFromAsset("catalog.db")
+            .applyMigrationPolicy()
             .allowMainThreadQueries()
             .build()
         try {

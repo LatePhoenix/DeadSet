@@ -34,7 +34,7 @@ class CatalogDbBuilderTest {
             conn.createStatement().use { st ->
                 st.executeQuery("SELECT identity_hash FROM room_master_table WHERE id = 42").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals("161312bafd2f1c05c328fcb8a20165a9", rs.getString(1))
+                    assertEquals("d710cb34570583b68f8749acbcc69364", rs.getString(1))
                 }
                 st.executeQuery("SELECT COUNT(*) FROM user_show_data").use { rs ->
                     assertTrue(rs.next())
@@ -50,7 +50,7 @@ class CatalogDbBuilderTest {
                 }
                 st.executeQuery("PRAGMA user_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(11, rs.getInt(1))
+                    assertEquals(12, rs.getInt(1))
                 }
             }
         }
@@ -58,19 +58,19 @@ class CatalogDbBuilderTest {
 
     private fun findSchemaFile(): File {
         val candidates = listOf(
-            File("../../app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File("app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File("../app/schemas/com.example.data.local.AppDatabase/11.json")
+            File("../../app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File("app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File("../app/schemas/com.example.data.local.AppDatabase/12.json")
         )
         // Resolve from repo root when tests run from tools/importer project dir.
         val fromUserDir = File(System.getProperty("user.dir"))
         val rooted = listOf(
-            File(fromUserDir, "app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File(fromUserDir, "../../app/schemas/com.example.data.local.AppDatabase/11.json"),
-            File(fromUserDir.parentFile?.parentFile, "app/schemas/com.example.data.local.AppDatabase/11.json")
+            File(fromUserDir, "app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File(fromUserDir, "../../app/schemas/com.example.data.local.AppDatabase/12.json"),
+            File(fromUserDir.parentFile?.parentFile, "app/schemas/com.example.data.local.AppDatabase/12.json")
         )
         return (candidates + rooted).firstOrNull { it.isFile }
-            ?: error("11.json not found (cwd=${fromUserDir.absolutePath})")
+            ?: error("12.json not found (cwd=${fromUserDir.absolutePath})")
     }
 
     companion object {

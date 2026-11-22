@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.almanac.AlmanacArticle
 import com.example.data.almanac.AlmanacArticleType
 import com.example.data.almanac.AlmanacMarkdown
+import com.example.data.almanac.SongStoryPanel
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.StealieCardDark
 import com.example.ui.theme.StealieCyan
@@ -127,7 +128,8 @@ fun AlmanacListScreen(
 fun AlmanacArticleScreen(
     article: AlmanacArticle,
     onOpenShow: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    songStoryPanels: List<SongStoryPanel> = emptyList()
 ) {
     val blocks = remember(article.bodyMarkdown) { AlmanacMarkdown.parseBlocks(article.bodyMarkdown) }
     val uriHandler = LocalUriHandler.current
@@ -157,6 +159,19 @@ fun AlmanacArticleScreen(
         ) {
             item {
                 Text(article.title, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp)
+            }
+            if (songStoryPanels.isNotEmpty()) {
+                item {
+                    Text(
+                        "From your catalog + sourced credits",
+                        color = StealieGold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+                items(songStoryPanels, key = { it.songName }) { panel ->
+                    SongStoryPanelCard(panel)
+                }
             }
             items(blocks.size) { i ->
                 when (val block = blocks[i]) {
@@ -196,6 +211,49 @@ fun AlmanacArticleScreen(
                     TextButton(onClick = { uriHandler.openUri(url) }) {
                         Text(url, color = StealieCyan, fontSize = 12.sp)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SongStoryPanelCard(panel: SongStoryPanel) {
+    val uriHandler = LocalUriHandler.current
+    Surface(
+        color = StealieCardDark,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("song_story_panel_${panel.songName}")
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(panel.songName, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            panel.writers?.let {
+                Text("Writers: $it", color = TextSecondaryDark, fontSize = 12.sp)
+            }
+            panel.debutDate?.let {
+                Text("Debut (sourced): $it", color = TextSecondaryDark, fontSize = 12.sp)
+            }
+            Text(
+                "Played ${panel.timesPlayedInCatalog}× in catalog" +
+                    listOfNotNull(panel.firstCatalogDate, panel.lastCatalogDate)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { " (${it.joinToString(" → ")})" }
+                        .orEmpty(),
+                color = TextTertiaryDark,
+                fontSize = 12.sp
+            )
+            if (panel.topInto.isNotEmpty()) {
+                Text("Often from: ${panel.topInto.joinToString(", ")}", color = TextSecondaryDark, fontSize = 12.sp)
+            }
+            if (panel.topOutOf.isNotEmpty()) {
+                Text("Often into: ${panel.topOutOf.joinToString(", ")}", color = TextSecondaryDark, fontSize = 12.sp)
+            }
+            panel.sourceUrl?.let { url ->
+                TextButton(onClick = { uriHandler.openUri(url) }, contentPadding = PaddingValues(0.dp)) {
+                    Text("Source", color = StealieCyan, fontSize = 12.sp)
                 }
             }
         }
