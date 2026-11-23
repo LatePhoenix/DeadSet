@@ -24,10 +24,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **R7** Wrangler compatibility date (Phase 2b). **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **Phase 2b R1–R7 complete.** Development **paused for owner project audit**. Do **not** start 6.2 / Phase 3+ / A5 / C4 until the owner returns with audit results. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
-**Next up (in order):**
-1. **R7**, then **pause for owner audit** — do not start 6.2 until they return.
+**Next up (in order) — blocked until audit returns:**
+1. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
+2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy; audit results.
 2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -234,7 +235,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 - [x] **R5 Proxy rate limit is a no-op.** (`36c73ca`) `TM_RATE_LIMITER` Workers Rate Limiting binding (~30/min/IP); optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`; Cache API kept as fallback only. README updated. Also set `compatibility_date` to `2024-11-11` (feeds R7).
 - [x] **R6 Verify the Slipknot! credit.** (`7b9e21c`) Set `writers = null` (could not re-fetch dead.net from agent environment; sole Kreutzmann was disputed). Almanac MD note updated. Other five credits left as previously sourced URLs — owner should spot-check dead.net when auditing.
   _Decision:_ null over guessing multi-writer string without a live page check.
-- [ ] **R7 Wrangler compatibility date.** `wrangler.jsonc` uses `compatibility_date: "2026-11-21"` (the day it was written); older Wrangler releases reject dates newer than their runtime. Set a date the pinned Wrangler supports and note the Wrangler version in the proxy README.
+- [x] **R7 Wrangler compatibility date.** (`adf4d04`) `compatibility_date` set to `2024-11-11` (done with R5). Added `package.json` pinning `wrangler@3.91.0`; README already documents 3.91+.
 
 ## Phase 6: Polish & architecture
 
@@ -252,6 +253,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (R7 + audit pause)
+- Branch `phase-2b-r7-wrangler-compat`: pin `wrangler@3.91.0` in proxy `package.json`; compat date already `2024-11-11` from R5.
+- **AUDIT PAUSE:** Phase 2b R1–R7 done. Do **not** start 6.2 or later until the owner returns with project-audit results. Autonomous loop resumes on their say-so.
+- **Next would-be:** 6.2 ViewModel split — **not started**.
 
 ### 2026-11-23 · Cursor (R6 Slipknot writers)
 - Branch `phase-2b-r6-slipknot-credit`: Slipknot `writers = null`; almanac MD notes owner re-check.
