@@ -2,6 +2,7 @@ package com.example.data.local
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.TestSeeds
 import com.example.data.repository.ShowRepository
@@ -141,26 +142,55 @@ class CatalogAssetImporterTest {
     }
 
     @Test
-    fun `fresh-install callback marks catalog imported so merge is skipped`() = runBlocking {
+    fun `createFromFile stamps imported version via PrepackagedDatabaseCallback`() = runBlocking {
         prefs.setImportedCatalogVersion(0)
-        AppDatabase.freshInstallCatalogCallback(context)
-            .onCreate(db.openHelper.writableDatabase)
-        assertEquals(
-            CatalogAssetImporter.BUNDLED_CATALOG_VERSION,
-            prefs.importedCatalogVersion()
-        )
 
-        val fixture = buildFixtureCatalog(
-            catalogShowId = "gdshowsdb-uuid-cornell",
-            date = "1977-05-08",
-            venue = "Barton Hall",
-            extraShowId = "gdshowsdb-uuid-other",
-            extraDate = "1978-01-01"
-        )
-        val skip = CatalogAssetImporter(context, db, prefs).importIfNeeded(fixture)
-        assertFalse(skip.imported)
-        assertEquals("already_imported", skip.skipped)
-        assertNull(db.showDao().getShowById("gdshowsdb-uuid-cornell").first())
+        // Build a Room-valid SQLite file, then reopen it through createFromFile so the
+        // PrepackagedDatabaseCallback path runs (same hook as createFromAsset). Never call
+        // the callback by hand — Room only fires it when copying a prepackaged DB.
+        val sourceName = "g1_prepackaged_source.db"
+        context.getDatabasePath(sourceName).delete()
+        val source = Room.databaseBuilder(context, AppDatabase::class.java, sourceName)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            assertTrue(source.openHelper.writableDatabase.isOpen)
+        } finally {
+            source.close()
+        }
+        val fixture = File(context.cacheDir, "g1-prepackaged-fixture.db")
+        context.getDatabasePath(sourceName).copyTo(fixture, overwrite = true)
+
+        val destName = "g1_prepackaged_dest.db"
+        context.getDatabasePath(destName).delete()
+        prefs.setImportedCatalogVersion(0)
+        val dest = Room.databaseBuilder(context, AppDatabase::class.java, destName)
+            .createFromFile(fixture, AppDatabase.freshInstallPrepackagedCallback(context))
+            .allowMainThreadQueries()
+            .build()
+        try {
+            assertTrue(dest.openHelper.writableDatabase.isOpen)
+            assertEquals(
+                CatalogAssetImporter.BUNDLED_CATALOG_VERSION,
+                prefs.importedCatalogVersion()
+            )
+            val skip = CatalogAssetImporter(context, dest, prefs).importIfNeeded(
+                buildFixtureCatalog(
+                    catalogShowId = "gdshowsdb-uuid-cornell",
+                    date = "1977-05-08",
+                    venue = "Barton Hall",
+                    extraShowId = "gdshowsdb-uuid-other",
+                    extraDate = "1978-01-01"
+                )
+            )
+            assertFalse(skip.imported)
+            assertEquals("already_imported", skip.skipped)
+        } finally {
+            dest.close()
+            context.getDatabasePath(destName).delete()
+            context.getDatabasePath(sourceName).delete()
+            fixture.delete()
+        }
     }
 
     /** Tiny Room-shaped catalog.db for tests (two shows, one song, two performances). */

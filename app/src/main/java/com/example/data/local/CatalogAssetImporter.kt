@@ -12,7 +12,7 @@ import java.io.IOException
 /**
  * One-time (per [BUNDLED_CATALOG_VERSION]) merge of the bundled `catalog.db` into an existing
  * Room database (R2). Fresh installs still use [RoomDatabase.Builder.createFromAsset] and are
- * marked already-imported via [AppDatabase.freshInstallCatalogCallback] (F5).
+ * marked already-imported via [AppDatabase.freshInstallPrepackagedCallback] (G1).
  *
  * - Upserts `shows` / `songs` / `song_aliases` by primary key.
  * - Inserts `song_performances` only for shows that have none yet (skips custom shows and any

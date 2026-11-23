@@ -254,7 +254,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 **Audit of F1–F5 (Claude Code, 2026-11-23):** F1–F4 are correct. Two small fixes:
 
-- [ ] **G1 F5's fresh-install stamp probably never fires.** `AppDatabase.freshInstallCatalogCallback` stamps `importedCatalogVersion` in `RoomDatabase.Callback.onCreate`, but Room doesn't call `onCreate` for a database copied from `createFromAsset`: `CatalogDbBuilder` sets `PRAGMA user_version`, so the copied file already counts as created. The F5 test calls `onCreate` by hand, so it passes either way. Effect: fresh installs still re-import the whole catalog once on first launch (wasted work, no data harm). Fix: stamp it from `createFromAsset(CATALOG_ASSET, object : RoomDatabase.PrepackagedDatabaseCallback() { override fun onOpenPrepackagedDatabase(db) { … } })` and drop the `onCreate` callback. Test: build a DB with `createFromFile(fixture, callback)` (same callback path), open it, and assert the version is stamped. Don't call the callback by hand.
+- [x] **G1 F5's fresh-install stamp probably never fires.** (`25bef79`) Stamp via `createFromAsset(…, PrepackagedDatabaseCallback.onOpenPrepackagedDatabase)`; dropped `onCreate` callback. Test opens DB through `createFromFile(fixture, callback)` (never calls callback by hand).
 - [ ] **G2 Restore the Slipknot! writer credit (undo R6).** Claude Code checked https://www.dead.net/song/slipknot on 2026-11-23: it lists **"Music By: Bill Kreutzmann"** only, with no lyricist and no debut date. The original credit was right. Fix: `SongStoryFacts` Slipknot! `writers = "Kreutzmann"` (same surname format as the other entries), keep `debutDate = null`, and restore the line in `assets/almanac/help-slip-franklins.md` to "Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann".
 
 ## Phase 6: Polish & architecture
@@ -273,6 +273,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (G1 PrepackagedDatabaseCallback)
+- PR pending: stamp `importedCatalogVersion` from `onOpenPrepackagedDatabase` (`25bef79`); test via `createFromFile`.
+- **Next:** G2 → 6.2, then hard stop for audit.
 
 ### 2026-11-23 · Claude Code (audit of F1–F5)
 - F1–F4 correct; added **G1** (F5 fresh-install stamp uses the wrong Room hook) and **G2** (dead.net confirms Kreutzmann for Slipknot!; undo R6). Audit pause lifted.
