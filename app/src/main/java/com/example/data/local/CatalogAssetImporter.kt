@@ -3,6 +3,7 @@ package com.example.data.local
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -10,19 +11,26 @@ import java.io.IOException
 
 /**
  * One-time (per [BUNDLED_CATALOG_VERSION]) merge of the bundled `catalog.db` into an existing
- * Room database (R2). Fresh installs still use [RoomDatabase.Builder.createFromAsset].
+ * Room database (R2). Fresh installs still use [RoomDatabase.Builder.createFromAsset] and are
+ * marked already-imported via [AppDatabase.freshInstallCatalogCallback] (F5).
  *
  * - Upserts `shows` / `songs` / `song_aliases` by primary key.
  * - Inserts `song_performances` only for shows that have none yet (skips custom shows and any
  *   show that already has a setlist, so user edits survive).
  * - Never reads or writes `user_show_data`.
+ * - All write phases run in one Room transaction (F5) so a crash mid-import cannot leave a
+ *   half-applied setlist that then blocks repair.
  */
 class CatalogAssetImporter(
     private val context: Context,
-    private val showDao: ShowDao,
-    private val songDao: SongDao,
-    private val prefs: UserPrefsStore
+    private val database: AppDatabase,
+    private val prefs: UserPrefsStore,
+    /** Test-only hook invoked after shows upsert, still inside the transaction. */
+    private val afterShowsUpsert: (() -> Unit)? = null
 ) {
+    private val showDao get() = database.showDao()
+    private val songDao get() = database.songDao()
+
     data class Result(
         val imported: Boolean,
         val showCount: Int = 0,
@@ -73,27 +81,30 @@ class CatalogAssetImporter(
             val shows = readShows(bundled)
             val performances = readPerformances(bundled)
 
-            if (songs.isNotEmpty()) songDao.insertSongs(songs)
-            if (aliases.isNotEmpty()) songDao.insertAliases(aliases)
-            if (shows.isNotEmpty()) {
-                shows.chunked(UPSERT_CHUNK).forEach { showDao.upsertCatalogShows(it) }
-            }
-
-            val skipShowIds = (
-                showDao.getShowIdsWithPerformances() + showDao.getCustomShowIds()
-            ).toHashSet()
-            val toInsert = performances.filter { it.showId !in skipShowIds }
-            if (toInsert.isNotEmpty()) {
-                toInsert.chunked(UPSERT_CHUNK).forEach { chunk ->
-                    showDao.insertSongPerformances(chunk)
+            return database.withTransaction {
+                if (songs.isNotEmpty()) songDao.insertSongs(songs)
+                if (aliases.isNotEmpty()) songDao.insertAliases(aliases)
+                if (shows.isNotEmpty()) {
+                    shows.chunked(UPSERT_CHUNK).forEach { showDao.upsertCatalogShows(it) }
                 }
+                afterShowsUpsert?.invoke()
+
+                val skipShowIds = (
+                    showDao.getShowIdsWithPerformances() + showDao.getCustomShowIds()
+                ).toHashSet()
+                val toInsert = performances.filter { it.showId !in skipShowIds }
+                if (toInsert.isNotEmpty()) {
+                    toInsert.chunked(UPSERT_CHUNK).forEach { chunk ->
+                        showDao.insertSongPerformances(chunk)
+                    }
+                }
+                Result(
+                    imported = true,
+                    showCount = shows.size,
+                    songCount = songs.size,
+                    performanceCount = toInsert.size
+                )
             }
-            return Result(
-                imported = true,
-                showCount = shows.size,
-                songCount = songs.size,
-                performanceCount = toInsert.size
-            )
         }
     }
 

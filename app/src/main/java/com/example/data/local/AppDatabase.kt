@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import java.io.IOException
 
 @Database(
@@ -74,9 +75,23 @@ abstract class AppDatabase : RoomDatabase() {
             // user tables. Asset is optional so unit/dev builds without catalog.db still open.
             if (assetExists(context, CATALOG_ASSET)) {
                 builder.createFromAsset(CATALOG_ASSET)
+                // F5: asset already has the full catalog — skip the first-launch re-upsert.
+                builder.addCallback(freshInstallCatalogCallback(context))
             }
             return builder.applyMigrationPolicy().build()
         }
+
+        /**
+         * Marks [CatalogAssetImporter.BUNDLED_CATALOG_VERSION] when Room first creates the DB
+         * from the bundled asset (or a test file). Not added for empty in-memory / no-asset DBs.
+         */
+        fun freshInstallCatalogCallback(context: Context): RoomDatabase.Callback =
+            object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    UserPrefsStore(context.applicationContext)
+                        .setImportedCatalogVersion(CatalogAssetImporter.BUNDLED_CATALOG_VERSION)
+                }
+            }
 
         private fun assetExists(context: Context, name: String): Boolean =
             try {
