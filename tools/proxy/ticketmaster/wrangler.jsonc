@@ -2,12 +2,25 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "deadset-ticketmaster-proxy",
   "main": "src/index.js",
-  "compatibility_date": "2026-11-21",
+  "compatibility_date": "2024-11-11",
   "observability": {
     "enabled": true,
     "traces": {
       "enabled": true
     }
-  }
-  // Secret (never commit): wrangler secret put TICKETMASTER_API_KEY
+  },
+  // Workers Rate Limiting binding (R5). namespace_id is a local label (1001–65535), not a CF UUID.
+  "ratelimits": [
+    {
+      "name": "TM_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ]
+  // Secrets (never commit):
+  //   wrangler secret put TICKETMASTER_API_KEY
+  //   wrangler secret put DEADSET_CLIENT_TOKEN   # optional shared app header
 }

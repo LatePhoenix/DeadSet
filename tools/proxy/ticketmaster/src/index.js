@@ -3,7 +3,8 @@
  *
  * Exposes only GET /discovery/v2/events.json with a fixed music query shape.
  * The Ticketmaster API key stays in a Worker secret (TICKETMASTER_API_KEY).
- * Per-IP soft limit via Cache API (~30 req/min).
+ * Per-IP limit via Workers Rate Limiting binding (~30 req/min).
+ * Optional DEADSET_CLIENT_TOKEN secret: when set, require header X-DeadSet-Client.
  */
 
 const UPSTREAM = "https://app.ticketmaster.com/discovery/v2/events.json";
@@ -39,7 +40,10 @@ export default {
       return json({ error: "apikey_not_allowed" }, 400);
     }
 
-    const limited = await isRateLimited(request);
+    const clientGate = checkClientToken(request, env);
+    if (clientGate) return clientGate;
+
+    const limited = await isRateLimited(request, env);
     if (limited) {
       return json({ error: "rate_limited" }, 429);
     }
@@ -89,8 +93,31 @@ function clampSize(raw) {
   return Math.min(n, 50);
 }
 
-async function isRateLimited(request) {
+/**
+ * When DEADSET_CLIENT_TOKEN is set, require matching X-DeadSet-Client header.
+ * Unset token = open (local/dev); set it in production so random scrapers cannot burn quota.
+ */
+function checkClientToken(request, env) {
+  const expected = (env.DEADSET_CLIENT_TOKEN || "").trim();
+  if (!expected) return null;
+  const got = (request.headers.get("X-DeadSet-Client") || "").trim();
+  if (got !== expected) {
+    return json({ error: "client_token_required" }, 401);
+  }
+  return null;
+}
+
+/**
+ * Prefer Workers Rate Limiting binding (TM_RATE_LIMITER). Fall back to Cache API only when
+ * the binding is absent (older local wrangler), knowing Cache API is ineffective on workers.dev.
+ */
+async function isRateLimited(request, env) {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (env.TM_RATE_LIMITER && typeof env.TM_RATE_LIMITER.limit === "function") {
+    const { success } = await env.TM_RATE_LIMITER.limit({ key: ip });
+    return !success;
+  }
+  // Legacy fallback — not reliable on *.workers.dev.
   const bucket = Math.floor(Date.now() / 60_000);
   const key = new Request(`https://deadset-tm-rate.invalid/${ip}/${bucket}`);
   const cache = caches.default;
@@ -110,7 +137,7 @@ function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-DeadSet-Client",
   };
 }
 
