@@ -2,17 +2,40 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.AltRoute
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -20,13 +43,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.data.almanac.AlmanacLinkIndex
 import com.example.data.almanac.AlmanacRepository
-import com.example.ui.*
-import com.example.ui.screens.*
-import com.example.ui.theme.*
-import com.example.ui.components.LiveTrackerCard
+import com.example.data.almanac.SongStoryComposer
 import com.example.data.local.isUpcoming
+import com.example.data.setlist.ChaseProgress
+import com.example.ui.DeadSetViewModel
+import com.example.ui.MainTab
+import com.example.ui.components.LiveTrackerCard
+import com.example.ui.components.RecreationCard
+import com.example.ui.navigation.DeadSetRoutes
+import com.example.ui.navigation.NavCommand
+import com.example.ui.screens.AddEditShowScreen
+import com.example.ui.screens.AboutCreditsScreen
+import com.example.ui.screens.AlmanacArticleScreen
+import com.example.ui.screens.AlmanacTabScreen
+import com.example.ui.screens.LiveConcertsScreen
+import com.example.ui.screens.MeTabScreen
+import com.example.ui.screens.ShowDetailScreen
+import com.example.ui.screens.ShowsListScreen
+import com.example.ui.screens.TransitionsScreen
+import com.example.ui.theme.StealieCardDark
+import com.example.ui.theme.StealieGold
+import com.example.ui.theme.StealieMidnight
+import com.example.ui.theme.TextPrimaryDark
+import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.DeadSetThemeProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +90,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private data class TabSpec(
+    val tab: MainTab,
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
 @Composable
 fun DeadSetApp(viewModel: DeadSetViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -49,20 +105,99 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
     val almanacLinks = remember {
         AlmanacLinkIndex(AlmanacRepository(context).loadArticles())
     }
+    val articles = remember {
+        AlmanacRepository(context).loadArticles()
+    }
+    val navController = rememberNavController()
+    val backStack by navController.currentBackStackEntryAsState()
+    val currentRoute = backStack?.destination?.route
+    val onTabRoot = currentRoute in DeadSetRoutes.tabRoutes
 
     LaunchedEffect(uiState.userFeedbackMessage) {
         val msg = uiState.userFeedbackMessage
         if (msg != null) {
-            snackbarHostState.showSnackbar(
-                message = msg,
-                duration = SnackbarDuration.Short
-            )
+            snackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Short)
             viewModel.clearFeedbackMessage()
         }
     }
 
-    val isRootScreen =
-        uiState.screenState is ScreenState.Main && uiState.almanacOverlayArticleId == null
+    LaunchedEffect(viewModel) {
+        viewModel.navigation.collect { cmd ->
+            when (cmd) {
+                is NavCommand.ToShow -> {
+                    viewModel.clearAlmanacOverlay()
+                    navController.navigate(DeadSetRoutes.showDetail(cmd.showId)) {
+                        launchSingleTop = true
+                    }
+                }
+                is NavCommand.ToEditShow -> {
+                    viewModel.clearAlmanacOverlay()
+                    navController.navigate(DeadSetRoutes.editShow(cmd.showId)) {
+                        launchSingleTop = true
+                    }
+                }
+                NavCommand.ToAbout -> {
+                    viewModel.clearAlmanacOverlay()
+                    navController.navigate(DeadSetRoutes.ABOUT) { launchSingleTop = true }
+                }
+                is NavCommand.ToAlmanacArticle -> {
+                    viewModel.clearAlmanacOverlay()
+                    navController.navigate(DeadSetRoutes.almanacArticle(cmd.articleId)) {
+                        launchSingleTop = true
+                    }
+                }
+                NavCommand.ToAlmanacArticles -> {
+                    viewModel.setTab(MainTab.ALMANAC)
+                    navController.navigate(DeadSetRoutes.ALMANAC) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+                NavCommand.ToShowsTab -> {
+                    viewModel.setTab(MainTab.SHOWS)
+                    navController.navigate(DeadSetRoutes.SHOWS) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+                is NavCommand.AfterSaveShow -> {
+                    // Leave Add/Edit, then open detail so Back does not return to the editor.
+                    navController.popBackStack()
+                    navController.navigate(DeadSetRoutes.showDetail(cmd.showId)) {
+                        launchSingleTop = true
+                    }
+                }
+                NavCommand.Back -> {
+                    if (uiState.almanacOverlayArticleId != null) {
+                        viewModel.clearAlmanacOverlay()
+                    } else {
+                        navController.popBackStack()
+                    }
+                }
+            }
+        }
+    }
+
+    // Only for stacked detail routes — overlay Back is handled on the overlay itself.
+    BackHandler(enabled = uiState.almanacOverlayArticleId == null && !onTabRoot) {
+        navController.popBackStack()
+    }
+
+    val tabs = listOf(
+        TabSpec(MainTab.SHOWS, DeadSetRoutes.SHOWS, "Shows", Icons.AutoMirrored.Filled.QueueMusic),
+        TabSpec(MainTab.LIVE, DeadSetRoutes.LIVE, "Live", Icons.Filled.ConfirmationNumber),
+        TabSpec(MainTab.SEGUES, DeadSetRoutes.SEGUES, "Segues", Icons.AutoMirrored.Filled.AltRoute),
+        TabSpec(MainTab.ALMANAC, DeadSetRoutes.ALMANAC, "Almanac", Icons.Filled.AutoStories),
+        TabSpec(MainTab.ME, DeadSetRoutes.ME, "Me", Icons.Filled.Person)
+    )
+
+    val showBottomBar = onTabRoot && uiState.almanacOverlayArticleId == null
 
     Scaffold(
         snackbarHost = {
@@ -80,7 +215,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
             )
         },
         bottomBar = {
-            if (isRootScreen) {
+            if (showBottomBar) {
                 NavigationBar(
                     containerColor = StealieMidnight,
                     contentColor = TextSecondaryDark,
@@ -88,34 +223,33 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                     windowInsets = WindowInsets.navigationBars,
                     modifier = Modifier.testTag("main_bottom_nav")
                 ) {
-                    val tabs = listOf(
-                        Triple(MainTab.SHOWS, "Setlists", Icons.Filled.QueueMusic),
-                        Triple(MainTab.LIVE_TICKETS, "Tickets", Icons.Filled.ConfirmationNumber),
-                        Triple(MainTab.ATTENDANCE, "My Shows", Icons.Filled.Bolt),
-                        Triple(MainTab.TRANSITIONS, "Segues", Icons.Filled.AltRoute),
-                        Triple(MainTab.STATS, "Stats", Icons.Filled.BarChart),
-                        Triple(MainTab.TRIVIA, "Trivia", Icons.Filled.Quiz),
-                        Triple(MainTab.PROFILE, "Profile", Icons.Filled.Person)
-                    )
-
-                    for ((tab, title, icon) in tabs) {
-                        val isSelected = uiState.currentTab == tab
+                    for (spec in tabs) {
+                        val selected = currentRoute == spec.route
                         NavigationBarItem(
-                            selected = isSelected,
-                            onClick = { viewModel.setTab(tab) },
+                            selected = selected,
+                            onClick = {
+                                viewModel.setTab(spec.tab)
+                                navController.navigate(spec.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
                             icon = {
                                 Icon(
-                                    imageVector = icon,
-                                    contentDescription = title,
-                                    modifier = Modifier.size(19.dp)
+                                    imageVector = spec.icon,
+                                    contentDescription = spec.label,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             },
                             label = {
                                 Text(
-                                    text = title,
-                                    fontSize = 9.sp,
+                                    text = spec.label,
+                                    fontSize = 11.sp,
                                     maxLines = 1,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
@@ -125,7 +259,7 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                                 unselectedIconColor = TextSecondaryDark,
                                 unselectedTextColor = TextSecondaryDark
                             ),
-                            modifier = Modifier.testTag("nav_tab_${tab.name.lowercase()}")
+                            modifier = Modifier.testTag("nav_tab_${spec.tab.name.lowercase()}")
                         )
                     }
                 }
@@ -140,249 +274,283 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            Crossfade(
-                targetState = uiState.screenState,
-                label = "ScreenTransition"
-            ) { screen ->
-                when (screen) {
-                    is ScreenState.Main -> {
-                        when (uiState.currentTab) {
-                            MainTab.SHOWS -> {
-                                ShowsListScreen(
-                                    shows = uiState.filteredShows,
-                                    allCatalogShows = uiState.shows,
-                                    songsByShow = uiState.songsByShow,
-                                    searchQuery = uiState.searchQuery,
-                                    onSearchChange = viewModel::setSearchQuery,
-                                    selectedEra = uiState.selectedEra,
-                                    onEraSelected = viewModel::setEra,
-                                    attendanceFilter = uiState.attendanceFilter,
-                                    onAttendanceFilterChanged = viewModel::setAttendanceFilter,
-                                    sortOrder = uiState.sortOrder,
-                                    onSortOrderChanged = viewModel::setSortOrder,
-                                    selectedSegueFilter = uiState.selectedSegueFilter,
-                                    onClearSegueFilter = viewModel::clearSegueFilter,
-                                    onShowClick = viewModel::openShowDetail,
-                                    onAddShowClick = viewModel::openAddShow,
-                                    onRestoreOfflineCatalog = viewModel::restoreOfflineCatalog,
-                                    spotlightArticleId = { show ->
-                                        almanacLinks.articleForShowId(show.id)
-                                            ?: almanacLinks.articleForIsoDate(show.date)
-                                    },
-                                    onOpenAlmanacArticle = viewModel::openAlmanacArticle
-                                )
+            NavHost(
+                navController = navController,
+                startDestination = DeadSetRoutes.SHOWS,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable(DeadSetRoutes.SHOWS) {
+                    ShowsListScreen(
+                        shows = uiState.filteredShows,
+                        allCatalogShows = uiState.shows,
+                        songsByShow = uiState.songsByShow,
+                        searchQuery = uiState.searchQuery,
+                        onSearchChange = viewModel::setSearchQuery,
+                        selectedEra = uiState.selectedEra,
+                        onEraSelected = viewModel::setEra,
+                        attendanceFilter = uiState.attendanceFilter,
+                        onAttendanceFilterChanged = viewModel::setAttendanceFilter,
+                        sortOrder = uiState.sortOrder,
+                        onSortOrderChanged = viewModel::setSortOrder,
+                        selectedSegueFilter = uiState.selectedSegueFilter,
+                        onClearSegueFilter = viewModel::clearSegueFilter,
+                        onShowClick = viewModel::openShowDetail,
+                        onAddShowClick = viewModel::openAddShow,
+                        onRestoreOfflineCatalog = viewModel::restoreOfflineCatalog,
+                        spotlightArticleId = { show ->
+                            almanacLinks.articleForShowId(show.id)
+                                ?: almanacLinks.articleForIsoDate(show.date)
+                        },
+                        onOpenAlmanacArticle = { id -> viewModel.openAlmanacArticle(id, asOverlay = true) }
+                    )
+                }
+                composable(DeadSetRoutes.LIVE) {
+                    val concerts by viewModel.concerts.collectAsStateWithLifecycle()
+                    LiveConcertsScreen(
+                        state = concerts,
+                        onRefresh = viewModel::refreshConcerts,
+                        onAddBand = { viewModel.addBand(it) },
+                        onSetFollowed = { id, f -> viewModel.setBandFollowed(id, f) },
+                        onRemoveBand = { viewModel.removeBand(it) },
+                        onSetAlerts = viewModel::setAlertsEnabled
+                    )
+                }
+                composable(DeadSetRoutes.SEGUES) {
+                    TransitionsScreen(
+                        stats = uiState.stats,
+                        onFilterBySegue = viewModel::filterBySegue,
+                        families = uiState.familyStats,
+                        shows = uiState.shows,
+                        songsByShow = uiState.songsByShow
+                    )
+                }
+                composable(DeadSetRoutes.ALMANAC) {
+                    AlmanacTabScreen(
+                        articles = articles,
+                        shows = uiState.shows,
+                        parseSongs = viewModel::songsFor,
+                        triviaProgress = uiState.triviaProgress,
+                        onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
+                        onOpenShowDetail = viewModel::openShowDetail,
+                        reviewStates = uiState.reviewStates,
+                        onCardAnswered = viewModel::recordCardAnswer,
+                        onOpenAlmanacArticle = { id -> viewModel.openAlmanacArticle(id, asOverlay = true) },
+                        preferArticles = uiState.preferAlmanacArticles,
+                        onArticlesShown = viewModel::clearAlmanacArticlesPrefer
+                    )
+                }
+                composable(DeadSetRoutes.ME) {
+                    val attended = uiState.shows.filter { it.isAttended }
+                    val chased by viewModel.chaseSongs.collectAsStateWithLifecycle()
+                    val songNames by viewModel.songNames.collectAsStateWithLifecycle()
+                    LaunchedEffect(Unit) { viewModel.loadSongNames() }
+                    MeTabScreen(
+                        attendedShows = attended,
+                        allShows = uiState.shows,
+                        songsByShow = uiState.songsByShow,
+                        stats = uiState.stats,
+                        profileData = uiState.userProfile,
+                        chaseStatuses = remember(chased, attended, uiState.songsByShow) {
+                            ChaseProgress.statuses(
+                                chased.map { it.songId to it.songName },
+                                attended
+                            ) { uiState.songsByShow[it.id].orEmpty() }
+                        },
+                        allSongNames = songNames,
+                        onShowClick = viewModel::openShowDetail,
+                        onExploreShowsClick = {
+                            viewModel.setTab(MainTab.SHOWS)
+                            navController.navigate(DeadSetRoutes.SHOWS) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            MainTab.LIVE_TICKETS -> {
-                                val concerts by viewModel.concerts.collectAsStateWithLifecycle()
-                                LiveConcertsScreen(
-                                    state = concerts,
-                                    onRefresh = viewModel::refreshConcerts,
-                                    onAddBand = { viewModel.addBand(it) },
-                                    onSetFollowed = { id, f -> viewModel.setBandFollowed(id, f) },
-                                    onRemoveBand = { viewModel.removeBand(it) },
-                                    onSetAlerts = viewModel::setAlertsEnabled
-                                )
+                        },
+                        onSongSearch = { songName ->
+                            viewModel.setSearchQuery(songName)
+                            viewModel.setTab(MainTab.SHOWS)
+                            navController.navigate(DeadSetRoutes.SHOWS) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            MainTab.ATTENDANCE -> {
-                                val attended = uiState.shows.filter { it.isAttended }
-                                val chased by viewModel.chaseSongs.collectAsStateWithLifecycle()
-                                val songNames by viewModel.songNames.collectAsStateWithLifecycle()
-                                LaunchedEffect(Unit) { viewModel.loadSongNames() }
-                                AttendanceScreen(
-                                    attendedShows = attended,
-                                    stats = uiState.stats,
-                                    onShowClick = viewModel::openShowDetail,
-                                    onExploreShowsClick = { viewModel.setTab(MainTab.SHOWS) },
-                                    songsByShow = uiState.songsByShow,
-                                    chaseStatuses = remember(chased, attended, uiState.songsByShow) {
-                                        com.example.data.setlist.ChaseProgress.statuses(
-                                            chased.map { it.songId to it.songName }, attended
-                                        ) { uiState.songsByShow[it.id].orEmpty() }
-                                    },
-                                    allSongNames = songNames,
-                                    onAddChase = viewModel::addChaseSong,
-                                    onRemoveChase = { viewModel.removeChaseSong(it) }
-                                )
-                            }
-                            MainTab.TRANSITIONS -> {
-                                TransitionsScreen(
-                                    stats = uiState.stats,
-                                    onFilterBySegue = viewModel::filterBySegue,
-                                    families = uiState.familyStats,
-                                    shows = uiState.shows,
-                                    songsByShow = uiState.songsByShow
-                                )
-                            }
-                            MainTab.STATS -> {
-                                StatsScreen(
-                                    stats = uiState.stats,
-                                    onSongClick = { songName ->
-                                        viewModel.setSearchQuery(songName)
-                                        viewModel.setTab(MainTab.SHOWS)
-                                    }
-                                )
-                            }
-                            MainTab.TRIVIA -> {
-                                TriviaScreen(
-                                    shows = uiState.shows,
-                                    parseSongs = viewModel::songsFor,
-                                    triviaProgress = uiState.triviaProgress,
-                                    onRecordQuizCompletion = viewModel::recordTriviaQuizCompletion,
-                                    onOpenShowDetail = viewModel::openShowDetail,
-                                    reviewStates = uiState.reviewStates,
-                                    onCardAnswered = viewModel::recordCardAnswer,
-                                    onOpenAlmanac = viewModel::openAlmanac,
-                                    onOpenAlmanacArticle = viewModel::openAlmanacArticle
-                                )
-                            }
-                            MainTab.PROFILE -> {
-                                val attended = uiState.shows.filter { it.isAttended }
-                                UserProfileScreen(
-                                    allShows = uiState.shows,
-                                    songsByShow = uiState.songsByShow,
-                                    attendedShows = attended,
-                                    stats = uiState.stats,
-                                    profileData = uiState.userProfile,
-                                    onUpdateProfile = viewModel::updateUserProfile,
-                                    onShowClick = viewModel::openShowDetail,
-                                    onToggleAttendance = viewModel::toggleAttendance,
-                                    onExploreCatalogClick = { viewModel.setTab(MainTab.SHOWS) },
-                                    onAboutCreditsClick = viewModel::openAboutCredits
-                                )
-                            }
-                        }
-                    }
-
-                    is ScreenState.ShowDetail -> {
-                        val show = uiState.shows.firstOrNull { it.id == screen.showId }
-                        if (show != null) {
-                            val songs = uiState.songsByShow[show.id].orEmpty()
-                            ShowDetailScreen(
-                                show = show,
-                                songs = songs,
-                                onBack = { viewModel.navigateBack() },
-                                onToggleAttendance = viewModel::toggleAttendance,
-                                onToggleSongTransition = viewModel::toggleSongTransition,
-                                onSaveReviewAndNotes = viewModel::saveReviewAndNotes,
-                                onEditShow = viewModel::openEditShow,
-                                onDeleteShow = viewModel::deleteShow,
-                                songStoryArticleId = almanacLinks::articleForSong,
-                                onOpenAlmanacArticle = viewModel::openAlmanacArticle,
-                                liveTracker = if (show.isUpcoming) {
-                                    {
-                                        val names by viewModel.songNames.collectAsStateWithLifecycle()
-                                        LaunchedEffect(Unit) { viewModel.loadSongNames() }
-                                        LiveTrackerCard(
-                                            showId = show.id,
-                                            songs = songs,
-                                            predictionsFor = { last, set -> viewModel.predictNext(show.id, last, set) },
-                                            allSongNames = names,
-                                            onAddSong = { name, set -> viewModel.appendSongToShow(show.id, name, set) }
-                                        )
-                                    }
-                                } else null,
-                                recreation = if (!show.bandName.equals("Grateful Dead", ignoreCase = true)) {
-                                    {
-                                        val original = show.recreatesShowId?.let { id -> uiState.shows.firstOrNull { it.id == id } }
-                                        val suggestion = remember(show.id, songs, uiState.shows) {
-                                            if (original != null) null
-                                            else com.example.data.setlist.RecreationMatcher.bestMatch(
-                                                tribute = songs,
-                                                candidates = uiState.shows,
-                                                songsFor = { uiState.songsByShow[it.id].orEmpty() }
-                                            )
+                        },
+                        onAddChase = viewModel::addChaseSong,
+                        onRemoveChase = { viewModel.removeChaseSong(it) },
+                        onUpdateProfile = viewModel::updateUserProfile,
+                        onToggleAttendance = viewModel::toggleAttendance,
+                        onAboutCreditsClick = viewModel::openAboutCredits
+                    )
+                }
+                composable(
+                    route = DeadSetRoutes.SHOW_DETAIL,
+                    arguments = listOf(navArgument("showId") { type = NavType.StringType })
+                ) { entry ->
+                    val rawId = entry.arguments?.getString("showId").orEmpty()
+                    val showId = DeadSetRoutes.decode(rawId)
+                    val show = uiState.shows.firstOrNull { it.id == showId }
+                    if (show != null) {
+                        val songs = uiState.songsByShow[show.id].orEmpty()
+                        ShowDetailScreen(
+                            show = show,
+                            songs = songs,
+                            onBack = { navController.popBackStack() },
+                            onToggleAttendance = viewModel::toggleAttendance,
+                            onToggleSongTransition = viewModel::toggleSongTransition,
+                            onSaveReviewAndNotes = viewModel::saveReviewAndNotes,
+                            onEditShow = viewModel::openEditShow,
+                            onDeleteShow = viewModel::deleteShow,
+                            songStoryArticleId = almanacLinks::articleForSong,
+                            onOpenAlmanacArticle = { id ->
+                                viewModel.openAlmanacArticle(id, asOverlay = false)
+                            },
+                            liveTracker = if (show.isUpcoming) {
+                                {
+                                    val names by viewModel.songNames.collectAsStateWithLifecycle()
+                                    LaunchedEffect(Unit) { viewModel.loadSongNames() }
+                                    LiveTrackerCard(
+                                        showId = show.id,
+                                        songs = songs,
+                                        predictionsFor = { last, set ->
+                                            viewModel.predictNext(show.id, last, set)
+                                        },
+                                        allSongNames = names,
+                                        onAddSong = { name, set ->
+                                            viewModel.appendSongToShow(show.id, name, set)
                                         }
-                                        com.example.ui.components.RecreationCard(
-                                            tributeSongs = songs,
-                                            original = original,
-                                            originalSongs = original?.let { uiState.songsByShow[it.id] }.orEmpty(),
-                                            suggestion = suggestion,
-                                            onLink = { viewModel.setRecreation(show.id, it) },
-                                            onUnlink = { viewModel.setRecreation(show.id, null) },
-                                            onOpenShow = viewModel::openShowDetail
+                                    )
+                                }
+                            } else null,
+                            recreation = if (!show.bandName.equals("Grateful Dead", ignoreCase = true)) {
+                                {
+                                    val original = show.recreatesShowId?.let { id ->
+                                        uiState.shows.firstOrNull { it.id == id }
+                                    }
+                                    val suggestion = remember(show.id, songs, uiState.shows) {
+                                        if (original != null) null
+                                        else com.example.data.setlist.RecreationMatcher.bestMatch(
+                                            tribute = songs,
+                                            candidates = uiState.shows,
+                                            songsFor = { uiState.songsByShow[it.id].orEmpty() }
                                         )
                                     }
-                                } else null
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = androidx.compose.ui.Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = StealieGold)
-                            }
+                                    RecreationCard(
+                                        tributeSongs = songs,
+                                        original = original,
+                                        originalSongs = original?.let { uiState.songsByShow[it.id] }.orEmpty(),
+                                        suggestion = suggestion,
+                                        onLink = { viewModel.setRecreation(show.id, it) },
+                                        onUnlink = { viewModel.setRecreation(show.id, null) },
+                                        onOpenShow = viewModel::openShowDetail
+                                    )
+                                }
+                            } else null
+                        )
+                    } else {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = StealieGold)
                         }
                     }
-
-                    is ScreenState.AddEditShow -> {
-                        val existing = screen.showId?.let { id ->
-                            uiState.shows.firstOrNull { it.id == id }
+                }
+                composable(
+                    route = DeadSetRoutes.EDIT_SHOW,
+                    arguments = listOf(
+                        navArgument("showId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
                         }
+                    )
+                ) { entry ->
+                    val raw = entry.arguments?.getString("showId").orEmpty()
+                    val showId = raw.takeIf { it.isNotBlank() }?.let { DeadSetRoutes.decode(it) }
+                    if (showId == null) {
                         AddEditShowScreen(
-                            existingShow = existing,
-                            existingSongs = existing?.let { viewModel.songsFor(it) }.orEmpty(),
+                            existingShow = null,
+                            existingSongs = emptyList(),
                             bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
                                 .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
                                 .map { it.name },
-                            onBack = { viewModel.navigateBack() },
+                            onBack = { navController.popBackStack() },
                             onSave = viewModel::saveCustomShow
                         )
-                    }
-
-                    is ScreenState.AboutCredits -> {
-                        AboutCreditsScreen(onBack = { viewModel.navigateBack() })
-                    }
-
-                    is ScreenState.AlmanacList -> {
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        val articles = remember {
-                            com.example.data.almanac.AlmanacRepository(context).loadArticles()
-                        }
-                        AlmanacListScreen(
-                            articles = articles,
-                            onOpenArticle = viewModel::openAlmanacArticle,
-                            onBack = { viewModel.navigateBack() }
-                        )
-                    }
-
-                    is ScreenState.AlmanacArticle -> {
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        val article = remember(screen.articleId) {
-                            com.example.data.almanac.AlmanacRepository(context).loadArticle(screen.articleId)
-                        }
-                        if (article != null) {
-                            val panels = remember(article, uiState.shows, uiState.songsByShow) {
-                                com.example.data.almanac.SongStoryComposer.panelsFor(
-                                    article = article,
-                                    shows = uiState.shows,
-                                    songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
+                    } else {
+                        val existing = uiState.shows.firstOrNull { it.id == showId }
+                        when {
+                            existing != null -> AddEditShowScreen(
+                                existingShow = existing,
+                                existingSongs = viewModel.songsFor(existing),
+                                bandSuggestions = viewModel.concerts.value.bands.filter { it.isFollowed }
+                                    .sortedWith(compareBy({ it.id != "terrapin flyer" }, { it.name }))
+                                    .map { it.name },
+                                onBack = { navController.popBackStack() },
+                                onSave = viewModel::saveCustomShow
+                            )
+                            uiState.shows.isEmpty() -> Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = StealieGold)
+                            }
+                            else -> Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Show not found",
+                                    color = TextSecondaryDark,
+                                    modifier = Modifier.padding(16.dp)
                                 )
                             }
-                            AlmanacArticleScreen(
+                        }
+                    }
+                }
+                composable(DeadSetRoutes.ABOUT) {
+                    AboutCreditsScreen(onBack = { navController.popBackStack() })
+                }
+                composable(
+                    route = DeadSetRoutes.ALMANAC_ARTICLE,
+                    arguments = listOf(navArgument("articleId") { type = NavType.StringType })
+                ) { entry ->
+                    val articleId = DeadSetRoutes.decode(entry.arguments?.getString("articleId").orEmpty())
+                    val article = remember(articleId) {
+                        AlmanacRepository(context).loadArticle(articleId)
+                    }
+                    if (article != null) {
+                        val panels = remember(article, uiState.shows, uiState.songsByShow) {
+                            SongStoryComposer.panelsFor(
                                 article = article,
-                                onOpenShow = viewModel::openShowDetail,
-                                onBack = { viewModel.navigateBack() },
-                                songStoryPanels = panels
+                                shows = uiState.shows,
+                                songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
                             )
-                        } else {
-                            AlmanacListScreen(
-                                articles = emptyList(),
-                                onOpenArticle = viewModel::openAlmanacArticle,
-                                onBack = { viewModel.navigateBack() }
-                            )
+                        }
+                        AlmanacArticleScreen(
+                            article = article,
+                            onOpenShow = viewModel::openShowDetail,
+                            onBack = { navController.popBackStack() },
+                            songStoryPanels = panels
+                        )
+                    } else {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Article not found", color = TextSecondaryDark)
                         }
                     }
                 }
             }
 
-            // Overlay keeps Main (Trivia quiz remember-state) composed underneath.
             uiState.almanacOverlayArticleId?.let { overlayId ->
+                // Takes Back before NavHost / Trivia handlers so quiz state stays alive.
+                BackHandler { viewModel.clearAlmanacOverlay() }
                 val article = remember(overlayId) {
                     AlmanacRepository(context).loadArticle(overlayId)
                 }
                 if (article != null) {
                     val panels = remember(article, uiState.shows, uiState.songsByShow) {
-                        com.example.data.almanac.SongStoryComposer.panelsFor(
+                        SongStoryComposer.panelsFor(
                             article = article,
                             shows = uiState.shows,
                             songsFor = { show -> uiState.songsByShow[show.id].orEmpty() }
@@ -391,10 +559,10 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                     AlmanacArticleScreen(
                         article = article,
                         onOpenShow = { showId ->
-                            viewModel.navigateBack()
+                            viewModel.clearAlmanacOverlay()
                             viewModel.openShowDetail(showId)
                         },
-                        onBack = { viewModel.navigateBack() },
+                        onBack = { viewModel.clearAlmanacOverlay() },
                         songStoryPanels = panels
                     )
                 }

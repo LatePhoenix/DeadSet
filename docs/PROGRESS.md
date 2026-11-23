@@ -23,14 +23,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 ## Current focus
 
 **Where the code is (read this first):**
-- **`main` is the working line** (through 5.6): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**. DB **v12**.
-- Next: **Phase 6** (6.1 Navigation-Compose tabs). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
+- Next: **R1** curated seeds vs catalog (Phase 2b), then R2–R7 before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **6.1** Navigation-Compose + 5 tabs (Shows · Live · Segues · Almanac · Me). Finish PR #24, then:
-2. **Review fixes R1–R7** (section "Phase 2b" below), **before 6.2**. R1–R3 mean the full catalog currently reaches no one's device. Do R1 → R2 → R3 → R4 → R5, then R6/R7.
-3. Phase 6 remainder. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
-4. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **Review fixes R1–R7** (Phase 2b below), **before 6.2**. R1–R3 mean the full catalog currently reaches no one's device. Do R1 → R2 → R3 → R4 → R5, then R6/R7.
+2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent):_ `catalog.db` (~10MB) is **gitignored**; regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. Room `createFromAsset` is used when the file is present.
@@ -235,7 +234,8 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 
 ## Phase 6: Polish & architecture
 
-- [ ] **6.1 Navigation-Compose + 5 tabs:** Shows · Live · Segues · Almanac · Me.
+- [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
+  _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [ ] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container.
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
@@ -248,6 +248,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-21 · Cursor (6.1 Navigation-Compose tabs)
+- Branch `phase-6-61-nav-compose`: 5-tab NavHost; Almanac/Me panes; NavCommand from ViewModel; removed ScreenState.
+- **Decision:** string routes; SecondaryTabRow for Almanac/Me panes; keep almanac overlay for quiz.
+- **Next:** R1 (seeds vs catalog), then R2–R7 before 6.2. C4 deferred. Skip A5 / keys until owner. Don't merge while CodeRabbit is only "rate limited" without a real review when possible.
 
 ### 2026-11-21 · Claude Code (review of unreviewed PRs #6–#23)
 - CodeRabbit reviewed only 3 of the 18 merged PRs (rate limit). Claude Code reviewed the range and added **Phase 2b, R1–R7**. No code changed.

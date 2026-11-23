@@ -22,6 +22,8 @@ import com.example.data.LatLon
 import com.example.ui.screens.ConcertsUiState
 import com.example.data.seed.TriviaGameMode
 import com.example.data.seed.TriviaUserProgress
+import com.example.ui.navigation.NavCommand
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -30,14 +32,13 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
 
+/** Bottom-bar tabs after 6.1 (five tabs). */
 enum class MainTab {
     SHOWS,
-    LIVE_TICKETS,
-    ATTENDANCE,
-    TRANSITIONS,
-    STATS,
-    TRIVIA,
-    PROFILE
+    LIVE,
+    SEGUES,
+    ALMANAC,
+    ME
 }
 
 data class UserProfileData(
@@ -61,19 +62,8 @@ enum class SortOrder {
     RATING_DESC
 }
 
-sealed class ScreenState {
-    data object Main : ScreenState()
-    data class ShowDetail(val showId: String) : ScreenState()
-    data class AddEditShow(val showId: String? = null) : ScreenState()
-    data object AboutCredits : ScreenState()
-    data object AlmanacList : ScreenState()
-    /** [returnTo] is where back goes when the article was opened from outside the Almanac list. */
-    data class AlmanacArticle(val articleId: String, val returnTo: ScreenState? = null) : ScreenState()
-}
-
 data class UiState(
     val currentTab: MainTab = MainTab.SHOWS,
-    val screenState: ScreenState = ScreenState.Main,
     val searchQuery: String = "",
     val selectedEra: DeadEra = DeadEra.ALL,
     val attendanceFilter: AttendanceFilter = AttendanceFilter.ALL,
@@ -92,10 +82,12 @@ data class UiState(
     val reviewStates: Map<String, ReviewState> = emptyMap(),
     val userFeedbackMessage: String? = null,
     /**
-     * Almanac article shown over [ScreenState.Main] without leaving the tab (keeps Trivia quiz
+     * Almanac article shown over a tab root without leaving NavHost (keeps Trivia quiz
      * `remember` state alive). Cleared on back.
      */
-    val almanacOverlayArticleId: String? = null
+    val almanacOverlayArticleId: String? = null,
+    /** One-shot: Almanac tab should land on Articles pane. */
+    val preferAlmanacArticles: Boolean = false
 )
 
 /** Everything derived from one catalog emission, computed together off the main thread. */
@@ -302,8 +294,17 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     /** A show's setlist in performance order (empty if it has none yet). */
     fun songsFor(show: ShowEntity): List<SongEntry> = _uiState.value.songsByShow[show.id].orEmpty()
 
+    private val navCommands = Channel<NavCommand>(Channel.BUFFERED)
+    val navigation: Flow<NavCommand> = navCommands.receiveAsFlow()
+
     fun setTab(tab: MainTab) {
-        _uiState.update { it.copy(currentTab = tab, screenState = ScreenState.Main) }
+        _uiState.update {
+            it.copy(
+                currentTab = tab,
+                almanacOverlayArticleId = null,
+                preferAlmanacArticles = tab == MainTab.ALMANAC && it.preferAlmanacArticles
+            )
+        }
     }
 
     fun openShowDetail(showIdOrDate: String) {
@@ -312,59 +313,54 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                 it.date.equals(showIdOrDate, ignoreCase = true) ||
                 it.id.startsWith(showIdOrDate, ignoreCase = true)
         }?.id ?: showIdOrDate
-        _uiState.update { it.copy(screenState = ScreenState.ShowDetail(matchedShowId)) }
+        navCommands.trySend(NavCommand.ToShow(matchedShowId))
     }
 
     fun openAddShow() {
-        _uiState.update { it.copy(screenState = ScreenState.AddEditShow(null)) }
+        navCommands.trySend(NavCommand.ToEditShow(null))
     }
 
     fun openEditShow(showId: String) {
-        _uiState.update { it.copy(screenState = ScreenState.AddEditShow(showId)) }
+        navCommands.trySend(NavCommand.ToEditShow(showId))
     }
 
     fun openAboutCredits() {
-        _uiState.update { it.copy(screenState = ScreenState.AboutCredits) }
+        navCommands.trySend(NavCommand.ToAbout)
     }
 
     fun openAlmanac() {
-        _uiState.update { it.copy(screenState = ScreenState.AlmanacList) }
+        _uiState.update {
+            it.copy(currentTab = MainTab.ALMANAC, preferAlmanacArticles = true, almanacOverlayArticleId = null)
+        }
+        navCommands.trySend(NavCommand.ToAlmanacArticles)
     }
 
-    fun openAlmanacArticle(articleId: String) {
-        _uiState.update { current ->
-            // Stay on Main (Trivia/Shows) so composable remember-state (quiz) is not disposed.
-            if (current.screenState is ScreenState.Main) {
-                return@update current.copy(almanacOverlayArticleId = articleId)
-            }
-            val returnTo = when (val s = current.screenState) {
-                is ScreenState.AlmanacList -> ScreenState.AlmanacList
-                is ScreenState.AlmanacArticle -> s.returnTo ?: ScreenState.AlmanacList
-                else -> s
-            }
-            current.copy(screenState = ScreenState.AlmanacArticle(articleId, returnTo = returnTo))
+    /**
+     * @param asOverlay when true (tab root / quiz), keep the current destination composed.
+     */
+    fun openAlmanacArticle(articleId: String, asOverlay: Boolean = true) {
+        if (asOverlay) {
+            _uiState.update { it.copy(almanacOverlayArticleId = articleId) }
+        } else {
+            navCommands.trySend(NavCommand.ToAlmanacArticle(articleId))
         }
+    }
+
+    fun clearAlmanacArticlesPrefer() {
+        _uiState.update { it.copy(preferAlmanacArticles = false) }
+    }
+
+    fun clearAlmanacOverlay() {
+        _uiState.update { it.copy(almanacOverlayArticleId = null) }
     }
 
     fun navigateBack(): Boolean {
-        val state = _uiState.value
-        if (state.almanacOverlayArticleId != null) {
-            _uiState.update { it.copy(almanacOverlayArticleId = null) }
+        if (_uiState.value.almanacOverlayArticleId != null) {
+            clearAlmanacOverlay()
             return true
         }
-        return when (val current = state.screenState) {
-            is ScreenState.Main -> false
-            is ScreenState.AlmanacArticle -> {
-                _uiState.update {
-                    it.copy(screenState = current.returnTo ?: ScreenState.AlmanacList)
-                }
-                true
-            }
-            else -> {
-                _uiState.update { it.copy(screenState = ScreenState.Main) }
-                true
-            }
-        }
+        navCommands.trySend(NavCommand.Back)
+        return true
     }
 
     fun setSearchQuery(query: String) {
@@ -434,11 +430,9 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     fun filterBySegue(segueTitle: String) {
         _uiState.update { current ->
             val newFilter = if (current.selectedSegueFilter == segueTitle) null else segueTitle
-            val updated = current.copy(
+            current.copy(
                 selectedSegueFilter = newFilter,
-                currentTab = MainTab.SHOWS
-            )
-            updated.copy(
+                currentTab = MainTab.SHOWS,
                 filteredShows = applyFilters(
                     current.shows,
                     current.searchQuery,
@@ -449,6 +443,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
                 )
             )
         }
+        navCommands.trySend(NavCommand.ToShowsTab)
     }
 
     /** Clears the segue filter without changing the current tab. */
@@ -505,11 +500,9 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     fun deleteShow(show: ShowEntity) {
         viewModelScope.launch {
             repository.deleteShow(show)
+            navCommands.trySend(NavCommand.Back)
             _uiState.update {
-                it.copy(
-                    screenState = ScreenState.Main,
-                    userFeedbackMessage = "Show deleted from catalog"
-                )
+                it.copy(userFeedbackMessage = "Show deleted from catalog")
             }
         }
     }
@@ -517,11 +510,9 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     fun saveCustomShow(show: ShowEntity, songs: List<SongEntry>) {
         viewModelScope.launch {
             repository.saveShow(show, songs)
+            navCommands.trySend(NavCommand.AfterSaveShow(show.id))
             _uiState.update {
-                it.copy(
-                    screenState = ScreenState.ShowDetail(show.id),
-                    userFeedbackMessage = "Show saved to your offline Room catalog! 🎸"
-                )
+                it.copy(userFeedbackMessage = "Show saved to your offline Room catalog! 🎸")
             }
         }
     }
