@@ -24,15 +24,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **R3** catalog must ship in builds (Phase 2b), then R4–R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- Next: **R4** Almanac date links (Phase 2b), then R5–R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **Review fixes R3–R7** (Phase 2b below). Then **pause for owner audit** — do not start 6.2 until they return.
+1. **Review fixes R4–R7** (Phase 2b below). Then **pause for owner audit** — do not start 6.2 until they return.
 2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
-- [x] **Catalog asset in git.** _Decided (agent):_ `catalog.db` (~10MB) is **gitignored**; regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. Room `createFromAsset` is used when the file is present.
+- [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
 - [x] **Catalog merge on upgrade.** _Decided (agent):_ fresh installs use `createFromAsset`; existing installs keep `user_show_data` via migrations. Future catalog refresh = upsert catalog tables by PK, never touch `user_show_data`.
 - [x] **C4 timing.** _Decided (agent):_ defer optional Relisten `--crosscheck` until after C5 catalog.db; network-heavy and not required to ship the corpus.
 - [x] **Importer set-type heuristic (C1).** _Decided (agent, reversible):_ 1–2 sets → `SET_1`/`SET_2`; 3+ sets → last is `ENCORE`, earlier `SET_1`…`SET_3` (capped). gdshowsdb has no set labels. Revisit when C5 maps into Room if real encores are mislabeled.
@@ -228,7 +228,8 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
   _Decision (reversible):_ unmatched GD seeds are not inserted on `checkAndSeedDatabase` (avoids colliding with a future catalog import); `restoreCuratedOfflineCatalog` still inserts them when no date+venue match exists.
 - [x] **R2 Catalog for existing installs.** (`a5b044a`) `CatalogAssetImporter` copies bundled `catalog.db`, upserts shows/songs/aliases, inserts performances only for shows with no setlist yet (skips custom), never touches `user_show_data`. Gated on `UserPrefsStore.importedCatalogVersion` / `BUNDLED_CATALOG_VERSION=1`. Wired before seed repair in ViewModel. Tests: `CatalogAssetImporterTest`.
   _Decision (reversible):_ skip performance replace whenever the show already has any setlist rows (covers user edits without a separate edit fingerprint).
-- [ ] **R3 Catalog must ship in builds.** `app/src/main/assets/catalog.db` is gitignored and nothing builds it, so CI and any clean checkout produce an APK without it, and `assetExists()` hides that. Fix: either wire the importer into the app build (e.g. a task `:app:preBuild` depends on, using the cached YAML) or commit the generated DB (~10 MB) after asking the owner. At minimum, fail `assembleRelease` when the asset is missing. Update the "Catalog asset in git" decision above to match.
+- [x] **R3 Catalog must ship in builds.** (`PENDING`) `verifyCatalogAsset` fails `assembleRelease` when `app/src/main/assets/catalog.db` is missing/empty. Asset stays gitignored; regenerate via importer. Open decision updated.
+  _Decision (reversible):_ do not commit the ~10MB DB or wire importer into every preBuild until the owner asks; release gate is enough for now.
 - [ ] **R4 Almanac date links ignore the year.** `AlmanacLinkIndex.byMonthDay` keys on MM-DD, and `MainActivity` falls back to `articleForIsoDate(show.date)` for every show, so every May 8 show links to the Cornell 5/8/77 spotlight. Fix: key on the full `yyyy-MM-dd`; keep month-day only for an explicit "on this day" card that names the year. Add a test that 1981-05-08 gets no Cornell link.
 - [ ] **R5 Proxy rate limit is a no-op.** `tools/proxy/ticketmaster/src/index.js` counts requests with `caches.default`, which has no effect on `*.workers.dev` (where the README deploys) and is per-colo/non-atomic elsewhere. The endpoint is unauthenticated, so anyone with the URL can drain the Ticketmaster quota. Fix: use the Workers Rate Limiting binding (or KV / a Durable Object); optionally require a shared app header. Update the README.
 - [ ] **R6 Verify the Slipknot! credit.** `SongStoryFacts` lists writers "Kreutzmann" alone; dead.net is believed to credit Garcia / Godchaux / Kreutzmann / Lesh / Weir. Check https://www.dead.net/song/slipknot, then correct it or set `writers = null`. While there, spot-check the other five credits against their cited pages.
@@ -250,6 +251,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (R3 catalog release gate)
+- Branch `phase-2b-r3-catalog-asset-check`: `verifyCatalogAsset` on `assembleRelease`; catalog.db stays gitignored.
+- **Decision:** no binary in git / no preBuild importer yet; release assemble fails closed.
+- **Next:** R4–R7, then **hard stop for owner project audit**.
 
 ### 2026-11-23 · Cursor (R2 catalog upgrade import)
 - Branch `phase-2b-r2-catalog-upgrade-import`: `CatalogAssetImporter` + prefs version gate; ViewModel runs import before R1 seed merge.
