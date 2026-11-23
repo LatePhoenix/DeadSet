@@ -61,6 +61,14 @@ class SongStoryComposerTest {
         }
     }
 
+    @Test
+    fun `Slipknot writers are Kreutzmann from dead net`() {
+        val slip = SongStoryFacts.all.first { it.canonicalName == "Slipknot!" }
+        assertEquals("Kreutzmann", slip.writers)
+        assertNull(slip.debutDate)
+        assertEquals("https://www.dead.net/song/slipknot", slip.sourceUrl)
+    }
+
     private fun show(id: String, date: String) = ShowEntity(
         id = id,
         date = date,
