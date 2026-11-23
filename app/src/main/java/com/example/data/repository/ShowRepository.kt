@@ -7,8 +7,11 @@ import com.example.data.local.SongAliasEntity
 import com.example.data.local.SongDao
 import com.example.data.local.SongEntity
 import com.example.data.local.SongPerformanceEntity
+import com.example.data.local.toCatalog
 import com.example.data.model.*
+import com.example.data.seed.CuratedSeedMerger
 import com.example.data.seed.CuratedShows
+import com.example.data.seed.SeedShow
 import com.example.data.songs.SongCatalog
 import com.example.data.songs.SongResolver
 import com.example.data.songs.songKey
@@ -74,34 +77,121 @@ class ShowRepository(
                 clearAttendance = legacy.inventedAttendance
             )
         }
-        if (showDao.getShowsCount() == 0) {
-            showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
-        }
-        // Covers a fresh install and repairs built-in shows whose setlist rows went missing.
+        // Empty DB: insert all seeds. Non-empty: merge curated fields onto catalog matches,
+        // always ensure non-GD seeds (Terrapin Flyer); do not resurrect unmatched GD seed ids.
+        applyCuratedSeeds(insertUnmatchedGd = false)
         insertSeedSetlistsWhereMissing()
     }
 
     /**
-     * Re-adds any curated shows that are missing. Existing rows (and the user's edits to them,
-     * setlists included) are kept: insertShows() ignores conflicts and only empty setlists are filled.
+     * Re-adds missing curated shows and merges curated enrichment onto catalog rows matched by
+     * date + venue. Existing user edits and non-empty setlists are kept; catalog-only upsert.
      */
     suspend fun restoreCuratedOfflineCatalog() = withContext(Dispatchers.IO) {
         ensureSongCatalog()
-        showDao.insertShows(CuratedShows.getInitialShows().map { it.show })
+        applyCuratedSeeds(insertUnmatchedGd = true)
         insertSeedSetlistsWhereMissing()
     }
 
     /**
-     * Writes the built-in setlist for each curated show that exists but has no setlist rows.
-     * Never touches a show that already has a setlist, so user edits survive.
+     * Matches GD curated seeds to catalog rows (date + venue), merges archive/trivia/tags onto
+     * the catalog id via [ShowDao.upsertCatalog] (never touches [user_show_data]), inserts
+     * missing non-GD seeds, and drops untouched duplicate seed-id rows when a catalog match won.
+     */
+    private suspend fun applyCuratedSeeds(insertUnmatchedGd: Boolean) {
+        val seeds = CuratedShows.getInitialShows()
+        val existing = showDao.getAllShowsOnce()
+        val bindings = CuratedSeedMerger.plan(
+            seeds = seeds,
+            existing = existing,
+            options = CuratedSeedMerger.PlanOptions(
+                emptyDatabase = existing.isEmpty(),
+                insertUnmatchedGd = insertUnmatchedGd
+            )
+        )
+        val toInsert = bindings.filter { it.insertNew }.map { it.seed.show }
+        if (toInsert.isNotEmpty()) {
+            showDao.insertShows(toInsert)
+        }
+        val afterInsert = showDao.getAllShowsOnce().associateBy { it.id }
+        for (binding in bindings) {
+            if (binding.insertNew) continue
+            val target = afterInsert[binding.targetShowId] ?: continue
+            val merged = CuratedSeedMerger.mergeCatalogFields(target, binding.seed.show)
+            if (merged != target) {
+                showDao.upsertCatalog(merged.toCatalog())
+            }
+        }
+        val seedsById = seeds.associateBy { it.id }
+        for (seedId in CuratedSeedMerger.duplicateSeedIdsToDrop(bindings, afterInsert.values.toList())) {
+            val binding = bindings.firstOrNull { it.seed.id == seedId } ?: continue
+            resolveDuplicateSeedRow(
+                seedId = seedId,
+                catalogId = binding.targetShowId,
+                builtIn = seedsById[seedId] ?: binding.seed,
+                showsById = afterInsert
+            )
+        }
+    }
+
+    /**
+     * When a catalog UUID owns a curated date, move any seed-id setlist edits onto the catalog
+     * row, then delete the seed-id duplicate only if it has no claimed user data.
+     */
+    private suspend fun resolveDuplicateSeedRow(
+        seedId: String,
+        catalogId: String,
+        builtIn: SeedShow,
+        showsById: Map<String, ShowEntity>
+    ) {
+        val seedShow = showsById[seedId] ?: return
+        val seedPerfs = showDao.getSongsForShowOnce(seedId)
+        val catalogPerfs = showDao.getSongsForShowOnce(catalogId)
+        val seedEdited = seedPerfs.isNotEmpty() && setlistDiffersFromBuiltIn(seedPerfs, builtIn.songs)
+        if (seedPerfs.isNotEmpty() && (catalogPerfs.isEmpty() || seedEdited)) {
+            showDao.replaceSongPerformances(
+                catalogId,
+                seedPerfs.map { it.copy(performanceId = 0L, showId = catalogId) }
+            )
+        }
+        if (!CuratedSeedMerger.hasClaimedUserData(seedShow)) {
+            showDao.deleteShowById(seedId)
+        }
+    }
+
+    private fun setlistDiffersFromBuiltIn(
+        perfs: List<SongPerformanceEntity>,
+        builtIn: List<SongEntry>
+    ): Boolean {
+        if (perfs.size != builtIn.size) return true
+        return perfs.zip(builtIn).any { (perf, entry) ->
+            perf.songName != entry.name ||
+                perf.setType != entry.setType.name ||
+                perf.transitionOut != entry.transitionOut.name
+        }
+    }
+
+    /**
+     * Writes the built-in setlist for each curated binding whose target show exists but has no
+     * setlist rows. Uses the catalog id when a seed matched a bundled row (R1).
      */
     private suspend fun insertSeedSetlistsWhereMissing() {
-        val storedIds = showDao.getAllShowsOnce().map { it.id }.toSet()
+        val existing = showDao.getAllShowsOnce()
+        val storedIds = existing.map { it.id }.toSet()
         val withSetlist = showDao.getShowIdsWithPerformances().toSet()
+        val bindings = CuratedSeedMerger.plan(
+            seeds = CuratedShows.getInitialShows(),
+            existing = existing,
+            options = CuratedSeedMerger.PlanOptions(
+                emptyDatabase = false,
+                insertUnmatchedGd = false
+            )
+        )
         val resolver = loadSongResolver()
-        for (seed in CuratedShows.getInitialShows()) {
-            if (seed.id in storedIds && seed.id !in withSetlist) {
-                writeSetlist(seed.id, seed.songs, resolver)
+        for (binding in bindings) {
+            val id = binding.targetShowId
+            if (id in storedIds && id !in withSetlist) {
+                writeSetlist(id, binding.seed.songs, resolver)
             }
         }
     }
