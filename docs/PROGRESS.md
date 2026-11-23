@@ -28,9 +28,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Next up (in order):**
 1. **Audit fixes F1–F5** (Phase 2c below), **before 6.2**, in order F1 → F2 → F3 → F4 → F5. F1 ships before anyone deploys the proxy.
-2. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
-3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-4. **C4** Relisten cross-check remains optional — deferred (not blocking).
+2. **Hard stop after F5 for another owner audit.** Do **not** start 6.2 until the owner returns with audit results.
+3. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
+4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (repeat offender):** R2–R7 (PRs #27–#32) all merged on a CodeRabbit check reading "Review rate limited" (zero reviews), and #29 merged with a red `test` check. Both break AGENTS.md. A green "Review rate limited" check is **not** a review, and a failing `test` check is never mergeable, even when the failure looks like CI flakiness: re-run it until it passes. If CodeRabbit stays rate limited, stop and tell the owner instead of merging.
 
@@ -271,7 +272,7 @@ _Newest first. Keep entries short: what changed, what's half-done, next action._
 ### 2026-11-23 · Claude Code (audit of Phase 2b, R1–R7)
 - Audited PRs #26–#32. Added **Phase 2c F1–F5**; the audit pause is lifted, and the next step is F1.
 - Process: R2–R7 merged with no CodeRabbit review and #29 merged on a red `test` check. See the merge rule under "Next up".
-- **Next:** F1 (Wrangler ≥ 4.36), then F2–F5, then 6.2.
+- **Next:** F1 (Wrangler ≥ 4.36), then F2–F5, then **stop for owner audit** before 6.2.
 
 ### 2026-11-23 · Cursor (R7 + audit pause)
 - Branch `phase-2b-r7-wrangler-compat`: pin `wrangler@3.91.0` in proxy `package.json`; compat date already `2024-11-11` from R5.
