@@ -24,12 +24,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **Phase 2b R1–R7 complete.** Development **paused for owner project audit**. Do **not** start 6.2 / Phase 3+ / A5 / C4 until the owner returns with audit results. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **Phase 2b R1–R7 merged; the audit is back (2026-11-23).** It found 5 fixes, listed as **Phase 2c F1–F5** below. Do them before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
-**Next up (in order) — blocked until audit returns:**
-1. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
-2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy; audit results.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+**Next up (in order):**
+1. **Audit fixes F1–F5** (Phase 2c below), **before 6.2**, in order F1 → F2 → F3 → F4 → F5. F1 ships before anyone deploys the proxy.
+2. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
+3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+4. **C4** Relisten cross-check remains optional — deferred (not blocking).
+
+**Merge rule (repeat offender):** R2–R7 (PRs #27–#32) all merged on a CodeRabbit check reading "Review rate limited" (zero reviews), and #29 merged with a red `test` check. Both break AGENTS.md. A green "Review rate limited" check is **not** a review, and a failing `test` check is never mergeable, even when the failure looks like CI flakiness: re-run it until it passes. If CodeRabbit stays rate limited, stop and tell the owner instead of merging.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -236,6 +239,18 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
   _Decision:_ null over guessing multi-writer string without a live page check.
 - [x] **R7 Wrangler compatibility date.** (`adf4d04`) `compatibility_date` set to `2024-11-11` (done with R5). Added `package.json` pinning `wrangler@3.91.0`; README already documents 3.91+.
 
+## Phase 2c: Audit fixes (Claude Code audit of R1–R7, 2026-11-23)
+
+Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a real CodeRabbit review and a green `test` check before merging.
+
+- [ ] **F1 Wrangler pin is too old for the rate-limit binding.** R7 pinned `wrangler@3.91.0` (`tools/proxy/ticketmaster/package.json`) and the README says "3.91+". Cloudflare's Rate Limiting docs require **Wrangler 4.36.0 or later** for the `ratelimits` binding. On 3.91 `TM_RATE_LIMITER` is never bound, so `isRateLimited` silently falls back to the Cache API path that R5 itself documents as a no-op on workers.dev, which undoes R5. Fix: pin a Wrangler 4.x version ≥ 4.36.0, update the README's version note, and keep `compatibility_date` at a date that version accepts. If you can, run `npx wrangler deploy --dry-run` to confirm the binding shows up.
+- [ ] **F2 Seed rows with user data stay duplicated.** `ShowRepository.resolveDuplicateSeedRow` deletes the seed-id row (e.g. `1977-05-08-cornell`) only when `hasClaimedUserData` is false. If the user marked it attended, rated or reviewed it, both the seed row and the catalog UUID row stay, so the show appears twice and the user's data sits on the seed row. Fix: in one transaction, move the seed row's `user_show_data` onto the catalog id (if the catalog row has its own claimed data, keep the catalog row's and leave the seed row, and log it), then delete the seed row. Test: attended seed row + catalog match → one show, attended, on the catalog id.
+- [ ] **F3 Every launch reverts user edits on curated shows.** `applyCuratedSeeds` runs on each startup, and `CuratedSeedMerger.mergeCatalogFields` lets non-blank seed values win for `archiveIdentifier`, `historicTrivia`, `tapeQuality`, `tourName`, `eraId`, `venueAddress`. The edit screen (`AddEditShowScreen`) edits tour and tape quality, so those edits revert on the next launch, for both catalog-id and seed-id rows. Before R1 seed rows were never overwritten (`insertShows` ignored conflicts). Fix: only fill blank fields (`base.x.ifBlank { seed.x }`); tags may stay a union. Test: edited `tourName` survives `checkAndSeedDatabase`.
+- [ ] **F4 Proxy client token would break the app.** R5 added optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`, and the proxy README suggests setting it in production, but the Android client never sends that header. Setting the secret would turn every Tickets request into a 401. Fix: either send the header from the app (value from `.env` → BuildConfig, empty = not sent) or change the README to say "don't set this until the app sends it". Prefer the first; it's small.
+- [ ] **F5 Catalog import isn't atomic and reruns on fresh installs.** `CatalogAssetImporter.importFromFile` writes shows, then performances in 500-row chunks, outside a transaction. If the process dies mid-import, a show can keep half a setlist, and because shows with any setlist are skipped, it's never repaired. Also, fresh installs (DB built by `createFromAsset`) still have `importedCatalogVersion() == 0`, so the first launch re-upserts the whole catalog for nothing. Fix: wrap the writes in `database.withTransaction { }`, and set the imported version when the DB is created from the asset (e.g. in a `RoomDatabase.Callback.onCreate`, or by detecting the asset path). Test: an exception after the shows upsert leaves no partial setlists.
+
+_Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `writers = null` (owner still to confirm the credit on dead.net), R7 `compatibility_date` `2024-11-11`.
+
 ## Phase 6: Polish & architecture
 
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
@@ -252,6 +267,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (audit of Phase 2b, R1–R7)
+- Audited PRs #26–#32. Added **Phase 2c F1–F5**; the audit pause is lifted, and the next step is F1.
+- Process: R2–R7 merged with no CodeRabbit review and #29 merged on a red `test` check. See the merge rule under "Next up".
+- **Next:** F1 (Wrangler ≥ 4.36), then F2–F5, then 6.2.
 
 ### 2026-11-23 · Cursor (R7 + audit pause)
 - Branch `phase-2b-r7-wrangler-compat`: pin `wrangler@3.91.0` in proxy `package.json`; compat date already `2024-11-11` from R5.
