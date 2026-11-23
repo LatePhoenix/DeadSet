@@ -13,7 +13,7 @@ sources: https://www.dead.net/song/help-way, https://www.dead.net/song/slipknot,
 ## Writers (dead.net)
 
 - Help on the Way — music Jerry Garcia, lyrics Robert Hunter
-- Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann
+- Slipknot! — instrumental; writer credit on dead.net needs owner re-check (app stores `writers = null` until confirmed)
 - Franklin's Tower — music Jerry Garcia & Bill Kreutzmann, lyrics Robert Hunter
 
 ## In setlists

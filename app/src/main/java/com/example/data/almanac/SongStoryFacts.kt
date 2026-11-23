@@ -37,7 +37,9 @@ object SongStoryFacts {
         ),
         SongStoryFact(
             canonicalName = "Slipknot!",
-            writers = "Kreutzmann",
+            // R6: sole "Kreutzmann" was disputed (band co-write often cited). Agent could not
+            // re-fetch dead.net this session — leave null until owner confirms the page.
+            writers = null,
             debutDate = null,
             sourceUrl = "https://www.dead.net/song/slipknot"
         ),
