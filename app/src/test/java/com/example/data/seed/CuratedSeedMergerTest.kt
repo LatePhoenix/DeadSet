@@ -72,6 +72,27 @@ class CuratedSeedMergerTest {
     }
 
     @Test
+    fun `findCatalogMatch prefers catalog UUID over seed id regardless of list order`() {
+        val catalog = cornell.show.copy(id = "gdshowsdb-uuid-cornell", venue = "Barton Hall")
+        val seedFirst = CuratedSeedMerger.findCatalogMatch(
+            cornell,
+            listOf(cornell.show, catalog)
+        )
+        val catalogFirst = CuratedSeedMerger.findCatalogMatch(
+            cornell,
+            listOf(catalog, cornell.show)
+        )
+        assertEquals("gdshowsdb-uuid-cornell", seedFirst!!.id)
+        assertEquals("gdshowsdb-uuid-cornell", catalogFirst!!.id)
+    }
+
+    @Test
+    fun `findCatalogMatch falls back to seed row when it is the only match`() {
+        val match = CuratedSeedMerger.findCatalogMatch(cornell, listOf(cornell.show))
+        assertEquals(cornell.id, match!!.id)
+    }
+
+    @Test
     fun `startup does not resurrect unmatched GD seeds`() {
         val other = TestSeeds.seed("1995-07-09-soldier-field").show
         val plan = CuratedSeedMerger.plan(

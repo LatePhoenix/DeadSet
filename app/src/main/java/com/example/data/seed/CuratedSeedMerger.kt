@@ -56,15 +56,30 @@ object CuratedSeedMerger {
 
     /**
      * Finds the best existing show for a GD seed: same date, venue match, prefer GD band.
+     * Prefers a non-seed catalog id over the curated seed id when both match (order-independent).
      * If venues disagree but the date has exactly one GD candidate, use that.
      */
     fun findCatalogMatch(seed: SeedShow, existing: List<ShowEntity>): ShowEntity? {
         val sameDate = existing.filter {
             it.date == seed.show.date && isGratefulDead(it)
         }
-        sameDate.firstOrNull { venuesMatch(it.venue, seed.show.venue) }?.let { return it }
-        return sameDate.singleOrNull()
+        val venueHits = sameDate.filter { venuesMatch(it.venue, seed.show.venue) }
+        val pool = when {
+            venueHits.isNotEmpty() -> venueHits
+            sameDate.size == 1 -> sameDate
+            else -> emptyList()
+        }
+        if (pool.isEmpty()) return null
+        return pool.firstOrNull { it.id != seed.id } ?: pool.first()
     }
+
+    /** True when the user has claimed personal fields on this row (not blank defaults). */
+    fun hasClaimedUserData(show: ShowEntity): Boolean =
+        show.isAttended ||
+            show.attendedWith.isNotBlank() ||
+            show.userRating != 0f ||
+            show.userReview.isNotBlank() ||
+            show.favoriteSong.isNotBlank()
 
     /** Catalog enrichment from seed; keeps [base] id and never touches user fields. */
     fun mergeCatalogFields(base: ShowEntity, seed: ShowEntity): ShowEntity = base.copy(

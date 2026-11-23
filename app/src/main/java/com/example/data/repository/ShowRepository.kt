@@ -11,6 +11,7 @@ import com.example.data.local.toCatalog
 import com.example.data.model.*
 import com.example.data.seed.CuratedSeedMerger
 import com.example.data.seed.CuratedShows
+import com.example.data.seed.SeedShow
 import com.example.data.songs.SongCatalog
 import com.example.data.songs.SongResolver
 import com.example.data.songs.songKey
@@ -121,12 +122,52 @@ class ShowRepository(
                 showDao.upsertCatalog(merged.toCatalog())
             }
         }
-        val dupes = CuratedSeedMerger.duplicateSeedIdsToDrop(
-            bindings,
-            afterInsert.values.toList()
-        )
-        if (dupes.isNotEmpty()) {
-            showDao.deleteUntouchedSeedShows(dupes)
+        val seedsById = seeds.associateBy { it.id }
+        for (seedId in CuratedSeedMerger.duplicateSeedIdsToDrop(bindings, afterInsert.values.toList())) {
+            val binding = bindings.firstOrNull { it.seed.id == seedId } ?: continue
+            resolveDuplicateSeedRow(
+                seedId = seedId,
+                catalogId = binding.targetShowId,
+                builtIn = seedsById[seedId] ?: binding.seed,
+                showsById = afterInsert
+            )
+        }
+    }
+
+    /**
+     * When a catalog UUID owns a curated date, move any seed-id setlist edits onto the catalog
+     * row, then delete the seed-id duplicate only if it has no claimed user data.
+     */
+    private suspend fun resolveDuplicateSeedRow(
+        seedId: String,
+        catalogId: String,
+        builtIn: SeedShow,
+        showsById: Map<String, ShowEntity>
+    ) {
+        val seedShow = showsById[seedId] ?: return
+        val seedPerfs = showDao.getSongsForShowOnce(seedId)
+        val catalogPerfs = showDao.getSongsForShowOnce(catalogId)
+        val seedEdited = seedPerfs.isNotEmpty() && setlistDiffersFromBuiltIn(seedPerfs, builtIn.songs)
+        if (seedPerfs.isNotEmpty() && (catalogPerfs.isEmpty() || seedEdited)) {
+            showDao.replaceSongPerformances(
+                catalogId,
+                seedPerfs.map { it.copy(performanceId = 0L, showId = catalogId) }
+            )
+        }
+        if (!CuratedSeedMerger.hasClaimedUserData(seedShow)) {
+            showDao.deleteShowById(seedId)
+        }
+    }
+
+    private fun setlistDiffersFromBuiltIn(
+        perfs: List<SongPerformanceEntity>,
+        builtIn: List<SongEntry>
+    ): Boolean {
+        if (perfs.size != builtIn.size) return true
+        return perfs.zip(builtIn).any { (perf, entry) ->
+            perf.songName != entry.name ||
+                perf.setType != entry.setType.name ||
+                perf.transitionOut != entry.transitionOut.name
         }
     }
 

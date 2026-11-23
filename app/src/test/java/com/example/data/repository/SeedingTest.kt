@@ -96,6 +96,46 @@ class SeedingTest {
     }
 
     @Test
+    fun `edited seed setlist moves onto catalog UUID before duplicate drop`() = runBlocking {
+        val cornell = TestSeeds.seed("1977-05-08-cornell")
+        val catalogId = "gdshowsdb-uuid-cornell"
+        dao.insertShow(
+            cornell.show.copy(
+                id = catalogId,
+                venue = "Barton Hall",
+                archiveIdentifier = "",
+                historicTrivia = ""
+            )
+        )
+        dao.insertShow(cornell.show)
+        repository.ensureSongCatalog()
+        // Seed-id row has a user-edited first transition; catalog UUID has no setlist yet.
+        val editedSongs = cornell.songs.toMutableList().also {
+            it[0] = it[0].copy(transitionOut = it[0].transitionOut.next())
+        }
+        repository.saveShow(cornell.show, editedSongs)
+
+        repository.checkAndSeedDatabase()
+
+        assertEquals(null, dao.getShowById(cornell.id).first())
+        assertEquals(editedSongs.first().transitionOut, repository.getSetlist(catalogId).first().transitionOut)
+        assertEquals(editedSongs.size, repository.getSetlist(catalogId).size)
+    }
+
+    @Test
+    fun `claimed seed duplicate is kept when catalog UUID also exists`() = runBlocking {
+        val cornell = TestSeeds.seed("1977-05-08-cornell")
+        val catalogId = "gdshowsdb-uuid-cornell"
+        dao.insertShow(cornell.show.copy(id = catalogId, venue = "Barton Hall"))
+        dao.insertShow(cornell.show.copy(isAttended = true, userReview = "my notes"))
+
+        repository.checkAndSeedDatabase()
+
+        assertTrue(dao.getShowById(cornell.id).first() != null)
+        assertTrue(dao.getShowById(catalogId).first() != null)
+    }
+
+    @Test
     fun `restore merges onto catalog instead of inserting a second Cornell`() = runBlocking {
         val cornell = TestSeeds.seed("1977-05-08-cornell")
         val catalogId = "gdshowsdb-uuid-cornell"
