@@ -27,11 +27,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 - **Phase 2b R1–R7 merged; the audit is back (2026-11-23).** It found 5 fixes, listed as **Phase 2c F1–F5** below. Do them before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **Audit fixes F1–F5** (Phase 2c below), **before 6.2**, in order F1 → F2 → F3 → F4 → F5. F1 ships before anyone deploys the proxy.
-2. **Hard stop after F5 for another owner audit.** Do **not** start 6.2 until the owner returns with audit results.
-3. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
-4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-5. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**Audit fixes F1–F5**~~ — **done** (Phase 2c). **Paused for owner / Claude Code audit.** Do **not** start 6.2 until the owner returns with audit results.
+2. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
+3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+4. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at the audit stop after F5 and reads any CodeRabbit comments then.
 
@@ -248,7 +247,7 @@ Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real
 - [x] **F2 Seed rows with user data stay duplicated.** (`08d096f`) `ShowDao.consolidateDuplicateSeed` moves seed `user_show_data` onto unclaimed catalog id in one transaction, then deletes the seed row; if catalog is already claimed, leave seed and log. Tests: attended seed → catalog id; both claimed → seed kept.
 - [x] **F3 Every launch reverts user edits on curated shows.** (`111446f`) `mergeCatalogFields` fills only blank base fields; tags remain a union. Test: edited `tourName` survives `checkAndSeedDatabase`.
 - [x] **F4 Proxy client token would break the app.** (`24eb9f3`) App sends `X-DeadSet-Client` on proxy Ticketmaster calls when `DEADSET_CLIENT_TOKEN` is set; blank/sentinel omits the header. `.env.example` + proxy README.
-- [~] **F5 Catalog import isn't atomic and reruns on fresh installs.** (Cursor) `CatalogAssetImporter.importFromFile` writes shows, then performances in 500-row chunks, outside a transaction. If the process dies mid-import, a show can keep half a setlist, and because shows with any setlist are skipped, it's never repaired. Also, fresh installs (DB built by `createFromAsset`) still have `importedCatalogVersion() == 0`, so the first launch re-upserts the whole catalog for nothing. Fix: wrap the writes in `database.withTransaction { }`, and set the imported version when the DB is created from the asset (e.g. in a `RoomDatabase.Callback.onCreate`, or by detecting the asset path). Test: an exception after the shows upsert leaves no partial setlists.
+- [x] **F5 Catalog import isn't atomic and reruns on fresh installs.** (`44b62ac`) Import writes in one `withTransaction`; `freshInstallCatalogCallback` stamps `importedCatalogVersion` on createFromAsset so first launch skips re-upsert. Tests: mid-import exception leaves no partial setlists; callback skips merge.
 
 _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `writers = null` (owner still to confirm the credit on dead.net), R7 `compatibility_date` `2024-11-11`.
 
@@ -268,6 +267,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (F5 done — audit pause)
+- PR #39 merged (`44b62ac` / merge `5c8b5a4`): atomic catalog import + createFromAsset import gate. Phase 2c F1–F5 complete.
+- **HARD STOP:** do not start 6.2 / A5 / C4 / keys / CF deploy. Owner + Claude Code audit next.
 
 ### 2026-11-23 · Cursor (F4 X-DeadSet-Client)
 - PR #38 merged (`24eb9f3` / merge `9094c37`): proxy Ticketmaster calls send `X-DeadSet-Client` when `DEADSET_CLIENT_TOKEN` is set.
