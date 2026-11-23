@@ -99,8 +99,10 @@ tasks.register("verifyCatalogAsset") {
     }
   }
 }
-tasks.named("assembleRelease").configure {
-  dependsOn("verifyCatalogAsset")
+tasks.configureEach {
+  if (name == "assembleRelease") {
+    dependsOn("verifyCatalogAsset")
+  }
 }
 
 dependencies {
