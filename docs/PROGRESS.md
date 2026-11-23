@@ -33,7 +33,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
 5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (repeat offender):** R2–R7 (PRs #27–#32) all merged on a CodeRabbit check reading "Review rate limited" (zero reviews), and #29 merged with a red `test` check. Both break AGENTS.md. A green "Review rate limited" check is **not** a review, and a failing `test` check is never mergeable, even when the failure looks like CI flakiness: re-run it until it passes. If CodeRabbit stays rate limited, stop and tell the owner instead of merging.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at the audit stop after F5 and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -62,7 +62,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (originally required by AI Studio; CI must generate `debug.keystore` in a step instead of changing them). |
 | Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
 | GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
-| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Don't merge while its status is "Review in progress"**: PRs #1 and #2 merged too early and got no review. Free tier ≈ 1 review/hour; "Review rate limited" means it skipped. Trigger a review manually with a PR comment `@coderabbitai review` once the limit lifts. Reply to each finding on its thread and resolve it. |
+| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Advisory since 2026-11-23** (owner decision): the free tier (≈ 1 review/hour) kept blocking merges, and Claude Code audits each batch at the audit stops instead. Don't wait for it; "Review rate limited" means it skipped, and that's fine. If it has posted findings before you merge, fix them and reply on each thread. The **`test` check** is the required gate. |
 | CI | GitHub Actions workflow `.github/workflows/ci.yml` (step A3): unit tests on push/PR to `main`. |
 
 ## Conventions
@@ -242,9 +242,9 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 
 ## Phase 2c: Audit fixes (Claude Code audit of R1–R7, 2026-11-23)
 
-Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a real CodeRabbit review and a green `test` check before merging.
+Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a green `test` check before merging (CodeRabbit is advisory; see "Merge rule").
 
-- [~] **F1 Wrangler pin is too old for the rate-limit binding.** (Cursor — PR #34 open) Pinned `wrangler@4.36.0`; README says 4.36.0+ / `npm ci`; dry-run shows `TM_RATE_LIMITER`. Feature `b008f43`, CR fix `6592a53`. **Blocked:** CodeRabbit re-review of latest commit rate-limited >30m — do not merge until a real review lands.
+- [x] **F1 Wrangler pin is too old for the rate-limit binding.** (`b008f43`) Pinned `wrangler@4.36.0`; README says 4.36.0+ / `npm ci`; dry-run shows `TM_RATE_LIMITER`. CR finding fixed in `6592a53`.
 - [ ] **F2 Seed rows with user data stay duplicated.** `ShowRepository.resolveDuplicateSeedRow` deletes the seed-id row (e.g. `1977-05-08-cornell`) only when `hasClaimedUserData` is false. If the user marked it attended, rated or reviewed it, both the seed row and the catalog UUID row stay, so the show appears twice and the user's data sits on the seed row. Fix: in one transaction, move the seed row's `user_show_data` onto the catalog id (if the catalog row has its own claimed data, keep the catalog row's and leave the seed row, and log it), then delete the seed row. Test: attended seed row + catalog match → one show, attended, on the catalog id.
 - [ ] **F3 Every launch reverts user edits on curated shows.** `applyCuratedSeeds` runs on each startup, and `CuratedSeedMerger.mergeCatalogFields` lets non-blank seed values win for `archiveIdentifier`, `historicTrivia`, `tapeQuality`, `tourName`, `eraId`, `venueAddress`. The edit screen (`AddEditShowScreen`) edits tour and tape quality, so those edits revert on the next launch, for both catalog-id and seed-id rows. Before R1 seed rows were never overwritten (`insertShows` ignored conflicts). Fix: only fill blank fields (`base.x.ifBlank { seed.x }`); tags may stay a union. Test: edited `tourName` survives `checkAndSeedDatabase`.
 - [ ] **F4 Proxy client token would break the app.** R5 added optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`, and the proxy README suggests setting it in production, but the Android client never sends that header. Setting the secret would turn every Tickets request into a 401. Fix: either send the header from the app (value from `.env` → BuildConfig, empty = not sent) or change the README to say "don't set this until the app sends it". Prefer the first; it's small.
@@ -269,10 +269,14 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
-### 2026-11-23 · Cursor (F1 Wrangler 4.36 — blocked on CodeRabbit)
+### 2026-11-23 · Cursor (F1 Wrangler 4.36 — merging)
 - Branch `phase-2c-f1-wrangler-436` / PR #34: pin `wrangler@4.36.0` + lockfile; README `npm ci`; dry-run confirmed `TM_RATE_LIMITER`.
-- Real CodeRabbit review on `3502cd5` (1 finding → fixed in `6592a53`). Tests green on latest. Re-review of `6592a53` stayed **Review rate limited >30m** → **stopped per merge rule; did not merge**.
-- **Next (owner or next agent):** when CodeRabbit quota lifts, `@coderabbitai review` on #34, merge, then F2→F5; hard stop after F5.
+- CodeRabbit finding on `3502cd5` fixed (`npm ci`); tests green. Merging under advisory CodeRabbit rule.
+- **Next:** F2 → F5, then hard stop for owner audit.
+
+### 2026-11-23 · Claude Code (CodeRabbit now advisory)
+- Owner decision: CodeRabbit no longer gates merges; the green `test` check does. Claude Code audits F1–F5 together before 6.2.
+- **Next (Cursor):** merge PR #34 (F1, tests green), then F2 → F5, then stop for the audit.
 
 ### 2026-11-23 · Claude Code (audit of Phase 2b, R1–R7)
 - Audited PRs #26–#32. Added **Phase 2c F1–F5**; the audit pause is lifted, and the next step is F1.

@@ -12,7 +12,7 @@ DeadSet is a Grateful Dead setlist, segue, trivia, and tribute-show companion fo
 2. Work on a `phase-N-<slug>` branch cut from the working line.
 3. Make the change, then run the tests (below). Fix any failure before moving on.
 4. Summarize what changed and what you checked, then **stop and wait for the owner to say "next"**.
-5. **Don't commit anything the owner hasn't reviewed.** Once they approve: commit, push, open a PR into `main`, wait for CodeRabbit (see PROGRESS.md "Code review"), fix its findings, then merge. A green CodeRabbit check that says **"Review rate limited" means no review happened**: comment `@coderabbitai review` once the limit lifts and wait for the actual review before merging.
+5. **Don't commit anything the owner hasn't reviewed.** Once they approve: commit, push, open a PR into `main`, and merge once the `test` check is green. **A red `test` check is never mergeable**, even when it looks like CI flakiness: re-run it until it passes. CodeRabbit is advisory (see PROGRESS.md "Code review"): don't wait for it, but if it has posted findings on the PR before you merge, fix them first. Claude Code audits each batch of merged work at the audit stops PROGRESS.md names.
 
 ## Build and test
 - Set JAVA_HOME first (no JDK on PATH):
