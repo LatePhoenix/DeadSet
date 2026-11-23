@@ -261,7 +261,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
-- [ ] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container.
+- [~] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (Cursor)
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
