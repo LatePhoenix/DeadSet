@@ -7,6 +7,7 @@ import com.example.TestSeeds
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
+import com.example.data.seed.CuratedSeedMerger
 import com.example.data.seed.CuratedShows
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -52,8 +53,71 @@ class SeedingTest {
         }
         // A custom show has no seed setlist to restore, so it is left alone.
         assertEquals(0, dao.getSongsForShow(custom.id).first().size)
-        // Missing curated shows are not resurrected by the repair path.
-        assertEquals(3, dao.getShowsCount())
+        // Missing curated GD shows are not resurrected by the repair path.
+        // Non-GD Terrapin Flyer is always inserted (R1).
+        assertTrue(dao.getShowById("2024-05-18-terrapin-flyer-martyrs").first() != null)
+        assertEquals(4, dao.getShowsCount())
+    }
+
+    @Test
+    fun `catalog UUID rows get curated enrichment without duplicate seed ids`() = runBlocking {
+        val cornell = TestSeeds.seed("1977-05-08-cornell")
+        val catalogId = "gdshowsdb-uuid-cornell"
+        dao.insertShow(
+            cornell.show.copy(
+                id = catalogId,
+                venue = "Barton Hall",
+                archiveIdentifier = "",
+                historicTrivia = "",
+                tags = "",
+                isAttended = true,
+                userRating = 4f,
+                userReview = "I was there"
+            )
+        )
+        // Stale seed-id duplicate from an older restore path.
+        dao.insertShow(cornell.show)
+
+        repository.checkAndSeedDatabase()
+
+        val dates = dao.getAllShowsOnce().filter {
+            it.date == "1977-05-08" && CuratedSeedMerger.isGratefulDead(it)
+        }
+        assertEquals(1, dates.size)
+        assertEquals(catalogId, dates.single().id)
+        val enriched = dao.getShowById(catalogId).first()!!
+        assertEquals(cornell.show.archiveIdentifier, enriched.archiveIdentifier)
+        assertEquals(cornell.show.historicTrivia, enriched.historicTrivia)
+        assertTrue(enriched.isAttended)
+        assertEquals(4f, enriched.userRating)
+        assertEquals("I was there", enriched.userReview)
+        assertEquals(cornell.songs.size, dao.getSongsForShow(catalogId).first().size)
+        assertTrue(dao.getShowById("2024-05-18-terrapin-flyer-martyrs").first() != null)
+    }
+
+    @Test
+    fun `restore merges onto catalog instead of inserting a second Cornell`() = runBlocking {
+        val cornell = TestSeeds.seed("1977-05-08-cornell")
+        val catalogId = "gdshowsdb-uuid-cornell"
+        dao.insertShow(
+            cornell.show.copy(
+                id = catalogId,
+                venue = "Barton Hall",
+                archiveIdentifier = "",
+                historicTrivia = ""
+            )
+        )
+
+        repository.restoreCuratedOfflineCatalog()
+
+        val cornellRows = dao.getAllShowsOnce().filter { it.date == "1977-05-08" }
+        assertEquals(1, cornellRows.size)
+        assertEquals(catalogId, cornellRows.single().id)
+        assertEquals(
+            cornell.show.historicTrivia,
+            dao.getShowById(catalogId).first()!!.historicTrivia
+        )
+        assertTrue(dao.getShowById("2024-05-18-terrapin-flyer-martyrs").first() != null)
     }
 
     @Test
