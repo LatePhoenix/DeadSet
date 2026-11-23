@@ -74,20 +74,20 @@ abstract class AppDatabase : RoomDatabase() {
             // Existing installs keep user_show_data via migrations; catalog upserts never touch
             // user tables. Asset is optional so unit/dev builds without catalog.db still open.
             if (assetExists(context, CATALOG_ASSET)) {
-                builder.createFromAsset(CATALOG_ASSET)
-                // F5: asset already has the full catalog — skip the first-launch re-upsert.
-                builder.addCallback(freshInstallCatalogCallback(context))
+                // G1: createFromAsset never fires Callback.onCreate (asset already has user_version).
+                // PrepackagedDatabaseCallback.onOpenPrepackagedDatabase is the hook that runs.
+                builder.createFromAsset(CATALOG_ASSET, freshInstallPrepackagedCallback(context))
             }
             return builder.applyMigrationPolicy().build()
         }
 
         /**
-         * Marks [CatalogAssetImporter.BUNDLED_CATALOG_VERSION] when Room first creates the DB
-         * from the bundled asset (or a test file). Not added for empty in-memory / no-asset DBs.
+         * Marks [CatalogAssetImporter.BUNDLED_CATALOG_VERSION] when Room copies a prepackaged
+         * catalog (createFromAsset / createFromFile). Not used for empty in-memory DBs.
          */
-        fun freshInstallCatalogCallback(context: Context): RoomDatabase.Callback =
-            object : RoomDatabase.Callback() {
-                override fun onCreate(db: SupportSQLiteDatabase) {
+        fun freshInstallPrepackagedCallback(context: Context): RoomDatabase.PrepackagedDatabaseCallback =
+            object : RoomDatabase.PrepackagedDatabaseCallback() {
+                override fun onOpenPrepackagedDatabase(db: SupportSQLiteDatabase) {
                     UserPrefsStore(context.applicationContext)
                         .setImportedCatalogVersion(CatalogAssetImporter.BUNDLED_CATALOG_VERSION)
                 }
