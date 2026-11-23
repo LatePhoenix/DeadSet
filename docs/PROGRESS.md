@@ -24,15 +24,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **Phase 2b R1–R7 merged; the audit is back (2026-11-23).** It found 5 fixes, listed as **Phase 2c F1–F5** below. Do them before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **Phase 2b and 2c merged; the F1–F5 audit is back (2026-11-23).** F1–F4 are fine; it found 2 small fixes, **G1–G2** (end of Phase 2c). Do them, then 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**Audit fixes F1–F5**~~ — **done** (Phase 2c). **Paused for owner / Claude Code audit.** Do **not** start 6.2 until the owner returns with audit results.
-2. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
-3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-4. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **G1 → G2** (end of Phase 2c below).
+2. **6.2** Split `DeadSetViewModel` (Phase 6).
+3. **Hard stop after 6.2 merges for another owner / Claude Code audit.** Do **not** start 6.3 until the owner returns with audit results. 6.2 is the biggest refactor so far.
+4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at the audit stop after F5 and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.2) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -249,7 +250,12 @@ Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real
 - [x] **F4 Proxy client token would break the app.** (`24eb9f3`) App sends `X-DeadSet-Client` on proxy Ticketmaster calls when `DEADSET_CLIENT_TOKEN` is set; blank/sentinel omits the header. `.env.example` + proxy README.
 - [x] **F5 Catalog import isn't atomic and reruns on fresh installs.** (`44b62ac`) Import writes in one `withTransaction`; `freshInstallCatalogCallback` stamps `importedCatalogVersion` on createFromAsset so first launch skips re-upsert. Tests: mid-import exception leaves no partial setlists; callback skips merge.
 
-_Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `writers = null` (owner still to confirm the credit on dead.net), R7 `compatibility_date` `2024-11-11`.
+_Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibility_date` `2024-11-11`.
+
+**Audit of F1–F5 (Claude Code, 2026-11-23):** F1–F4 are correct. Two small fixes:
+
+- [ ] **G1 F5's fresh-install stamp probably never fires.** `AppDatabase.freshInstallCatalogCallback` stamps `importedCatalogVersion` in `RoomDatabase.Callback.onCreate`, but Room doesn't call `onCreate` for a database copied from `createFromAsset`: `CatalogDbBuilder` sets `PRAGMA user_version`, so the copied file already counts as created. The F5 test calls `onCreate` by hand, so it passes either way. Effect: fresh installs still re-import the whole catalog once on first launch (wasted work, no data harm). Fix: stamp it from `createFromAsset(CATALOG_ASSET, object : RoomDatabase.PrepackagedDatabaseCallback() { override fun onOpenPrepackagedDatabase(db) { … } })` and drop the `onCreate` callback. Test: build a DB with `createFromFile(fixture, callback)` (same callback path), open it, and assert the version is stamped. Don't call the callback by hand.
+- [ ] **G2 Restore the Slipknot! writer credit (undo R6).** Claude Code checked https://www.dead.net/song/slipknot on 2026-11-23: it lists **"Music By: Bill Kreutzmann"** only, with no lyricist and no debut date. The original credit was right. Fix: `SongStoryFacts` Slipknot! `writers = "Kreutzmann"` (same surname format as the other entries), keep `debutDate = null`, and restore the line in `assets/almanac/help-slip-franklins.md` to "Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann".
 
 ## Phase 6: Polish & architecture
 
@@ -267,6 +273,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (audit of F1–F5)
+- F1–F4 correct; added **G1** (F5 fresh-install stamp uses the wrong Room hook) and **G2** (dead.net confirms Kreutzmann for Slipknot!; undo R6). Audit pause lifted.
+- **Next (Cursor):** G1 → G2 → 6.2, then **hard stop after 6.2** for the next audit.
 
 ### 2026-11-23 · Cursor (F5 done — audit pause)
 - PR #39 merged (`44b62ac` / merge `5c8b5a4`): atomic catalog import + createFromAsset import gate. Phase 2c F1–F5 complete.
