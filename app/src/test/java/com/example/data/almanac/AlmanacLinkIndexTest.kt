@@ -31,7 +31,23 @@ class AlmanacLinkIndexTest {
     }
 
     @Test
-    fun `month-day prefers show spotlight over song story relatedShows`() {
+    fun `full ISO date does not link other years to Cornell`() {
+        val articles = listOf(
+            article(
+                id = "cornell-1977-05-08",
+                type = AlmanacArticleType.SHOW_SPOTLIGHT,
+                songs = emptyList(),
+                shows = listOf("1977-05-08-cornell")
+            )
+        )
+        val index = AlmanacLinkIndex(articles)
+        assertEquals("cornell-1977-05-08", index.articleForIsoDate("1977-05-08"))
+        assertNull(index.articleForIsoDate("1981-05-08"))
+        assertEquals("cornell-1977-05-08", index.articleForMonthDay("05-08"))
+    }
+
+    @Test
+    fun `full date prefers show spotlight over song story relatedShows`() {
         val articles = listOf(
             article(
                 id = "scarlet-fire",

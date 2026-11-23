@@ -24,10 +24,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **R4** Almanac date links (Phase 2b), then R5–R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- Next: **R5** proxy rate limit (Phase 2b), then R6–R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **Review fixes R4–R7** (Phase 2b below). Then **pause for owner audit** — do not start 6.2 until they return.
+1. **Review fixes R5–R7** (Phase 2b below). Then **pause for owner audit** — do not start 6.2 until they return.
 2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -230,7 +230,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
   _Decision (reversible):_ skip performance replace whenever the show already has any setlist rows (covers user edits without a separate edit fingerprint).
 - [x] **R3 Catalog must ship in builds.** (`a1c91e7`) `verifyCatalogAsset` fails `assembleRelease` when `app/src/main/assets/catalog.db` is missing/empty. Asset stays gitignored; regenerate via importer. Open decision updated.
   _Decision (reversible):_ do not commit the ~10MB DB or wire importer into every preBuild until the owner asks; release gate is enough for now.
-- [ ] **R4 Almanac date links ignore the year.** `AlmanacLinkIndex.byMonthDay` keys on MM-DD, and `MainActivity` falls back to `articleForIsoDate(show.date)` for every show, so every May 8 show links to the Cornell 5/8/77 spotlight. Fix: key on the full `yyyy-MM-dd`; keep month-day only for an explicit "on this day" card that names the year. Add a test that 1981-05-08 gets no Cornell link.
+- [x] **R4 Almanac date links ignore the year.** (`PENDING`) `articleForIsoDate` keys on full `yyyy-MM-dd`; `articleForMonthDay` kept for explicit "on this day" UI. Test: 1981-05-08 gets no Cornell link.
 - [ ] **R5 Proxy rate limit is a no-op.** `tools/proxy/ticketmaster/src/index.js` counts requests with `caches.default`, which has no effect on `*.workers.dev` (where the README deploys) and is per-colo/non-atomic elsewhere. The endpoint is unauthenticated, so anyone with the URL can drain the Ticketmaster quota. Fix: use the Workers Rate Limiting binding (or KV / a Durable Object); optionally require a shared app header. Update the README.
 - [ ] **R6 Verify the Slipknot! credit.** `SongStoryFacts` lists writers "Kreutzmann" alone; dead.net is believed to credit Garcia / Godchaux / Kreutzmann / Lesh / Weir. Check https://www.dead.net/song/slipknot, then correct it or set `writers = null`. While there, spot-check the other five credits against their cited pages.
 - [ ] **R7 Wrangler compatibility date.** `wrangler.jsonc` uses `compatibility_date: "2026-11-21"` (the day it was written); older Wrangler releases reject dates newer than their runtime. Set a date the pinned Wrangler supports and note the Wrangler version in the proxy README.
@@ -251,6 +251,10 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (R4 Almanac full-date links)
+- Branch `phase-2b-r4-almanac-full-date`: `AlmanacLinkIndex` full ISO date map; month-day only via `articleForMonthDay`.
+- **Next:** R5–R7, then **hard stop for owner project audit**.
 
 ### 2026-11-23 · Cursor (R3 catalog release gate)
 - Branch `phase-2b-r3-catalog-asset-check`: `verifyCatalogAsset` on `assembleRelease`; catalog.db stays gitignored.
