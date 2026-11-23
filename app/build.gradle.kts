@@ -81,6 +81,31 @@ secrets {
 // Export Room schemas so every database version is committed and migrations can be tested.
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
+// R3: release APKs must ship catalog.db (gitignored; build with :tools:importer:run --args=--build-catalog).
+// CI's minifyReleaseWithR8 path does not depend on this — only full assembleRelease.
+tasks.register("verifyCatalogAsset") {
+  description = "Fails when src/main/assets/catalog.db is missing (required for release installs)."
+  group = "verification"
+  // Absolute path string keeps this task configuration-cache friendly.
+  val catalogPath = layout.projectDirectory.file("src/main/assets/catalog.db").asFile.absolutePath
+  inputs.property("catalogPath", catalogPath)
+  doLast {
+    val asset = File(catalogPath)
+    if (!asset.isFile || asset.length() == 0L) {
+      throw GradleException(
+        "Missing app/src/main/assets/catalog.db. Regenerate with " +
+          "`./gradlew :tools:importer:run --args=--build-catalog` (after --fetch if needed). " +
+          "The file is gitignored (~10MB); release builds must include it."
+      )
+    }
+  }
+}
+plugins.withId("com.android.application") {
+  afterEvaluate {
+    tasks.named("assembleRelease").configure { dependsOn("verifyCatalogAsset") }
+  }
+}
+
 dependencies {
   implementation(project(":shared"))
   implementation(platform(libs.androidx.compose.bom))
