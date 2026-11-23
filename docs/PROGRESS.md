@@ -33,7 +33,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
 5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (repeat offender):** R2–R7 (PRs #27–#32) all merged on a CodeRabbit check reading "Review rate limited" (zero reviews), and #29 merged with a red `test` check. Both break AGENTS.md. A green "Review rate limited" check is **not** a review, and a failing `test` check is never mergeable, even when the failure looks like CI flakiness: re-run it until it passes. If CodeRabbit stays rate limited, stop and tell the owner instead of merging.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at the audit stop after F5 and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -62,7 +62,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 | Do-not-touch | `signingConfigs` blocks in `app/build.gradle.kts` (originally required by AI Studio; CI must generate `debug.keystore` in a step instead of changing them). |
 | Git | Work on a branch per step (`phase-N-step-X.Y-<slug>`), open a PR, merge with a merge commit (keeps the hashes cited here valid). `.idea/` is untracked; don't commit it. |
 | GitHub CLI | Not on PATH: `"/c/Program Files/GitHub CLI/gh.exe"` (bash) / `& "C:\Program Files\GitHub CLI\gh.exe"` (PowerShell). Logged in as the repo owner. |
-| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Don't merge while its status is "Review in progress"**: PRs #1 and #2 merged too early and got no review. Free tier ≈ 1 review/hour; "Review rate limited" means it skipped. Trigger a review manually with a PR comment `@coderabbitai review` once the limit lifts. Reply to each finding on its thread and resolve it. |
+| Code review | **CodeRabbit** reviews each PR automatically (status check "CodeRabbit"). **Advisory since 2026-11-23** (owner decision): the free tier (≈ 1 review/hour) kept blocking merges, and Claude Code audits each batch at the audit stops instead. Don't wait for it; "Review rate limited" means it skipped, and that's fine. If it has posted findings before you merge, fix them and reply on each thread. The **`test` check** is the required gate. |
 | CI | GitHub Actions workflow `.github/workflows/ci.yml` (step A3): unit tests on push/PR to `main`. |
 
 ## Conventions
@@ -242,7 +242,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 
 ## Phase 2c: Audit fixes (Claude Code audit of R1–R7, 2026-11-23)
 
-Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a real CodeRabbit review and a green `test` check before merging.
+Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a green `test` check before merging (CodeRabbit is advisory; see "Merge rule").
 
 - [ ] **F1 Wrangler pin is too old for the rate-limit binding.** R7 pinned `wrangler@3.91.0` (`tools/proxy/ticketmaster/package.json`) and the README says "3.91+". Cloudflare's Rate Limiting docs require **Wrangler 4.36.0 or later** for the `ratelimits` binding. On 3.91 `TM_RATE_LIMITER` is never bound, so `isRateLimited` silently falls back to the Cache API path that R5 itself documents as a no-op on workers.dev, which undoes R5. Fix: pin a Wrangler 4.x version ≥ 4.36.0, update the README's version note, and keep `compatibility_date` at a date that version accepts. If you can, run `npx wrangler deploy --dry-run` to confirm the binding shows up.
 - [ ] **F2 Seed rows with user data stay duplicated.** `ShowRepository.resolveDuplicateSeedRow` deletes the seed-id row (e.g. `1977-05-08-cornell`) only when `hasClaimedUserData` is false. If the user marked it attended, rated or reviewed it, both the seed row and the catalog UUID row stay, so the show appears twice and the user's data sits on the seed row. Fix: in one transaction, move the seed row's `user_show_data` onto the catalog id (if the catalog row has its own claimed data, keep the catalog row's and leave the seed row, and log it), then delete the seed row. Test: attended seed row + catalog match → one show, attended, on the catalog id.
@@ -268,6 +268,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (CodeRabbit now advisory)
+- Owner decision: CodeRabbit no longer gates merges; the green `test` check does. Claude Code audits F1–F5 together before 6.2.
+- **Next (Cursor):** merge PR #34 (F1, tests green), then F2 → F5, then stop for the audit.
 
 ### 2026-11-23 · Claude Code (audit of Phase 2b, R1–R7)
 - Audited PRs #26–#32. Added **Phase 2c F1–F5**; the audit pause is lifted, and the next step is F1.
