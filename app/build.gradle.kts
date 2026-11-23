@@ -83,11 +83,13 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 // R3: release APKs must ship catalog.db (gitignored; build with :tools:importer:run --args=--build-catalog).
 // CI's minifyReleaseWithR8 path does not depend on this — only full assembleRelease.
+val catalogAssetFile = layout.projectDirectory.file("src/main/assets/catalog.db")
 tasks.register("verifyCatalogAsset") {
   description = "Fails when src/main/assets/catalog.db is missing (required for release installs)."
   group = "verification"
+  inputs.file(catalogAssetFile).optional()
   doLast {
-    val asset = file("src/main/assets/catalog.db")
+    val asset = catalogAssetFile.asFile
     if (!asset.isFile || asset.length() == 0L) {
       throw GradleException(
         "Missing app/src/main/assets/catalog.db. Regenerate with " +
@@ -97,7 +99,7 @@ tasks.register("verifyCatalogAsset") {
     }
   }
 }
-tasks.matching { it.name == "assembleRelease" }.configureEach {
+tasks.named("assembleRelease").configure {
   dependsOn("verifyCatalogAsset")
 }
 
