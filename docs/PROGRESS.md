@@ -232,7 +232,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
   _Decision (reversible):_ do not commit the ~10MB DB or wire importer into every preBuild until the owner asks; release gate is enough for now.
 - [x] **R4 Almanac date links ignore the year.** (`34704ca`) `articleForIsoDate` keys on full `yyyy-MM-dd`; `articleForMonthDay` kept for explicit "on this day" UI. Test: 1981-05-08 gets no Cornell link.
 - [x] **R5 Proxy rate limit is a no-op.** (`36c73ca`) `TM_RATE_LIMITER` Workers Rate Limiting binding (~30/min/IP); optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`; Cache API kept as fallback only. README updated. Also set `compatibility_date` to `2024-11-11` (feeds R7).
-- [x] **R6 Verify the Slipknot! credit.** (`PENDING`) Set `writers = null` (could not re-fetch dead.net from agent environment; sole Kreutzmann was disputed). Almanac MD note updated. Other five credits left as previously sourced URLs — owner should spot-check dead.net when auditing.
+- [x] **R6 Verify the Slipknot! credit.** (`7b9e21c`) Set `writers = null` (could not re-fetch dead.net from agent environment; sole Kreutzmann was disputed). Almanac MD note updated. Other five credits left as previously sourced URLs — owner should spot-check dead.net when auditing.
   _Decision:_ null over guessing multi-writer string without a live page check.
 - [ ] **R7 Wrangler compatibility date.** `wrangler.jsonc` uses `compatibility_date: "2026-11-21"` (the day it was written); older Wrangler releases reject dates newer than their runtime. Set a date the pinned Wrangler supports and note the Wrangler version in the proxy README.
 
