@@ -24,10 +24,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **R6** Slipknot credit (Phase 2b), then R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
+- Next: **R7** Wrangler compatibility date (Phase 2b). **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **R6 → R7**, then **pause for owner audit** — do not start 6.2 until they return.
+1. **R7**, then **pause for owner audit** — do not start 6.2 until they return.
 2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -214,7 +214,7 @@ Source: **gdshowsdb** (MIT) — see Open decisions. Expect ≈2,358 shows, ≈39
 - [x] **5.4 Article format.** (`4d2119a`) Markdown + front matter in `assets/almanac/`; hand parser (no YAML/MD libs); list/article screens from Trivia hub; four seed articles (Cornell spotlight, Scarlet→Fire story, Wall of Sound era, Terrapin Flyer profile). Links via Compose `LinkAnnotation`.
   _Decision (reversible):_ Almanac entry stays under Trivia until 6.1 tabs; related-show taps open Show Detail (back then lands on Main, not Almanac).
 - [x] **5.5 Article sets.** (`dae83da`) DB **v12** nullable `songs.writers`/`debutDate` + `SongStoryFacts` (dead.net–sourced; debut only when cited). `SongStoryComposer` merges catalog play counts/ins-outs with credits. Expanded MD set: Help→Slip→Franklin's, Winterland NYE '78, keyboard lineage, DSO (+ prior four). Importer schema path → `12.json`. CatalogPerfTest uses `applyMigrationPolicy` for asset upgrades.
-  _Decision:_ omit debut dates unless a cited page states first live performance (Fire only for now). Slipknot writers = Kreutzmann per dead.net (not multi-writer ASCAP lists).
+  _Decision:_ omit debut dates unless a cited page states first live performance (Fire only for now). Slipknot writers cleared to null in R6 pending owner dead.net check.
 - [x] **5.6 Cross-linking.** (`2a4307a`) `AlmanacLinkIndex` (song / show id / MM-dd). Setlist titles open Song Stories; trivia “Read more →” via `relatedArticleId`; Today in Dead History Spotlight button. `AlmanacArticle.returnTo` so back from deep links restores Show Detail / Main.
   _Decision:_ only link when an article exists; cyan setlist titles mark linked songs.
 - [x] **5.7 Firebase AI decision.** Either use it for drafts that a person fact-checks, or remove `firebase-ai` / App Check dependencies.
@@ -232,7 +232,8 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
   _Decision (reversible):_ do not commit the ~10MB DB or wire importer into every preBuild until the owner asks; release gate is enough for now.
 - [x] **R4 Almanac date links ignore the year.** (`34704ca`) `articleForIsoDate` keys on full `yyyy-MM-dd`; `articleForMonthDay` kept for explicit "on this day" UI. Test: 1981-05-08 gets no Cornell link.
 - [x] **R5 Proxy rate limit is a no-op.** (`36c73ca`) `TM_RATE_LIMITER` Workers Rate Limiting binding (~30/min/IP); optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`; Cache API kept as fallback only. README updated. Also set `compatibility_date` to `2024-11-11` (feeds R7).
-- [ ] **R6 Verify the Slipknot! credit.** `SongStoryFacts` lists writers "Kreutzmann" alone; dead.net is believed to credit Garcia / Godchaux / Kreutzmann / Lesh / Weir. Check https://www.dead.net/song/slipknot, then correct it or set `writers = null`. While there, spot-check the other five credits against their cited pages.
+- [x] **R6 Verify the Slipknot! credit.** (`PENDING`) Set `writers = null` (could not re-fetch dead.net from agent environment; sole Kreutzmann was disputed). Almanac MD note updated. Other five credits left as previously sourced URLs — owner should spot-check dead.net when auditing.
+  _Decision:_ null over guessing multi-writer string without a live page check.
 - [ ] **R7 Wrangler compatibility date.** `wrangler.jsonc` uses `compatibility_date: "2026-11-21"` (the day it was written); older Wrangler releases reject dates newer than their runtime. Set a date the pinned Wrangler supports and note the Wrangler version in the proxy README.
 
 ## Phase 6: Polish & architecture
@@ -251,6 +252,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (R6 Slipknot writers)
+- Branch `phase-2b-r6-slipknot-credit`: Slipknot `writers = null`; almanac MD notes owner re-check.
+- **Decision:** null rather than invent multi-writer credit without fetching dead.net.
+- **Next:** R7, then **hard stop for owner project audit**.
 
 ### 2026-11-23 · Cursor (R5 proxy rate limit)
 - Branch `phase-2b-r5-proxy-ratelimit`: Rate Limiting binding + optional client token; README; compat date → 2024-11-11.
