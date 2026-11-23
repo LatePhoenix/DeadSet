@@ -18,7 +18,8 @@ Optional: `classificationName` (default `music`), `sort` (default `date,asc`), `
 
 ### Optional client token
 
-If you set secret `DEADSET_CLIENT_TOKEN`, every request must send header `X-DeadSet-Client: <token>`. Leave the secret unset for open local/dev use.
+If you set Worker secret `DEADSET_CLIENT_TOKEN`, every request must send header `X-DeadSet-Client: <token>`.
+Put the **same** value in the app `.env` as `DEADSET_CLIENT_TOKEN` (BuildConfig); the app sends the header on proxy calls when non-empty (F4). Leave both unset for open local/dev. Never commit a real token.
 
 ## Deploy
 

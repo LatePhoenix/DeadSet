@@ -37,6 +37,7 @@ Copy `.env.example` to `.env` (never commit it). Both values are optional; witho
 |---|---|
 | `TICKETMASTER_PROXY_URL` | Cloudflare Worker URL for Ticketmaster (preferred; see `tools/proxy/ticketmaster/`) |
 | `TICKETMASTER_API_KEY` | Debug-only direct Discovery key (ignored in release without a proxy) |
+| `DEADSET_CLIENT_TOKEN` | Optional shared token with Worker secret; sent as `X-DeadSet-Client` on proxy calls when set |
 | `BANDSINTOWN_APP_ID` | Registered Bandsintown app ID (`YOUR_BANDSINTOWN_APP_ID` / blank skips requests) |
 
 ## Data sources and credits
