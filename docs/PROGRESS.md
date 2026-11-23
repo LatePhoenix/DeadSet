@@ -27,11 +27,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 - **Phase 2b and 2c merged; the F1–F5 audit is back (2026-11-23).** F1–F4 are fine; it found 2 small fixes, **G1–G2** (end of Phase 2c). Do them, then 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **G1 → G2** (end of Phase 2c below).
-2. **6.2** Split `DeadSetViewModel` (Phase 6).
-3. **Hard stop after 6.2 merges for another owner / Claude Code audit.** Do **not** start 6.3 until the owner returns with audit results. 6.2 is the biggest refactor so far.
-4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-5. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**G1 → G2 → 6.2**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.3 until the owner returns with audit results.
+2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.2) and reads any CodeRabbit comments then.
 
@@ -261,7 +259,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
-- [ ] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container.
+- [x] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (`4c64fb5`) `AppContainer` + Shows/Concerts/Chase/Navigation/Trivia/Profile ViewModels; `DeadSetViewModel` facade keeps MainActivity API. Tests per feature VM + `ShowCatalogFilters`.
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
@@ -274,8 +272,12 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
+### 2026-11-23 · Cursor (6.2 ViewModel split — audit pause)
+- PR pending: `AppContainer` + feature ViewModels (`4c64fb5`); facade keeps MainActivity unchanged.
+- **HARD STOP:** do not start 6.3. Owner + Claude Code audit next.
+
 ### 2026-11-23 · Cursor (G2 Slipknot credit)
-- PR pending: restore Slipknot! `writers = "Kreutzmann"` (`2234558`); almanac MD matches dead.net.
+- PR #43 merged (`2234558` / merge `fd39bae`): restore Slipknot! `writers = "Kreutzmann"`; almanac MD matches dead.net.
 - **Next:** 6.2 ViewModel split, then hard stop for audit.
 
 ### 2026-11-23 · Cursor (G1 PrepackagedDatabaseCallback)
