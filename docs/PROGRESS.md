@@ -255,7 +255,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 **Audit of F1–F5 (Claude Code, 2026-11-23):** F1–F4 are correct. Two small fixes:
 
 - [x] **G1 F5's fresh-install stamp probably never fires.** (`25bef79`) Stamp via `createFromAsset(…, PrepackagedDatabaseCallback.onOpenPrepackagedDatabase)`; dropped `onCreate` callback. Test opens DB through `createFromFile(fixture, callback)` (never calls callback by hand).
-- [~] **G2 Restore the Slipknot! writer credit (undo R6).** (Cursor) Claude Code checked https://www.dead.net/song/slipknot on 2026-11-23: it lists **"Music By: Bill Kreutzmann"** only, with no lyricist and no debut date. The original credit was right. Fix: `SongStoryFacts` Slipknot! `writers = "Kreutzmann"` (same surname format as the other entries), keep `debutDate = null`, and restore the line in `assets/almanac/help-slip-franklins.md` to "Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann".
+- [x] **G2 Restore the Slipknot! writer credit (undo R6).** (`2234558`) `writers = "Kreutzmann"`, `debutDate = null`; almanac MD restored. Source: dead.net/song/slipknot (Music By: Bill Kreutzmann, checked 2026-11-23).
 
 ## Phase 6: Polish & architecture
 
@@ -274,8 +274,12 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
+### 2026-11-23 · Cursor (G2 Slipknot credit)
+- PR pending: restore Slipknot! `writers = "Kreutzmann"` (`2234558`); almanac MD matches dead.net.
+- **Next:** 6.2 ViewModel split, then hard stop for audit.
+
 ### 2026-11-23 · Cursor (G1 PrepackagedDatabaseCallback)
-- PR pending: stamp `importedCatalogVersion` from `onOpenPrepackagedDatabase` (`25bef79`); test via `createFromFile`.
+- PR #42 merged (`25bef79` / merge `6a56721`): stamp via `onOpenPrepackagedDatabase`; test via `createFromFile`.
 - **Next:** G2 → 6.2, then hard stop for audit.
 
 ### 2026-11-23 · Claude Code (audit of F1–F5)
