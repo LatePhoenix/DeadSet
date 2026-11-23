@@ -235,7 +235,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 - [x] **R5 Proxy rate limit is a no-op.** (`36c73ca`) `TM_RATE_LIMITER` Workers Rate Limiting binding (~30/min/IP); optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`; Cache API kept as fallback only. README updated. Also set `compatibility_date` to `2024-11-11` (feeds R7).
 - [x] **R6 Verify the Slipknot! credit.** (`7b9e21c`) Set `writers = null` (could not re-fetch dead.net from agent environment; sole Kreutzmann was disputed). Almanac MD note updated. Other five credits left as previously sourced URLs — owner should spot-check dead.net when auditing.
   _Decision:_ null over guessing multi-writer string without a live page check.
-- [x] **R7 Wrangler compatibility date.** (`PENDING`) `compatibility_date` set to `2024-11-11` (done with R5). Added `package.json` pinning `wrangler@3.91.0`; README already documents 3.91+.
+- [x] **R7 Wrangler compatibility date.** (`adf4d04`) `compatibility_date` set to `2024-11-11` (done with R5). Added `package.json` pinning `wrangler@3.91.0`; README already documents 3.91+.
 
 ## Phase 6: Polish & architecture
 
