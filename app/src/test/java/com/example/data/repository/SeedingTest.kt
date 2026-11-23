@@ -3,6 +3,7 @@ package com.example.data.repository
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.AppDatabase
+import com.example.data.local.toCatalog
 import com.example.TestSeeds
 import com.example.data.model.SetType
 import com.example.data.model.SongEntry
@@ -120,6 +121,18 @@ class SeedingTest {
         assertEquals(null, dao.getShowById(cornell.id).first())
         assertEquals(editedSongs.first().transitionOut, repository.getSetlist(catalogId).first().transitionOut)
         assertEquals(editedSongs.size, repository.getSetlist(catalogId).size)
+    }
+
+    @Test
+    fun `edited tourName survives checkAndSeedDatabase`() = runBlocking {
+        repository.checkAndSeedDatabase()
+        val cornellId = "1977-05-08-cornell"
+        val edited = dao.getShowById(cornellId).first()!!.copy(tourName = "My Spring 77 edit")
+        dao.upsertCatalog(edited.toCatalog())
+
+        repository.checkAndSeedDatabase()
+
+        assertEquals("My Spring 77 edit", dao.getShowById(cornellId).first()!!.tourName)
     }
 
     @Test

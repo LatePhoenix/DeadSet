@@ -117,7 +117,7 @@ class CuratedSeedMergerTest {
     }
 
     @Test
-    fun `mergeCatalogFields prefers curated enrichment and keeps catalog id`() {
+    fun `mergeCatalogFields fills blanks from seed and keeps catalog id`() {
         val base = ShowEntity(
             id = "catalog-id",
             date = "1977-05-08",
@@ -142,5 +142,21 @@ class CuratedSeedMergerTest {
         assertTrue(merged.isAttended)
         assertEquals(5f, merged.userRating)
         assertEquals("mine", merged.userReview)
+    }
+
+    @Test
+    fun `mergeCatalogFields keeps non-blank base fields over seed`() {
+        val base = cornell.show.copy(
+            id = "catalog-id",
+            tourName = "My edited tour",
+            tapeQuality = "My tape note",
+            archiveIdentifier = "keep-this-archive",
+            historicTrivia = "keep-this-trivia"
+        )
+        val merged = CuratedSeedMerger.mergeCatalogFields(base, cornell.show)
+        assertEquals("My edited tour", merged.tourName)
+        assertEquals("My tape note", merged.tapeQuality)
+        assertEquals("keep-this-archive", merged.archiveIdentifier)
+        assertEquals("keep-this-trivia", merged.historicTrivia)
     }
 }
