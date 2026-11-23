@@ -4,7 +4,7 @@ Cloudflare Worker that holds the Ticketmaster Discovery API key as a **secret** 
 
 Deploying requires the owner's Cloudflare account. The Android app talks to this Worker when `TICKETMASTER_PROXY_URL` is set; debug builds may still call Ticketmaster directly with a local `TICKETMASTER_API_KEY`.
 
-**Wrangler:** develop/deploy with Wrangler **3.91+** (rate-limit bindings). `compatibility_date` is `2024-11-11` so older Wrangler CLIs accept the config (R7).
+**Wrangler:** develop/deploy with Wrangler **4.36.0+** (required for the `ratelimits` / `TM_RATE_LIMITER` binding; F1). `compatibility_date` is `2024-11-11`.
 
 ## Endpoints
 
@@ -24,7 +24,7 @@ If you set secret `DEADSET_CLIENT_TOKEN`, every request must send header `X-Dead
 
 ```bash
 cd tools/proxy/ticketmaster
-npm install -D wrangler@3.91.0
+npm ci   # uses committed package-lock.json (wrangler@4.36.0)
 npx wrangler login
 npx wrangler secret put TICKETMASTER_API_KEY
 # optional:

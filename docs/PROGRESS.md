@@ -244,7 +244,7 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 
 Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real CodeRabbit review. One step per PR; each needs a green `test` check before merging (CodeRabbit is advisory; see "Merge rule").
 
-- [ ] **F1 Wrangler pin is too old for the rate-limit binding.** R7 pinned `wrangler@3.91.0` (`tools/proxy/ticketmaster/package.json`) and the README says "3.91+". Cloudflare's Rate Limiting docs require **Wrangler 4.36.0 or later** for the `ratelimits` binding. On 3.91 `TM_RATE_LIMITER` is never bound, so `isRateLimited` silently falls back to the Cache API path that R5 itself documents as a no-op on workers.dev, which undoes R5. Fix: pin a Wrangler 4.x version ≥ 4.36.0, update the README's version note, and keep `compatibility_date` at a date that version accepts. If you can, run `npx wrangler deploy --dry-run` to confirm the binding shows up.
+- [x] **F1 Wrangler pin is too old for the rate-limit binding.** (`b008f43`) Pinned `wrangler@4.36.0`; README says 4.36.0+ / `npm ci`; dry-run shows `TM_RATE_LIMITER`. CR finding fixed in `6592a53`.
 - [ ] **F2 Seed rows with user data stay duplicated.** `ShowRepository.resolveDuplicateSeedRow` deletes the seed-id row (e.g. `1977-05-08-cornell`) only when `hasClaimedUserData` is false. If the user marked it attended, rated or reviewed it, both the seed row and the catalog UUID row stay, so the show appears twice and the user's data sits on the seed row. Fix: in one transaction, move the seed row's `user_show_data` onto the catalog id (if the catalog row has its own claimed data, keep the catalog row's and leave the seed row, and log it), then delete the seed row. Test: attended seed row + catalog match → one show, attended, on the catalog id.
 - [ ] **F3 Every launch reverts user edits on curated shows.** `applyCuratedSeeds` runs on each startup, and `CuratedSeedMerger.mergeCatalogFields` lets non-blank seed values win for `archiveIdentifier`, `historicTrivia`, `tapeQuality`, `tourName`, `eraId`, `venueAddress`. The edit screen (`AddEditShowScreen`) edits tour and tape quality, so those edits revert on the next launch, for both catalog-id and seed-id rows. Before R1 seed rows were never overwritten (`insertShows` ignored conflicts). Fix: only fill blank fields (`base.x.ifBlank { seed.x }`); tags may stay a union. Test: edited `tourName` survives `checkAndSeedDatabase`.
 - [ ] **F4 Proxy client token would break the app.** R5 added optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`, and the proxy README suggests setting it in production, but the Android client never sends that header. Setting the secret would turn every Tickets request into a 401. Fix: either send the header from the app (value from `.env` → BuildConfig, empty = not sent) or change the README to say "don't set this until the app sends it". Prefer the first; it's small.
@@ -268,6 +268,11 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (F1 Wrangler 4.36 — merging)
+- Branch `phase-2c-f1-wrangler-436` / PR #34: pin `wrangler@4.36.0` + lockfile; README `npm ci`; dry-run confirmed `TM_RATE_LIMITER`.
+- CodeRabbit finding on `3502cd5` fixed (`npm ci`); tests green. Merging under advisory CodeRabbit rule.
+- **Next:** F2 → F5, then hard stop for owner audit.
 
 ### 2026-11-23 · Claude Code (CodeRabbit now advisory)
 - Owner decision: CodeRabbit no longer gates merges; the green `test` check does. Claude Code audits F1–F5 together before 6.2.
