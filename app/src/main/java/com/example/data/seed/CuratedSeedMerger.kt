@@ -81,14 +81,18 @@ object CuratedSeedMerger {
             show.userReview.isNotBlank() ||
             show.favoriteSong.isNotBlank()
 
-    /** Catalog enrichment from seed; keeps [base] id and never touches user fields. */
+    /**
+     * Catalog enrichment from seed; keeps [base] id and never touches user fields.
+     * F3: only fill blank base fields so user edits (tour, tape quality, etc.) survive relaunch.
+     * Tags stay a union.
+     */
     fun mergeCatalogFields(base: ShowEntity, seed: ShowEntity): ShowEntity = base.copy(
-        archiveIdentifier = seed.archiveIdentifier.ifBlank { base.archiveIdentifier },
-        historicTrivia = seed.historicTrivia.ifBlank { base.historicTrivia },
-        tapeQuality = seed.tapeQuality.ifBlank { base.tapeQuality },
-        tourName = seed.tourName.ifBlank { base.tourName },
-        eraId = seed.eraId.ifBlank { base.eraId },
-        venueAddress = seed.venueAddress.ifBlank { base.venueAddress },
+        archiveIdentifier = base.archiveIdentifier.ifBlank { seed.archiveIdentifier },
+        historicTrivia = base.historicTrivia.ifBlank { seed.historicTrivia },
+        tapeQuality = base.tapeQuality.ifBlank { seed.tapeQuality },
+        tourName = base.tourName.ifBlank { seed.tourName },
+        eraId = base.eraId.ifBlank { seed.eraId },
+        venueAddress = base.venueAddress.ifBlank { seed.venueAddress },
         tags = mergeTags(base.tags, seed.tags)
     )
 
