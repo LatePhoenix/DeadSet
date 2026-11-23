@@ -37,9 +37,8 @@ object SongStoryFacts {
         ),
         SongStoryFact(
             canonicalName = "Slipknot!",
-            // R6: sole "Kreutzmann" was disputed (band co-write often cited). Agent could not
-            // re-fetch dead.net this session — leave null until owner confirms the page.
-            writers = null,
+            // G2: dead.net "Music By: Bill Kreutzmann" (checked 2026-11-23); no lyrics / debut.
+            writers = "Kreutzmann",
             debutDate = null,
             sourceUrl = "https://www.dead.net/song/slipknot"
         ),

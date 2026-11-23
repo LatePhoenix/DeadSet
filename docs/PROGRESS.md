@@ -255,7 +255,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 **Audit of F1–F5 (Claude Code, 2026-11-23):** F1–F4 are correct. Two small fixes:
 
 - [x] **G1 F5's fresh-install stamp probably never fires.** (`25bef79`) Stamp via `createFromAsset(…, PrepackagedDatabaseCallback.onOpenPrepackagedDatabase)`; dropped `onCreate` callback. Test opens DB through `createFromFile(fixture, callback)` (never calls callback by hand).
-- [ ] **G2 Restore the Slipknot! writer credit (undo R6).** Claude Code checked https://www.dead.net/song/slipknot on 2026-11-23: it lists **"Music By: Bill Kreutzmann"** only, with no lyricist and no debut date. The original credit was right. Fix: `SongStoryFacts` Slipknot! `writers = "Kreutzmann"` (same surname format as the other entries), keep `debutDate = null`, and restore the line in `assets/almanac/help-slip-franklins.md` to "Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann".
+- [~] **G2 Restore the Slipknot! writer credit (undo R6).** (Cursor) Claude Code checked https://www.dead.net/song/slipknot on 2026-11-23: it lists **"Music By: Bill Kreutzmann"** only, with no lyricist and no debut date. The original credit was right. Fix: `SongStoryFacts` Slipknot! `writers = "Kreutzmann"` (same surname format as the other entries), keep `debutDate = null`, and restore the line in `assets/almanac/help-slip-franklins.md` to "Slipknot! — instrumental; dead.net lists music by Bill Kreutzmann".
 
 ## Phase 6: Polish & architecture
 
