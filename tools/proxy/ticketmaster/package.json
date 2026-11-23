@@ -1,0 +1,8 @@
+{
+  "name": "deadset-ticketmaster-proxy",
+  "private": true,
+  "description": "Cloudflare Worker proxy for Ticketmaster Discovery (DeadSet).",
+  "devDependencies": {
+    "wrangler": "3.91.0"
+  }
+}
