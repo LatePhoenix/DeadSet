@@ -52,4 +52,50 @@ class TicketmasterAccessTest {
         )
         assertEquals(TicketmasterAccess.Mode.OFF, access.mode)
     }
+
+    @Test
+    fun `proxy mode includes client header when token set`() {
+        val access = TicketmasterAccess.resolve(
+            proxyUrl = "https://example.workers.dev",
+            apiKey = "",
+            clientToken = "shared-secret",
+            allowDirectKey = false
+        )
+        assertEquals(TicketmasterAccess.Mode.PROXY, access.mode)
+        assertEquals(
+            mapOf(TicketmasterAccess.CLIENT_HEADER to "shared-secret"),
+            access.requestHeaders()
+        )
+    }
+
+    @Test
+    fun `proxy mode omits header when token blank or sentinel`() {
+        val blank = TicketmasterAccess.resolve(
+            proxyUrl = "https://example.workers.dev",
+            apiKey = "",
+            clientToken = "",
+            allowDirectKey = false
+        )
+        assertTrue(blank.requestHeaders().isEmpty())
+
+        val sentinel = TicketmasterAccess.resolve(
+            proxyUrl = "https://example.workers.dev",
+            apiKey = "",
+            clientToken = "YOUR_DEADSET_CLIENT_TOKEN",
+            allowDirectKey = false
+        )
+        assertTrue(sentinel.requestHeaders().isEmpty())
+    }
+
+    @Test
+    fun `direct mode never sends client header`() {
+        val access = TicketmasterAccess.resolve(
+            proxyUrl = "",
+            apiKey = "debug-key",
+            clientToken = "shared-secret",
+            allowDirectKey = true
+        )
+        assertEquals(TicketmasterAccess.Mode.DIRECT, access.mode)
+        assertTrue(access.requestHeaders().isEmpty())
+    }
 }

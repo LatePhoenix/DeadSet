@@ -124,14 +124,17 @@ class LiveConcertApiClient(
             if (access.apiKey.isNotBlank()) {
                 builder.addQueryParameter("apikey", access.apiKey)
             }
-            val body = httpGet(builder.build().toString()) ?: return null
+            val body = httpGet(builder.build().toString(), access.requestHeaders()) ?: return null
             LiveConcertJson.parseTicketmasterEvents(body, keyword)
         }.getOrNull()
     }
 
-    private fun httpGet(url: String): String? {
-        val request = Request.Builder().url(url).get().build()
-        http.newCall(request).execute().use { response ->
+    private fun httpGet(url: String, headers: Map<String, String> = emptyMap()): String? {
+        val builder = Request.Builder().url(url).get()
+        for ((name, value) in headers) {
+            builder.header(name, value)
+        }
+        http.newCall(builder.build()).execute().use { response ->
             if (!response.isSuccessful) return null
             return response.body?.string()
         }
