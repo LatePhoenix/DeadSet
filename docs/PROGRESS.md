@@ -247,8 +247,8 @@ Claude Code audited `72fbcee..939a4fe` (PRs #26–#32), since only R1 got a real
 - [x] **F1 Wrangler pin is too old for the rate-limit binding.** (`b008f43`) Pinned `wrangler@4.36.0`; README says 4.36.0+ / `npm ci`; dry-run shows `TM_RATE_LIMITER`. CR finding fixed in `6592a53`.
 - [x] **F2 Seed rows with user data stay duplicated.** (`08d096f`) `ShowDao.consolidateDuplicateSeed` moves seed `user_show_data` onto unclaimed catalog id in one transaction, then deletes the seed row; if catalog is already claimed, leave seed and log. Tests: attended seed → catalog id; both claimed → seed kept.
 - [x] **F3 Every launch reverts user edits on curated shows.** (`111446f`) `mergeCatalogFields` fills only blank base fields; tags remain a union. Test: edited `tourName` survives `checkAndSeedDatabase`.
-- [~] **F4 Proxy client token would break the app.** (Cursor) R5 added optional `DEADSET_CLIENT_TOKEN` / `X-DeadSet-Client`, and the proxy README suggests setting it in production, but the Android client never sends that header. Setting the secret would turn every Tickets request into a 401. Fix: either send the header from the app (value from `.env` → BuildConfig, empty = not sent) or change the README to say "don't set this until the app sends it". Prefer the first; it's small.
-- [ ] **F5 Catalog import isn't atomic and reruns on fresh installs.** `CatalogAssetImporter.importFromFile` writes shows, then performances in 500-row chunks, outside a transaction. If the process dies mid-import, a show can keep half a setlist, and because shows with any setlist are skipped, it's never repaired. Also, fresh installs (DB built by `createFromAsset`) still have `importedCatalogVersion() == 0`, so the first launch re-upserts the whole catalog for nothing. Fix: wrap the writes in `database.withTransaction { }`, and set the imported version when the DB is created from the asset (e.g. in a `RoomDatabase.Callback.onCreate`, or by detecting the asset path). Test: an exception after the shows upsert leaves no partial setlists.
+- [x] **F4 Proxy client token would break the app.** (`24eb9f3`) App sends `X-DeadSet-Client` on proxy Ticketmaster calls when `DEADSET_CLIENT_TOKEN` is set; blank/sentinel omits the header. `.env.example` + proxy README.
+- [~] **F5 Catalog import isn't atomic and reruns on fresh installs.** (Cursor) `CatalogAssetImporter.importFromFile` writes shows, then performances in 500-row chunks, outside a transaction. If the process dies mid-import, a show can keep half a setlist, and because shows with any setlist are skipped, it's never repaired. Also, fresh installs (DB built by `createFromAsset`) still have `importedCatalogVersion() == 0`, so the first launch re-upserts the whole catalog for nothing. Fix: wrap the writes in `database.withTransaction { }`, and set the imported version when the DB is created from the asset (e.g. in a `RoomDatabase.Callback.onCreate`, or by detecting the asset path). Test: an exception after the shows upsert leaves no partial setlists.
 
 _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `writers = null` (owner still to confirm the credit on dead.net), R7 `compatibility_date` `2024-11-11`.
 
@@ -268,6 +268,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R6 Slipknot! `w
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (F4 X-DeadSet-Client)
+- PR #38 merged (`24eb9f3` / merge `9094c37`): proxy Ticketmaster calls send `X-DeadSet-Client` when `DEADSET_CLIENT_TOKEN` is set.
+- **Next:** F5 (atomic import + createFromAsset imported gate), then hard stop for owner audit.
 
 ### 2026-11-23 · Cursor (F3 curated blank-only merge)
 - Branch `phase-2c-f3-curated-blank-only`: seed enrichment no longer overwrites non-blank catalog fields.
