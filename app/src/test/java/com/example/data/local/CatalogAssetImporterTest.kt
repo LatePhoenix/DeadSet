@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,7 +34,7 @@ class CatalogAssetImporterTest {
         db = AppDatabase.createInMemoryDatabase(context)
         prefs = UserPrefsStore(context)
         prefs.setImportedCatalogVersion(0)
-        importer = CatalogAssetImporter(context, db.showDao(), db.songDao(), prefs)
+        importer = CatalogAssetImporter(context, db, prefs)
     }
 
     @After
@@ -109,6 +110,57 @@ class CatalogAssetImporterTest {
 
         assertEquals(listOf("Bertha"), ShowRepository(db.showDao(), db.songDao()).getSetlist(custom.id).map { it.name })
         assertEquals("custom", db.showDao().getShowById(custom.id).first()!!.userReview)
+    }
+
+    @Test
+    fun `exception after shows upsert rolls back and leaves no partial setlists`() = runBlocking {
+        val fixture = buildFixtureCatalog(
+            catalogShowId = "gdshowsdb-uuid-cornell",
+            date = "1977-05-08",
+            venue = "Barton Hall",
+            extraShowId = "gdshowsdb-uuid-other",
+            extraDate = "1978-01-01"
+        )
+        val failing = CatalogAssetImporter(context, db, prefs) {
+            throw IllegalStateException("boom-after-shows")
+        }
+
+        val result = failing.importIfNeeded(fixture)
+        assertFalse(result.imported)
+        assertEquals("error:IllegalStateException", result.skipped)
+        assertEquals(0, prefs.importedCatalogVersion())
+        assertNull(db.showDao().getShowById("gdshowsdb-uuid-cornell").first())
+        assertNull(db.showDao().getShowById("gdshowsdb-uuid-other").first())
+        assertTrue(db.showDao().getSongsForShowOnce("gdshowsdb-uuid-cornell").isEmpty())
+        assertTrue(db.showDao().getSongsForShowOnce("gdshowsdb-uuid-other").isEmpty())
+
+        // Retry without the hook succeeds (version was not stamped on failure).
+        val retry = CatalogAssetImporter(context, db, prefs).importIfNeeded(fixture)
+        assertTrue(retry.imported)
+        assertTrue(db.showDao().getSongsForShowOnce("gdshowsdb-uuid-other").isNotEmpty())
+    }
+
+    @Test
+    fun `fresh-install callback marks catalog imported so merge is skipped`() = runBlocking {
+        prefs.setImportedCatalogVersion(0)
+        AppDatabase.freshInstallCatalogCallback(context)
+            .onCreate(db.openHelper.writableDatabase)
+        assertEquals(
+            CatalogAssetImporter.BUNDLED_CATALOG_VERSION,
+            prefs.importedCatalogVersion()
+        )
+
+        val fixture = buildFixtureCatalog(
+            catalogShowId = "gdshowsdb-uuid-cornell",
+            date = "1977-05-08",
+            venue = "Barton Hall",
+            extraShowId = "gdshowsdb-uuid-other",
+            extraDate = "1978-01-01"
+        )
+        val skip = CatalogAssetImporter(context, db, prefs).importIfNeeded(fixture)
+        assertFalse(skip.imported)
+        assertEquals("already_imported", skip.skipped)
+        assertNull(db.showDao().getShowById("gdshowsdb-uuid-cornell").first())
     }
 
     /** Tiny Room-shaped catalog.db for tests (two shows, one song, two performances). */

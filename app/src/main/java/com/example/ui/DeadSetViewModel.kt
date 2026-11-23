@@ -231,8 +231,7 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
             // only runs on first install). Then R1 curated merge / seed repair.
             CatalogAssetImporter(
                 context = getApplication(),
-                showDao = database.showDao(),
-                songDao = database.songDao(),
+                database = database,
                 prefs = userPrefs
             ).importIfNeeded()
             repository.checkAndSeedDatabase()
