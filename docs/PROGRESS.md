@@ -29,7 +29,6 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 **Next up (in order) — blocked until audit returns:**
 1. Phase 6 remainder starting at **6.2** (ViewModel split) — **not started**.
 2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy; audit results.
-2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Open decisions for the owner**
