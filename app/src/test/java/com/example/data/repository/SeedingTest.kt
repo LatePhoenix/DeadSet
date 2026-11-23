@@ -123,16 +123,41 @@ class SeedingTest {
     }
 
     @Test
-    fun `claimed seed duplicate is kept when catalog UUID also exists`() = runBlocking {
+    fun `attended seed user data moves onto unclaimed catalog id`() = runBlocking {
         val cornell = TestSeeds.seed("1977-05-08-cornell")
         val catalogId = "gdshowsdb-uuid-cornell"
         dao.insertShow(cornell.show.copy(id = catalogId, venue = "Barton Hall"))
-        dao.insertShow(cornell.show.copy(isAttended = true, userReview = "my notes"))
+        dao.insertShow(cornell.show.copy(isAttended = true, userRating = 4f, userReview = "my notes"))
+
+        repository.checkAndSeedDatabase()
+
+        assertEquals(null, dao.getShowById(cornell.id).first())
+        val onCatalog = dao.getShowById(catalogId).first()!!
+        assertTrue(onCatalog.isAttended)
+        assertEquals(4f, onCatalog.userRating)
+        assertEquals("my notes", onCatalog.userReview)
+    }
+
+    @Test
+    fun `claimed seed duplicate is kept when catalog row is also claimed`() = runBlocking {
+        val cornell = TestSeeds.seed("1977-05-08-cornell")
+        val catalogId = "gdshowsdb-uuid-cornell"
+        dao.insertShow(
+            cornell.show.copy(
+                id = catalogId,
+                venue = "Barton Hall",
+                isAttended = true,
+                userReview = "catalog notes"
+            )
+        )
+        dao.insertShow(cornell.show.copy(isAttended = true, userReview = "seed notes"))
 
         repository.checkAndSeedDatabase()
 
         assertTrue(dao.getShowById(cornell.id).first() != null)
-        assertTrue(dao.getShowById(catalogId).first() != null)
+        val catalog = dao.getShowById(catalogId).first()!!
+        assertEquals("catalog notes", catalog.userReview)
+        assertTrue(catalog.isAttended)
     }
 
     @Test

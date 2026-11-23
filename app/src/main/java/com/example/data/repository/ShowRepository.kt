@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.util.Log
 import com.example.data.local.ShowDao
 import com.example.data.local.ShowEntity
 import com.example.data.local.ShowWithSongs
@@ -8,6 +9,7 @@ import com.example.data.local.SongDao
 import com.example.data.local.SongEntity
 import com.example.data.local.SongPerformanceEntity
 import com.example.data.local.toCatalog
+import com.example.data.local.toUserData
 import com.example.data.model.*
 import com.example.data.seed.CuratedSeedMerger
 import com.example.data.seed.CuratedShows
@@ -135,8 +137,10 @@ class ShowRepository(
     }
 
     /**
-     * When a catalog UUID owns a curated date, move any seed-id setlist edits onto the catalog
-     * row, then delete the seed-id duplicate only if it has no claimed user data.
+     * When a catalog UUID owns a curated date: move seed setlist edits onto the catalog row,
+     * migrate claimed seed [user_show_data] onto the catalog id when the catalog row is unclaimed
+     * (F2 — never overwrite claimed catalog user data), then delete the seed-id duplicate.
+     * If both rows have claimed user data, leave the seed row and log.
      */
     private suspend fun resolveDuplicateSeedRow(
         seedId: String,
@@ -145,18 +149,50 @@ class ShowRepository(
         showsById: Map<String, ShowEntity>
     ) {
         val seedShow = showsById[seedId] ?: return
+        val catalogShow = showsById[catalogId] ?: return
         val seedPerfs = showDao.getSongsForShowOnce(seedId)
         val catalogPerfs = showDao.getSongsForShowOnce(catalogId)
         val seedEdited = seedPerfs.isNotEmpty() && setlistDiffersFromBuiltIn(seedPerfs, builtIn.songs)
-        if (seedPerfs.isNotEmpty() && (catalogPerfs.isEmpty() || seedEdited)) {
-            showDao.replaceSongPerformances(
-                catalogId,
-                seedPerfs.map { it.copy(performanceId = 0L, showId = catalogId) }
-            )
+        val remapped = if (seedPerfs.isNotEmpty() && (catalogPerfs.isEmpty() || seedEdited)) {
+            seedPerfs.map { it.copy(performanceId = 0L, showId = catalogId) }
+        } else {
+            null
         }
-        if (!CuratedSeedMerger.hasClaimedUserData(seedShow)) {
-            showDao.deleteShowById(seedId)
+        val seedClaimed = CuratedSeedMerger.hasClaimedUserData(seedShow)
+        val catalogClaimed = CuratedSeedMerger.hasClaimedUserData(catalogShow)
+        when {
+            seedClaimed && catalogClaimed -> {
+                if (remapped != null) {
+                    showDao.replaceSongPerformances(catalogId, remapped)
+                }
+                Log.w(
+                    TAG,
+                    "Leaving seed duplicate $seedId: catalog $catalogId already has claimed user data"
+                )
+            }
+            seedClaimed && !catalogClaimed -> {
+                showDao.consolidateDuplicateSeed(
+                    seedId = seedId,
+                    catalogId = catalogId,
+                    remappedPerformances = remapped,
+                    moveUserData = seedShow.toUserData(),
+                    deleteSeed = true
+                )
+            }
+            else -> {
+                showDao.consolidateDuplicateSeed(
+                    seedId = seedId,
+                    catalogId = catalogId,
+                    remappedPerformances = remapped,
+                    moveUserData = null,
+                    deleteSeed = true
+                )
+            }
         }
+    }
+
+    private companion object {
+        const val TAG = "ShowRepository"
     }
 
     private fun setlistDiffersFromBuiltIn(

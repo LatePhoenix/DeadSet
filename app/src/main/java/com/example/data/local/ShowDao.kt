@@ -149,6 +149,31 @@ interface ShowDao {
     }
 
     /**
+     * F2: consolidate a curated seed-id duplicate onto its catalog UUID match in one transaction.
+     * - Optionally replace the catalog setlist with remapped seed performances.
+     * - If [moveUserData] is non-null, upsert it onto [catalogId] (caller ensures catalog is unclaimed).
+     * - Delete the seed row when [deleteSeed] is true.
+     */
+    @Transaction
+    suspend fun consolidateDuplicateSeed(
+        seedId: String,
+        catalogId: String,
+        remappedPerformances: List<SongPerformanceEntity>?,
+        moveUserData: UserShowDataEntity?,
+        deleteSeed: Boolean
+    ) {
+        if (remappedPerformances != null) {
+            replaceSongPerformances(catalogId, remappedPerformances)
+        }
+        if (moveUserData != null) {
+            upsertUserData(moveUserData.copy(showId = catalogId))
+        }
+        if (deleteSeed) {
+            deleteShowById(seedId)
+        }
+    }
+
+    /**
      * Removes retired seed rows the user never claimed (not attended, nobody logged as
      * attendedWith). userReview isn't checked because the retired seeds shipped with filler text.
      */
