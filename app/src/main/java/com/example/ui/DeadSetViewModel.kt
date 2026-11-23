@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
+import com.example.data.local.CatalogAssetImporter
 import com.example.data.local.UserPrefsStore
 import com.example.data.local.ReviewCardEntity
 import com.example.data.review.Leitner
@@ -226,6 +227,14 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch {
+            // R2: merge bundled catalog into upgrades that already have a DB file (createFromAsset
+            // only runs on first install). Then R1 curated merge / seed repair.
+            CatalogAssetImporter(
+                context = getApplication(),
+                showDao = database.showDao(),
+                songDao = database.songDao(),
+                prefs = userPrefs
+            ).importIfNeeded()
             repository.checkAndSeedDatabase()
         }
 

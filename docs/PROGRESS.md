@@ -24,10 +24,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- Next: **R2** catalog import for existing installs (Phase 2b), then R3–R7 before 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- Next: **R3** catalog must ship in builds (Phase 2b), then R4–R7. **Hard stop after R7** for owner project audit (do not start 6.2). Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **Review fixes R2–R7** (Phase 2b below), **before 6.2**. R2–R3 mean the full catalog currently reaches no one's device. Do R2 → R3 → R4 → R5, then R6/R7.
+1. **Review fixes R3–R7** (Phase 2b below). Then **pause for owner audit** — do not start 6.2 until they return.
 2. Phase 6 remainder (6.2+). **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy for live D1.
 3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
@@ -226,7 +226,8 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 
 - [x] **R1 Curated seeds vs. bundled catalog.** (`e2b3198`) `CuratedSeedMerger` matches GD seeds to catalog rows by date + venue; merges archive/trivia/tags via `upsertCatalog` only; always inserts Terrapin Flyer; restore can resurrect unmatched GD seeds; startup does not. Untouched duplicate seed-id rows are dropped when a catalog UUID owns the date. Tests: `CuratedSeedMergerTest`, SeedingTest catalog UUID cases.
   _Decision (reversible):_ unmatched GD seeds are not inserted on `checkAndSeedDatabase` (avoids colliding with a future catalog import); `restoreCuratedOfflineCatalog` still inserts them when no date+venue match exists.
-- [ ] **R2 Catalog for existing installs.** `createFromAsset` only runs when no DB file exists, so every upgraded install (the owner's phone included) keeps just the 16 seeds. The "upsert by PK" merge in Open decisions is documented but not implemented. Fix: a one-time import gated on a catalog version (prefs or a small meta table): open the asset read-only (e.g. `ATTACH`), upsert shows / songs / aliases / performances, never touch `user_show_data`, and don't replace performances of user-edited or custom shows. Test: v12 DB with seeds + user data, run import, assert catalog count and user data unchanged.
+- [x] **R2 Catalog for existing installs.** (`a5b044a`) `CatalogAssetImporter` copies bundled `catalog.db`, upserts shows/songs/aliases, inserts performances only for shows with no setlist yet (skips custom), never touches `user_show_data`. Gated on `UserPrefsStore.importedCatalogVersion` / `BUNDLED_CATALOG_VERSION=1`. Wired before seed repair in ViewModel. Tests: `CatalogAssetImporterTest`.
+  _Decision (reversible):_ skip performance replace whenever the show already has any setlist rows (covers user edits without a separate edit fingerprint).
 - [ ] **R3 Catalog must ship in builds.** `app/src/main/assets/catalog.db` is gitignored and nothing builds it, so CI and any clean checkout produce an APK without it, and `assetExists()` hides that. Fix: either wire the importer into the app build (e.g. a task `:app:preBuild` depends on, using the cached YAML) or commit the generated DB (~10 MB) after asking the owner. At minimum, fail `assembleRelease` when the asset is missing. Update the "Catalog asset in git" decision above to match.
 - [ ] **R4 Almanac date links ignore the year.** `AlmanacLinkIndex.byMonthDay` keys on MM-DD, and `MainActivity` falls back to `articleForIsoDate(show.date)` for every show, so every May 8 show links to the Cornell 5/8/77 spotlight. Fix: key on the full `yyyy-MM-dd`; keep month-day only for an explicit "on this day" card that names the year. Add a test that 1981-05-08 gets no Cornell link.
 - [ ] **R5 Proxy rate limit is a no-op.** `tools/proxy/ticketmaster/src/index.js` counts requests with `caches.default`, which has no effect on `*.workers.dev` (where the README deploys) and is per-colo/non-atomic elsewhere. The endpoint is unauthenticated, so anyone with the URL can drain the Ticketmaster quota. Fix: use the Workers Rate Limiting binding (or KV / a Durable Object); optionally require a shared app header. Update the README.
@@ -249,6 +250,11 @@ CodeRabbit was rate-limited and reviewed only #11, #18 and #23 of these PRs, so 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (R2 catalog upgrade import)
+- Branch `phase-2b-r2-catalog-upgrade-import`: `CatalogAssetImporter` + prefs version gate; ViewModel runs import before R1 seed merge.
+- **Decision:** never replace performances when the show already has setlist rows; bump `BUNDLED_CATALOG_VERSION` when shipping a new asset.
+- **Next:** R3–R7, then **hard stop for owner project audit** (no 6.2). C4 deferred. Skip A5 / keys.
 
 ### 2026-11-23 · Cursor (R1 seed↔catalog merge)
 - Branch `phase-2b-r1-seed-catalog-merge`: `CuratedSeedMerger` + `ShowRepository.applyCuratedSeeds`; setlist repair targets catalog ids; Terrapin Flyer always seeded; user_show_data untouched.
