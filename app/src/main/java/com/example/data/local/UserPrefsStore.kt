@@ -75,10 +75,18 @@ class UserPrefsStore(context: Context) {
     fun lastTonightReminder(): String = prefs.getString(K_TONIGHT, "").orEmpty()
     fun setLastTonightReminder(date: String) = prefs.edit().putString(K_TONIGHT, date).apply()
 
+    /** Last successfully imported bundled [AppDatabase.CATALOG_ASSET] version (R2). */
+    fun importedCatalogVersion(): Int = prefs.getInt(K_CATALOG_VERSION, 0)
+
+    fun setImportedCatalogVersion(version: Int) {
+        prefs.edit().putInt(K_CATALOG_VERSION, version).apply()
+    }
+
     private companion object {
         const val K_ALERTS = "alerts_enabled"
         const val K_EVENTS_SYNCED = "alerts_events_synced"
         const val K_TONIGHT = "alerts_last_tonight_reminder"
+        const val K_CATALOG_VERSION = "bundled_catalog_version"
         const val PREFS_NAME = "deadset_user_prefs"
         const val K_ANSWERED = "trivia_total_answered"
         const val K_CORRECT = "trivia_total_correct"

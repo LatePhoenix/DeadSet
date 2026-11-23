@@ -80,7 +80,13 @@ interface ShowDao {
     suspend fun upsertCatalog(show: ShowCatalogEntity)
 
     @Upsert
+    suspend fun upsertCatalogShows(shows: List<ShowCatalogEntity>)
+
+    @Upsert
     suspend fun upsertUserData(data: UserShowDataEntity)
+
+    @Query("SELECT id FROM shows WHERE isCustomShow = 1")
+    suspend fun getCustomShowIds(): List<String>
 
     /**
      * Insert-or-update catalog + user rows. Upsert (not REPLACE) so FKs on song_performances
