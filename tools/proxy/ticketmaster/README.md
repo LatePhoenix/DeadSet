@@ -24,7 +24,7 @@ If you set secret `DEADSET_CLIENT_TOKEN`, every request must send header `X-Dead
 
 ```bash
 cd tools/proxy/ticketmaster
-npm install -D wrangler@4.36.0
+npm ci   # uses committed package-lock.json (wrangler@4.36.0)
 npx wrangler login
 npx wrangler secret put TICKETMASTER_API_KEY
 # optional:
