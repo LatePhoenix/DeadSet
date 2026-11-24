@@ -187,6 +187,10 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     suspend fun exportBackupJson(): String = profileVm.exportBackupJson()
     fun parseBackup(json: String) = profileVm.parseBackup(json)
     fun previewBackup(doc: com.example.data.backup.BackupDocument) = profileVm.previewBackup(doc)
+    val pendingRestore = profileVm.pendingRestore
+    fun offerPendingRestore(json: String) = profileVm.offerPendingRestore(json)
+    fun clearPendingRestore() = profileVm.clearPendingRestore()
+    fun confirmPendingRestore() = profileVm.confirmPendingRestore()
     fun confirmRestore(doc: com.example.data.backup.BackupDocument) = profileVm.confirmRestore(doc)
     fun setBackupFeedback(message: String) = profileVm.setFeedbackMessage(message)
     fun recordTriviaQuizCompletion(

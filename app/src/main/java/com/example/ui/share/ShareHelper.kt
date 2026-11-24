@@ -13,6 +13,8 @@ object ShareHelper {
 
     fun shareBitmap(context: Context, bitmap: Bitmap, fileName: String, chooserTitle: String) {
         val dir = File(context.cacheDir, DIR).apply { mkdirs() }
+        // H3: clear previous share cards so cache doesn't grow unbounded.
+        dir.listFiles()?.forEach { it.delete() }
         val file = File(dir, fileName)
         FileOutputStream(file).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

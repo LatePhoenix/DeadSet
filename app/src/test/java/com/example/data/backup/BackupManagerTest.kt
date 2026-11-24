@@ -202,18 +202,21 @@ class BackupManagerTest {
         )
 
         val parsed = manager.parse(json) as BackupParseResult.Ok
-        manager.importDocument(parsed.document)
+        val result = manager.importDocument(parsed.document)
 
         // Show: backup wins
         val user = db.showDao().getAllUserShowData().first { it.showId == "gd-1" }
         assertEquals("Great night", user.userReview)
         assertEquals(4.5f, user.userRating, 0.01f)
 
-        // Card: local has later lastReviewedDate → local kept
+        // Card: local has later lastReviewedDate → local kept (H3 counts)
         val card = db.reviewDao().get("card-1")!!
         assertEquals("2026-11-20", card.lastReviewedDate)
         assertEquals(3, card.box)
         assertEquals(10, card.timesSeen)
+        assertEquals(0, result.reviewCardsUpserted)
+        assertEquals(1, result.reviewCardsKeptLocal)
+        assertTrue(result.feedbackMessage().contains("Kept 1 newer card on this phone"))
 
         // Trivia: max points + union badges
         val trivia = prefs.loadTriviaProgress()
@@ -315,9 +318,45 @@ class BackupManagerTest {
 
     @Test
     fun `oversize conceptual reject — parse still requires valid JSON under limit`() {
-        // File-size gate lives in MainActivity (byte read). Guard the constant here.
+        // File-size gate lives in readBoundedUtf8 (H3). Guard the constant here.
         assertTrue(BACKUP_MAX_BYTES == 5 * 1024 * 1024)
         assertTrue(manager.parse("{") is BackupParseResult.Err)
+    }
+
+    @Test
+    fun `restore feedback counts kept vs restored review cards`() = runBlocking {
+        seedCatalogShow("gd-1")
+        // Local newer card for card-keep; no local for card-new → taken from backup.
+        db.reviewDao().upsert(ReviewCardEntity("card-keep", 4, "2026-11-22", 9, 7))
+        val root = JSONObject(manager.exportJson())
+        val cards = org.json.JSONArray()
+        cards.put(
+            JSONObject()
+                .put("cardId", "card-keep")
+                .put("box", 1)
+                .put("lastReviewedDate", "2026-11-01")
+                .put("timesSeen", 2)
+                .put("timesCorrect", 1)
+        )
+        cards.put(
+            JSONObject()
+                .put("cardId", "card-new")
+                .put("box", 2)
+                .put("lastReviewedDate", "2026-11-10")
+                .put("timesSeen", 3)
+                .put("timesCorrect", 2)
+        )
+        root.put("reviewCards", cards)
+
+        val parsed = manager.parse(root.toString()) as BackupParseResult.Ok
+        val result = manager.importDocument(parsed.document)
+        assertEquals(1, result.reviewCardsUpserted)
+        assertEquals(1, result.reviewCardsKeptLocal)
+        val msg = result.feedbackMessage()
+        assertTrue(msg.contains("1 review cards") || msg.contains("1 review card"))
+        assertTrue(msg.contains("Kept 1 newer card on this phone"))
+        assertEquals("2026-11-22", db.reviewDao().get("card-keep")!!.lastReviewedDate)
+        assertEquals(2, db.reviewDao().get("card-new")!!.box)
     }
 
     private suspend fun seedCatalogShow(id: String) {

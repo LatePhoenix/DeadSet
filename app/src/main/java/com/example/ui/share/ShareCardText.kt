@@ -6,7 +6,7 @@ import com.example.data.model.TransitionType
 
 const val SETLIST_CREDIT = "Setlist data: gdshowsdb / Deadlists"
 
-/** Pure setlist card lines from app data only (6.5). */
+/** Pure setlist card lines from app data only (6.5 / H3). Catalog shows get the data credit. */
 fun buildSetlistShareLines(
     show: ShowEntity,
     songs: List<SongEntry>,
@@ -32,7 +32,8 @@ fun buildSetlistShareLines(
         }
     }
     val more = if (songs.size > maxSongs) listOf("… +${songs.size - maxSongs} more") else emptyList()
-    return listOf("DeadSet", band, header, "") + body + more + listOf("", SETLIST_CREDIT)
+    val credit = if (!show.isCustomShow) listOf("", SETLIST_CREDIT) else emptyList()
+    return listOf("DeadSet", band, header, "") + body + more + credit
 }
 
 /** Pure trivia-score card lines from round results (6.5). */
@@ -58,3 +59,37 @@ fun buildTriviaShareLines(
         "Rank: $rankTitle"
     )
 }
+
+/**
+ * Breaks [text] at spaces so each piece fits [maxWidth] under [measure] (H3).
+ * Words longer than the width are kept intact (never drop content).
+ */
+fun wrapLineToWidth(text: String, maxWidth: Float, measure: (String) -> Float): List<String> {
+    if (text.isEmpty()) return listOf("")
+    if (measure(text) <= maxWidth) return listOf(text)
+    val words = text.split(' ')
+    if (words.size == 1) return listOf(text)
+    val lines = mutableListOf<String>()
+    var current = StringBuilder()
+    for (word in words) {
+        if (current.isEmpty()) {
+            current.append(word)
+            continue
+        }
+        val candidate = "$current $word"
+        if (measure(candidate) <= maxWidth) {
+            current.append(' ').append(word)
+        } else {
+            lines.add(current.toString())
+            current = StringBuilder(word)
+        }
+    }
+    if (current.isNotEmpty()) lines.add(current.toString())
+    return lines
+}
+
+/** Wraps each input line; empty lines stay empty. */
+fun wrapShareLines(lines: List<String>, maxWidth: Float, measure: (String) -> Float): List<String> =
+    lines.flatMap { line ->
+        if (line.isEmpty()) listOf("") else wrapLineToWidth(line, maxWidth, measure)
+    }

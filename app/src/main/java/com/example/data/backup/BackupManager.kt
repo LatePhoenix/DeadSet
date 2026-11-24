@@ -125,7 +125,8 @@ class BackupManager(
         var userUpserts = 0
         var customUpserts = 0
         var chaseUpserts = 0
-        var reviewUpserts = 0
+        var reviewFromBackup = 0
+        var reviewKeptLocal = 0
         var bandUpserts = 0
         val localTriviaBefore = prefs.loadTriviaProgress()
         val backupAlerts = doc.prefs.alertsEnabled
@@ -163,9 +164,14 @@ class BackupManager(
                 chaseUpserts++
             }
             for (card in doc.reviewCards) {
-                val chosen = preferReviewCard(reviewDao.get(card.cardId), card)
+                val local = reviewDao.get(card.cardId)
+                val chosen = preferReviewCard(local, card)
                 reviewDao.upsert(chosen)
-                reviewUpserts++
+                if (local != null && chosen == local) {
+                    reviewKeptLocal++
+                } else {
+                    reviewFromBackup++
+                }
             }
             if (doc.bands.isNotEmpty()) {
                 concertDao.upsertBands(doc.bands)
@@ -182,10 +188,11 @@ class BackupManager(
             userShowDataUpserted = userUpserts,
             customShowsUpserted = customUpserts,
             chaseSongsUpserted = chaseUpserts,
-            reviewCardsUpserted = reviewUpserts,
+            reviewCardsUpserted = reviewFromBackup,
             bandsUpserted = bandUpserts,
             skippedUnknownShowIds = skippedUnknown,
-            skippedCatalogCollisions = skippedCollisions
+            skippedCatalogCollisions = skippedCollisions,
+            reviewCardsKeptLocal = reviewKeptLocal
         )
     }
 

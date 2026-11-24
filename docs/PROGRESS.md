@@ -288,7 +288,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - **Accessibility:** content descriptions on icon-only buttons, 48 dp touch targets, headings marked with `semantics { heading() }`, and no information carried by color alone. Check with Android Studio's accessibility scanner where you can and list what you fixed. _Fixed:_ Share/Back/Delete min 48dp; attendance chip CD; detail date + trivia summary headings; widget contentDescription.
   - Tests: unit-test the "today in history" query and the card text builders (pure functions). No schema change expected.
   _Audit of H2 + 6.5 (Claude Code, 2026-11-24):_ both safe to keep; CI green, CodeRabbit summaries only; fresh run of `e40b8df` 194 tests, 0 failures (1 skipped: `CatalogPerfTest` needs the generated `catalog.db`). H2 matches its notes. Fix in H3:
-- [ ] **H3 Widget, share-card and restore-dialog fixes (H2/6.5 audit).** No schema change.
+- [x] **H3 Widget, share-card and restore-dialog fixes (H2/6.5 audit).** (`4e66adb`) No schema change.
   - **Widget shows only catalog shows.** `TodayInDeadHistoryWidget` reads `getAllShowsOnce()` (the whole `shows_with_user` view, custom shows included), so a user's tribute gig (e.g. a Terrapin Flyer show) appears as "date · venue" under "Today in Dead History". Add a DAO query that returns only `isCustomShow = 0` rows whose month-day matches (`substr(date, 6, 5) = :monthDay`), ordered by date, and use it; keep `showsOnMonthDay` for tests or drop it.
   - **Widget runs off the main thread.** `onUpdate` uses `runBlocking` on the main thread and loads every show. Use `goAsync()` plus a coroutine on `Dispatchers.IO` (call `finish()` in `finally`), with the SQL query above.
   - **Widget shows today's date, not the date it was placed.** `updatePeriodMillis = 86400000` refreshes 24 h after placement, so it can show yesterday's shows most of the day. Set an inexact `AlarmManager` alarm (`setAndAllowWhileIdle` or plain `set`, no exact-alarm permission) for just after local midnight that broadcasts `APPWIDGET_UPDATE` to the widget's ids and re-arms itself, and also refresh all widgets when the app starts (e.g. from `MainActivity.onCreate` or `Application`). Keep `updatePeriodMillis` as a fallback.
@@ -313,6 +313,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Cursor (H3 — widget/share/restore)
+- H3 on `phase-6-h3-widget-share-restore`: catalog-only widget DAO + `goAsync`/IO, midnight `AlarmManager` + app-start refresh; setlist credit only on catalog shows; wrap share lines; clear `share_cards` cache; bounded backup read; pending restore in `ProfileViewModel`; review-card kept/restored feedback.
+- **Next:** 6.7 (Compose UI tests + MockWebServer + finish a11y), then **HARD STOP after 6.7** for audit. Do not start 6.3b / 6.6 / A5 / keys.
 
 ### 2026-11-24 · Claude Code (audit of H2, 6.5)
 - H2 and 6.5 safe to keep (fresh run of `e40b8df`: 194 tests, 0 failures, 1 skipped for the missing `catalog.db`; CI green; CodeRabbit summaries only). Widget includes custom/tribute shows and blocks the main thread; restore dialog's `rememberSaveable` JSON can exceed the saved-state limit; setlist credit appears on custom shows. Added **H3** after 6.5 and notes under 6.7. Audit pause lifted.
