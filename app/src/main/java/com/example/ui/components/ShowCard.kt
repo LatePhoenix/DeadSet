@@ -244,7 +244,7 @@ fun ShowCard(
                             contentColor = StealieCyan
                         ),
                         modifier = Modifier
-                            .size(32.dp)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                             .testTag("card_map_button_${show.id}")
                     ) {
                         Icon(
@@ -265,7 +265,7 @@ fun ShowCard(
                             contentColor = StealieGold
                         ),
                         modifier = Modifier
-                            .size(32.dp)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                             .testTag("card_calendar_button_${show.id}")
                     ) {
                         Icon(

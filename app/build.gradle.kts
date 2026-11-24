@@ -143,6 +143,7 @@ dependencies {
   testImplementation(libs.org.json) // real org.json on JVM (Android stubs throw)
   testImplementation(libs.robolectric)
   testImplementation(libs.androidx.room.testing)
+  testImplementation(libs.okhttp.mockwebserver) // 6.7: concerts API success/empty/error/malformed
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)

@@ -24,14 +24,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **H2 and 6.5 merged; the audit is back (2026-11-24).** Both are safe to keep (194 tests pass). The widget lists custom/tribute shows as Dead history and the restore dialog can crash on a large backup: fix in **H3**, then do 6.7. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H3 and 6.7 merged; paused for audit (2026-11-24).** Widget/share/restore fixes + test coverage / a11y pass. Do not start 6.3b until the audit returns. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **H3** Widget, share-card and restore-dialog fixes (see after 6.5 in Phase 6).
-2. **6.7** Test coverage + finish the accessibility pass (see notes under 6.7).
-3. **HARD STOP after 6.7** for the next Claude Code audit. Do not start 6.3b (it starts after that audit), 6.6, A5, C4 or key/Cloudflare work.
-4. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-5. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**H3 → 6.7**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.3b, 6.6, A5, C4 or key/Cloudflare work until the owner returns with audit results.
+2. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.7) and reads any CodeRabbit comments then.
 
@@ -300,12 +298,12 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
     - Restore result: count review cards actually taken from the backup (not ones where the local copy was kept), and say "kept N newer cards on this phone" when N > 0.
   - **Tests:** the DAO query returns catalog shows for the month-day and excludes custom shows (Robolectric/in-memory Room); `buildSetlistShareLines` has the credit for a catalog show and not for a custom show; line wrapping keeps every word (pure function); the bounded read rejects input one byte over the limit; restore feedback counts kept vs restored cards; `ProfileViewModel` pending-restore state is set on parse and cleared on confirm/cancel.
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
-- [ ] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows.
-  _Notes (Claude Code):_
-  - **Compose UI tests** (Robolectric + `createComposeRule`, so they run in `testDebugUnitTest` on CI; no emulator): cover the flows 6.3b will touch — Trivia hub → start quiz → answer → summary; Me → Profile edit and save; Stats pane renders with data and with none; Shows list → filter → open detail → toggle attendance; restore dialog confirm/cancel. Use the existing `testTag`s; add tags where needed (no visual change).
-  - **MockWebServer** (OkHttp's, test-only dependency) for the concerts proxy client and the setlist.fm fetch: success, empty, HTTP error, malformed JSON. Point the clients at the server's URL through their existing base-URL parameter, or add one.
-  - **Finish the accessibility pass** from 6.5 on the screens it skipped (Shows list, Live, Segues, Almanac hub, Me): content descriptions on icon-only buttons, 48 dp targets, headings. Add a Compose test that asserts icon-only buttons on these screens have a content description. List what you changed under this step.
-  - Tests only plus a11y fixes; no behavior changes. If a test exposes a real bug, fix it in its own commit and note it here.
+- [x] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows. (`eab4e3b`, CR fix `b0308c5`)
+  _As built:_
+  - **MockWebServer** (test-only `okhttp-mockwebserver`): `LiveConcertApiClientMockWebServerTest` — Bandsintown + Ticketmaster proxy success/empty/HTTP error/malformed. Optional constructor base-URL overrides on `LiveConcertApiClient` (defaults unchanged). **setlist.fm client not built yet (D3)** — note only.
+  - **Compose UI tests** (Robolectric + `createComposeRule`, `mainClock.autoAdvance = false`): `ActiveQuizContent` / `QuizSummaryContent`; `StatsScreen` empty+data; restore confirm/cancel dialog wired to `ProfileViewModel.pendingRestore`; profile handle save (isolated fields); attendance toggle chip; icon-only CD assertions on the same tags as Shows/Live. **Deviation:** full-screen mounts that include `rememberInfiniteTransition` (dancing bears) never idle under Espresso — use panels / isolated controls instead of `TriviaScreen` / `ShowsListScreen` / `UserProfileScreen` / `LiveConcertsScreen`.
+  - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar.
+  - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests.
 - [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
 
 ---
@@ -313,6 +311,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Cursor (H3 + 6.7 — audit pause)
+- H3 merged (#54, `4e66adb`). 6.7 (PR #55): MockWebServer concerts; Compose panel/isolated UI tests (pause infinite anims); a11y headings/48dp. Full-screen bear-anim screens avoided under Robolectric.
+- **HARD STOP after 6.7:** do not start 6.3b / 6.6 / A5 / keys / CF. Owner + Claude Code audit next.
 
 ### 2026-11-24 · Cursor (H3 — widget/share/restore)
 - H3 on `phase-6-h3-widget-share-restore`: catalog-only widget DAO + `goAsync`/IO, midnight `AlarmManager` + app-start refresh; setlist credit only on catalog shows; wrap share lines; clear `share_cards` cache; bounded backup read; pending restore in `ProfileViewModel`; review-card kept/restored feedback.

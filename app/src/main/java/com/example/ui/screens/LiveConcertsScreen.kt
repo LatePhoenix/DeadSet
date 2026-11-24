@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -144,7 +146,8 @@ fun LiveConcertsScreen(
                                     text = "Upcoming Shows",
                                     color = TextPrimaryDark,
                                     fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 BerthaRose(size = 18.dp)
@@ -174,7 +177,12 @@ fun LiveConcertsScreen(
                             }
                         }
                     }
-                    IconButton(onClick = onRefresh, modifier = Modifier.testTag("refresh_concerts_button")) {
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .testTag("refresh_concerts_button")
+                    ) {
                         if (state.isRefreshing) {
                             CircularProgressIndicator(color = StealieGold, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                         } else {

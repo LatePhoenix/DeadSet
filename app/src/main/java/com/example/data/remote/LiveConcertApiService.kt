@@ -33,20 +33,28 @@ data class LiveConcertEvent(
 /**
  * Live concert client using OkHttp + org.json (no Retrofit/Moshi).
  * Only events returned by Bandsintown / Ticketmaster are shown.
+ *
+ * [bandsintownBaseUrl] and [ticketmasterAccessOverride] exist so unit tests can point at
+ * MockWebServer without changing production defaults (6.7).
  */
 class LiveConcertApiClient(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    private val bandsintownBaseUrl: String = "https://rest.bandsintown.com/",
+    private val ticketmasterAccessOverride: TicketmasterAccess? = null,
+    private val bandsintownAppIdOverride: String? = null
 ) {
 
-    fun ticketmasterAccess(): TicketmasterAccess = TicketmasterAccess.fromBuildConfig()
+    fun ticketmasterAccess(): TicketmasterAccess =
+        ticketmasterAccessOverride ?: TicketmasterAccess.fromBuildConfig()
 
     /** True when a proxy URL is set, or (debug only) a local Discovery API key. */
     fun isTicketmasterConfigured(): Boolean = ticketmasterAccess().isConfigured
 
     fun getBandsintownAppId(): String {
+        bandsintownAppIdOverride?.let { return it }
         val raw = runCatching {
             BuildConfig::class.java.getDeclaredField("BANDSINTOWN_APP_ID").get(null) as? String
         }.getOrNull().orEmpty().trim()
@@ -97,7 +105,8 @@ class LiveConcertApiClient(
     /** Null when the request fails or is rejected (e.g. unregistered app_id), empty when none. */
     private fun fetchBandsintownArtistEvents(artistName: String): List<LiveConcertEvent>? {
         return runCatching {
-            val url = "https://rest.bandsintown.com/artists/${artistName.encodePathSegment()}/events"
+            val base = bandsintownBaseUrl.trimEnd('/')
+            val url = "$base/artists/${artistName.encodePathSegment()}/events"
                 .toHttpUrl()
                 .newBuilder()
                 .addQueryParameter("app_id", getBandsintownAppId())
