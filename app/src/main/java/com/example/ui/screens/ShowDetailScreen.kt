@@ -22,9 +22,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SetType
@@ -39,7 +42,11 @@ import com.example.ui.components.SegueIndicatorPill
 import com.example.ui.components.transitionAccent
 import com.example.ui.components.StealieEmblem
 import com.example.ui.components.TerrapinTurtleBadge
+import com.example.ui.share.ShareHelper
+import com.example.ui.share.buildSetlistShareLines
+import com.example.ui.share.renderShareCardBitmap
 import com.example.ui.theme.*
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,13 +98,16 @@ fun ShowDetailScreen(
                         text = show.date,
                         color = StealieGold,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics { heading() }
                     )
                 },
                 navigationIcon = {
                     IconButton(
                         onClick = onBack,
-                        modifier = Modifier.testTag("detail_back_button")
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .testTag("detail_back_button")
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -107,6 +117,28 @@ fun ShowDetailScreen(
                     }
                 },
                 actions = {
+                    val context = LocalContext.current
+                    IconButton(
+                        onClick = {
+                            val lines = buildSetlistShareLines(show, songs)
+                            val bmp = renderShareCardBitmap(lines)
+                            ShareHelper.shareBitmap(
+                                context,
+                                bmp,
+                                "setlist-${show.id}-${UUID.randomUUID()}.png",
+                                context.getString(R.string.share_setlist)
+                            )
+                        },
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .testTag("share_setlist_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = context.getString(R.string.share_setlist),
+                            tint = StealieGold
+                        )
+                    }
                     // "I Was There" Attendance Toggle Button
                     FilterChip(
                         selected = show.isAttended,
@@ -114,7 +146,11 @@ fun ShowDetailScreen(
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Bolt,
-                                contentDescription = null,
+                                contentDescription = if (show.isAttended) {
+                                    "Attended — tap to clear"
+                                } else {
+                                    "Mark as attended"
+                                },
                                 tint = if (show.isAttended) StealieGold else TextSecondaryDark,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -140,11 +176,15 @@ fun ShowDetailScreen(
                         ),
                         modifier = Modifier
                             .padding(end = 8.dp)
+                            .sizeIn(minHeight = 48.dp)
                             .testTag("toggle_attendance_button")
                     )
 
                     if (show.isCustomShow && onDeleteShow != null) {
-                        IconButton(onClick = { onDeleteShow(show) }) {
+                        IconButton(
+                            onClick = { onDeleteShow(show) },
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Delete,
                                 contentDescription = "Delete Show",

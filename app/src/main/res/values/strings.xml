@@ -1,3 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DeadSet</string>
+    <string name="widget_today_in_dead_history_title">Today in Dead History</string>
+    <string name="widget_today_in_dead_history_cd">Today in Dead History widget — tap to open DeadSet</string>
+    <string name="share_setlist">Share setlist card</string>
+    <string name="share_trivia">Share trivia score</string>
 </resources>
