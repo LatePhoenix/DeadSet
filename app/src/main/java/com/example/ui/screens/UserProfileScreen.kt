@@ -49,6 +49,8 @@ fun UserProfileScreen(
     onToggleAttendance: (ShowEntity) -> Unit,
     onExploreCatalogClick: () -> Unit,
     onAboutCreditsClick: () -> Unit = {},
+    onBackupClick: () -> Unit = {},
+    onRestoreClick: () -> Unit = {},
     songsByShow: Map<String, List<com.example.data.model.SongEntry>> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
@@ -416,6 +418,54 @@ fun UserProfileScreen(
                             }
                         }
                     }
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onBackupClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("backup_export_button"),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Back up my data",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onRestoreClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("backup_restore_button"),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Restore from backup",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
 

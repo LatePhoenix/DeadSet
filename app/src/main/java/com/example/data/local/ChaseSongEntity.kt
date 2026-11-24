@@ -21,8 +21,14 @@ interface ChaseDao {
     @Query("SELECT * FROM chase_songs ORDER BY songName ASC")
     fun observeAll(): Flow<List<ChaseSongEntity>>
 
+    @Query("SELECT * FROM chase_songs ORDER BY songName ASC")
+    suspend fun getAllOnce(): List<ChaseSongEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun add(song: ChaseSongEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(song: ChaseSongEntity)
 
     @Query("DELETE FROM chase_songs WHERE songId = :songId")
     suspend fun remove(songId: String)

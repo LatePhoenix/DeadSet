@@ -3,8 +3,10 @@ package com.example
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -29,10 +32,14 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,8 +60,12 @@ import androidx.navigation.navArgument
 import com.example.data.almanac.AlmanacLinkIndex
 import com.example.data.almanac.AlmanacRepository
 import com.example.data.almanac.SongStoryComposer
+import com.example.data.backup.BackupDocument
+import com.example.data.backup.BackupParseResult
+import com.example.data.backup.BackupPreview
 import com.example.data.local.isUpcoming
 import com.example.data.setlist.ChaseProgress
+import com.example.data.todayIsoDate
 import com.example.ui.DeadSetViewModel
 import com.example.ui.MainTab
 import com.example.ui.components.LiveTrackerCard
@@ -76,6 +87,10 @@ import com.example.ui.theme.StealieMidnight
 import com.example.ui.theme.TextPrimaryDark
 import com.example.ui.theme.TextSecondaryDark
 import com.example.ui.theme.DeadSetThemeProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.nio.charset.Charset
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,11 +117,77 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var pendingRestore by remember { mutableStateOf<Pair<BackupDocument, BackupPreview>?>(null) }
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val json = viewModel.exportBackupJson()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    } ?: error("Could not open backup file for writing")
+                }
+                viewModel.setBackupFeedback("Backup saved.")
+            } catch (e: Exception) {
+                viewModel.setBackupFeedback("Backup failed: ${e.message ?: "unknown error"}")
+            }
+        }
+    }
+    val openBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        input.readBytes().toString(Charset.forName("UTF-8"))
+                    } ?: error("Could not read backup file")
+                }
+                when (val parsed = viewModel.parseBackup(json)) {
+                    is BackupParseResult.Ok -> {
+                        pendingRestore = parsed.document to viewModel.previewBackup(parsed.document)
+                    }
+                    is BackupParseResult.Err -> viewModel.setBackupFeedback(parsed.message)
+                }
+            } catch (e: Exception) {
+                viewModel.setBackupFeedback("Restore failed: ${e.message ?: "unknown error"}")
+            }
+        }
+    }
     val almanacLinks = remember {
         AlmanacLinkIndex(AlmanacRepository(context).loadArticles())
     }
     val articles = remember {
         AlmanacRepository(context).loadArticles()
+    }
+
+    pendingRestore?.let { (doc, preview) ->
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Restore from backup?") },
+            text = {
+                Text(
+                    "Merge into your current data (nothing is deleted):\n${preview.summaryLines()}"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRestore = null
+                        viewModel.confirmRestore(doc)
+                    },
+                    modifier = Modifier.testTag("backup_restore_confirm")
+                ) { Text("Restore") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRestore = null }) { Text("Cancel") }
+            }
+        )
     }
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
@@ -383,7 +464,13 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
                         onRemoveChase = { viewModel.removeChaseSong(it) },
                         onUpdateProfile = viewModel::updateUserProfile,
                         onToggleAttendance = viewModel::toggleAttendance,
-                        onAboutCreditsClick = viewModel::openAboutCredits
+                        onAboutCreditsClick = viewModel::openAboutCredits,
+                        onBackupClick = {
+                            createBackupLauncher.launch("deadset-backup-${todayIsoDate()}.json")
+                        },
+                        onRestoreClick = {
+                            openBackupLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        }
                     )
                 }
                 composable(

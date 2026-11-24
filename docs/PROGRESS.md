@@ -268,7 +268,8 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`). (`8b2cd8d`)
   Extracted `TriviaPanels`/`TriviaModels`, `UserProfileCards`, `StatsCharts`/`StatsMetrics`; screens already used state+lambdas (not the facade). Facade still used by `MainActivity` — no unused forwards to drop. Test: `StatsMetricsTest` for `songFrequencyProgress`.
   _Audit (Claude Code, 2026-11-23):_ safe (line-by-line compare: only change is the `maxCount <= 0` guard), but this was a **file split only**: every function moved unchanged, and the big ones are still 300–450 lines (`TriviaHubContent` 458, `ActiveQuizContent` 446, `UserProfileScreen` 407, `StatsScreen` 376, `TriviaScreen` 322). Owner decision: do the real split as **6.3b**, after 6.7 adds Compose UI tests to catch regressions.
-- [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
+- [x] **6.4 Backup/export** of user data (JSON via the system file picker). (`PENDING_HASH`)
+  `BackupManager` (org.json) + Profile Me-pane buttons (`CreateDocument`/`OpenDocument`). Tests: round trip, merge, reject malformed/wrong-format/newer-version, skip unknown show ids. No schema change.
   _Notes (Claude Code):_
   - **Export:** `ACTION_CREATE_DOCUMENT` (system picker, no storage permission), default name `deadset-backup-<todayIsoDate()>.json`. Build JSON with org.json (no new library). Top-level `format: "deadset-backup"`, `version: 1`, `exportedAt`, `appVersion`.
   - **Include all user-owned data:** `user_show_data` rows; custom shows (`isCustomShow = 1`) with their `song_performances` (setlists); `chase_songs`; `review_cards`; followed / user-added `bands`; prefs: profile, trivia progress, alerts on/off. **Exclude** catalog rows, `events` (a cache), and internal prefs (`importedCatalogVersion`, tonight-reminder date).

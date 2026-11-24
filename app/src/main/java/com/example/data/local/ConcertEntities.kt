@@ -71,11 +71,17 @@ interface ConcertDao {
     @Query("SELECT * FROM bands ORDER BY isFollowed DESC, name ASC")
     fun observeBands(): Flow<List<BandEntity>>
 
+    @Query("SELECT * FROM bands ORDER BY name ASC")
+    suspend fun getAllBands(): List<BandEntity>
+
     @Query("SELECT * FROM bands WHERE isFollowed = 1 ORDER BY name ASC")
     suspend fun followedBands(): List<BandEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertBands(bands: List<BandEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBands(bands: List<BandEntity>)
 
     @Query("UPDATE bands SET isFollowed = :followed WHERE id = :id")
     suspend fun setFollowed(id: String, followed: Boolean)

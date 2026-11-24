@@ -31,6 +31,9 @@ interface ReviewDao {
     @Query("SELECT * FROM review_cards")
     fun observeAll(): Flow<List<ReviewCardEntity>>
 
+    @Query("SELECT * FROM review_cards")
+    suspend fun getAllOnce(): List<ReviewCardEntity>
+
     @Query("SELECT * FROM review_cards WHERE cardId = :cardId LIMIT 1")
     suspend fun get(cardId: String): ReviewCardEntity?
 
