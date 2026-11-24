@@ -110,7 +110,11 @@ class ProfileViewModelTest {
         assertNull(vm.pendingRestore.value)
 
         assertTrue(vm.offerPendingRestore(json) is BackupParseResult.Ok)
-        vm.confirmPendingRestore()
+        val pending = vm.pendingRestore.value!!
+        vm.clearPendingRestore()
+        // Await import so tearDown doesn't close the DB mid-transaction (H4 flake fix).
+        vm.confirmRestoreAwait(pending.document)
         assertNull(vm.pendingRestore.value)
+        assertNotNull(ui.value.userFeedbackMessage)
     }
 }

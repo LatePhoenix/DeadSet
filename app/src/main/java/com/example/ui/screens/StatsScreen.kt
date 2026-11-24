@@ -111,13 +111,17 @@ fun StatsScreen(
                     bottom = innerPadding.calculateBottomPadding() + 80.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("stats_list")
             ) {
                 // Key Metrics Header
                 item {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("stats_metrics_row")
                     ) {
                         SummaryMetricBox(
                             value = "${stats.totalShowsCount}",

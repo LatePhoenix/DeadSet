@@ -1,15 +1,14 @@
 package com.example.ui.compose
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import com.example.data.model.DeadEra
+import com.example.ui.AttendanceFilter
+import com.example.ui.SortOrder
+import com.example.ui.screens.ConcertsUiState
+import com.example.ui.screens.LiveConcertsScreen
+import com.example.ui.screens.ShowsListScreen
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -17,11 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * 6.7: icon-only controls must expose a content description (same tags/CDs as Shows/Live).
- * Isolated buttons avoid infinite dancing-bear animations that never idle under Robolectric
- * when mounting full Screens (CodeRabbit: production mounts deferred for that reason).
- */
+/** H4: icon-only CDs on real [ShowsListScreen] and [LiveConcertsScreen]. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class IconOnlyAccessibilityComposeTest {
@@ -37,13 +32,23 @@ class IconOnlyAccessibilityComposeTest {
     @Test
     fun `add show icon button exposes content description`() {
         composeRule.setContent {
-            IconButton(
-                onClick = {},
-                modifier = Modifier.testTag("add_show_button")
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Show")
-            }
+            ShowsListScreen(
+                shows = emptyList(),
+                searchQuery = "",
+                onSearchChange = {},
+                selectedEra = DeadEra.ALL,
+                onEraSelected = {},
+                attendanceFilter = AttendanceFilter.ALL,
+                onAttendanceFilterChanged = {},
+                sortOrder = SortOrder.DATE_DESC,
+                onSortOrderChanged = {},
+                selectedSegueFilter = null,
+                onClearSegueFilter = {},
+                onShowClick = {},
+                onAddShowClick = {}
+            )
         }
+        composeRule.advanceUi()
         composeRule.onNodeWithTag("add_show_button")
             .assertContentDescriptionEquals("Add Show")
     }
@@ -51,13 +56,15 @@ class IconOnlyAccessibilityComposeTest {
     @Test
     fun `refresh concerts icon button exposes content description`() {
         composeRule.setContent {
-            IconButton(
-                onClick = {},
-                modifier = Modifier.testTag("refresh_concerts_button")
-            ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Refresh dates")
-            }
+            LiveConcertsScreen(
+                state = ConcertsUiState(),
+                onRefresh = {},
+                onAddBand = {},
+                onSetFollowed = { _, _ -> },
+                onRemoveBand = {}
+            )
         }
+        composeRule.advanceUi(200)
         composeRule.onNodeWithTag("refresh_concerts_button")
             .assertContentDescriptionEquals("Refresh dates")
     }
