@@ -313,7 +313,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
 ### 2026-11-24 · Cursor (H3 + 6.7 — audit pause)
-- H3 merged (#54, `4e66adb`). 6.7 (PR #55): MockWebServer concerts; Compose panel/isolated UI tests (pause infinite anims); a11y headings/48dp. Full-screen bear-anim screens avoided under Robolectric.
+- H3 merged (#54, feature `4e66adb`, merge `e64a96f`). 6.7 merged (#55, feature `eab4e3b` + CR `b0308c5`, merge `3fdc5dd`): MockWebServer concerts; Compose panel/isolated UI tests (`mainClock.autoAdvance = false`); a11y headings/48dp. Full-screen bear-anim screens avoided under Robolectric.
 - **HARD STOP after 6.7:** do not start 6.3b / 6.6 / A5 / keys / CF. Owner + Claude Code audit next.
 
 ### 2026-11-24 · Cursor (H3 — widget/share/restore)
