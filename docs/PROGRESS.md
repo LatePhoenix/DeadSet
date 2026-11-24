@@ -24,14 +24,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **H1 and 6.3 merged; the audit is back (2026-11-23).** H1 is good. 6.3 only moved functions into new files (no function was split); the real split is deferred to **6.3b**, after 6.7 adds Compose UI tests. Next is 6.4. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **6.4 merged; the audit is back (2026-11-23).** Backup and restore work (176/176 tests pass), but restore can overwrite newer data on the phone and doesn't apply the alerts setting. Fix that in **H2**, then do 6.5. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**6.4**~~ — **done.** **Paused for owner / Claude Code audit** (user-data path). Do **not** start 6.5 until the owner returns with audit results.
-2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **H2** Restore fixes (see under 6.4 in Phase 6).
+2. **6.5** Share cards, home-screen widget, accessibility pass.
+3. **HARD STOP after 6.5** for the next Claude Code audit. Do not start 6.6, 6.7 or 6.3b.
+4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.4) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.5) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -276,7 +278,21 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - Put the logic in a plain class (e.g. `data/backup/BackupManager`) so it's unit-testable without the UI. Tests: round trip (export → wipe in-memory DB → import → same data); import into a DB that already has data (merge, nothing lost); malformed / wrong-format / newer-version file rejected with no writes; unknown show ids skipped.
   - No schema change expected. If one is needed, it gets a migration plus a `MigrationTest` case.
   - UI: two entries on the Me → Profile pane ("Back up my data", "Restore from backup"), plus a feedback message with the result. Don't change other screens.
+  _Audit (Claude Code, 2026-11-23):_ safe to keep: validation before writes, one transaction, upsert without cascade deletes, safe enum parsing; CI green, 176/176 on a fresh run of `603e7f7`. But restore replaces matching local data with the backup's copy (the dialog says "nothing is deleted"), and alerts restored as "on" aren't scheduled. Fix in H2:
+- [ ] **H2 Restore fixes (6.4 audit).** All in `BackupManager`, `ProfileViewModel`, `FeatureViewModelFactory`/`DeadSetViewModel` and `MainActivity`; no schema change.
+  - **Trivia progress must merge, not overwrite.** Today `saveTriviaProgress(doc.prefs.triviaProgress)` replaces it, so points and badges earned after the backup are lost. Merge field by field: `max` of `totalAnswered`, `totalCorrect`, `bestStreak`, `totalPoints`, `quizzesCompleted`; the later of the two `dailyCompletedDate` values (ISO strings compare correctly; blank loses); union of `unlockedBadgeIds`; `currentStreak` comes from whichever side has the later `dailyCompletedDate` (local wins a tie). Put this in a pure function with its own test.
+  - **Segue School cards:** when a card exists on both sides, keep the copy with the later `lastReviewedDate` (higher `timesSeen` breaks a tie), not always the backup's.
+  - **Everything else that matches** (show reviews/ratings, custom-show setlists, chase rows, bands, profile) keeps "backup wins", but say so honestly. Change the confirm dialog to: "Items in this backup replace the matching items on this phone. Nothing else is changed or deleted." Keep the counts.
+  - **Alerts:** after a successful restore, apply the restored alerts setting for real: wire `ProfileViewModel.onBackupImported` (the factory never passes it today) so it calls `concertsVm.setAlertsEnabled(userPrefs.alertsEnabled())`, which schedules or cancels the worker and updates the Live tab switch.
+  - **Hardening:** skip any backup "custom show" whose id already exists as a non-custom catalog show (don't overwrite catalog rows or their setlists); count it with the other skipped items in the result message.
+  - **Minor:** cap the file read at 5 MB with a clear "file too large" message; keep the pending-restore dialog across rotation (`rememberSaveable` with the raw JSON, or hold it in the ViewModel); write prefs after the Room transaction commits, not inside it.
+  - **Tests** (`BackupManagerTest`): the same show, card and trivia progress exist on both sides (overlap), checking the rule for each; trivia merge keeps the higher points and the union of badges; a custom-show id that collides with a catalog id is skipped and the catalog setlist is unchanged; oversize input rejected with no writes. A Robolectric or VM test that restore with alerts on calls the concerts VM.
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
+  _Notes (Claude Code):_ (plan: IMPROVEMENT_PLAN.md "Share cards" / "Home-screen widget")
+  - **Share cards:** render a setlist card from Show detail and a trivia-score card from the Almanac results screen to a bitmap, write it to `cacheDir` and share through a `FileProvider` with `ACTION_SEND` (no storage permission). Every fact on a card comes from the app's data; credit "Setlist data: gdshowsdb / Deadlists" in small text on setlist cards. "My year in Dead" can wait.
+  - **Widget:** one "Today in Dead History" widget (shows played on today's month-day, from the catalog, using `todayIsoDate()`); tap opens the app. Prefer a plain `AppWidgetProvider` + `RemoteViews` refreshed once a day; if you pick Glance instead, note why (new dependency). If no show matches today, say so; don't fill the gap.
+  - **Accessibility:** content descriptions on icon-only buttons, 48 dp touch targets, headings marked with `semantics { heading() }`, and no information carried by color alone. Check with Android Studio's accessibility scanner where you can and list what you fixed.
+  - Tests: unit-test the "today in history" query and the card text builders (pure functions). No schema change expected.
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
 - [ ] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows.
 - [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
@@ -286,6 +302,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (audit of 6.4)
+- 6.4 is safe to keep (176/176 on `603e7f7`, CI green, no CodeRabbit findings). Restore overwrites matching local data (trivia progress wholesale) despite the "nothing is deleted" dialog, and restored alerts aren't scheduled. Added **H2** under 6.4 and notes under 6.5. Audit pause lifted.
+- **Next (Cursor):** H2 → 6.5, then **hard stop after 6.5** for the next audit.
 
 ### 2026-11-23 · Cursor (6.4 backup/export — audit pause)
 - PR pending: `BackupManager` + Me→Profile Back up / Restore (`7309acb`).
