@@ -24,14 +24,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **6.4 merged; the audit is back (2026-11-23).** Backup and restore work (176/176 tests pass), but restore can overwrite newer data on the phone and doesn't apply the alerts setting. Fix that in **H2**, then do 6.5. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H2 and 6.5 merged; the audit is back (2026-11-24).** Both are safe to keep (194 tests pass). The widget lists custom/tribute shows as Dead history and the restore dialog can crash on a large backup: fix in **H3**, then do 6.7. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**H2 → 6.5**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.6, 6.7 or 6.3b until the owner returns with audit results.
-2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **H3** Widget, share-card and restore-dialog fixes (see after 6.5 in Phase 6).
+2. **6.7** Test coverage + finish the accessibility pass (see notes under 6.7).
+3. **HARD STOP after 6.7** for the next Claude Code audit. Do not start 6.3b (it starts after that audit), 6.6, A5, C4 or key/Cloudflare work.
+4. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.5) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.7) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -285,8 +287,25 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - **Widget:** one "Today in Dead History" widget (shows played on today's month-day, from the catalog, using `todayIsoDate()`); tap opens the app. Prefer a plain `AppWidgetProvider` + `RemoteViews` refreshed once a day; if you pick Glance instead, note why (new dependency). If no show matches today, say so; don't fill the gap. _Decision:_ AppWidgetProvider (no new dependency).
   - **Accessibility:** content descriptions on icon-only buttons, 48 dp touch targets, headings marked with `semantics { heading() }`, and no information carried by color alone. Check with Android Studio's accessibility scanner where you can and list what you fixed. _Fixed:_ Share/Back/Delete min 48dp; attendance chip CD; detail date + trivia summary headings; widget contentDescription.
   - Tests: unit-test the "today in history" query and the card text builders (pure functions). No schema change expected.
+  _Audit of H2 + 6.5 (Claude Code, 2026-11-24):_ both safe to keep; CI green, CodeRabbit summaries only; fresh run of `e40b8df` 194 tests, 0 failures (1 skipped: `CatalogPerfTest` needs the generated `catalog.db`). H2 matches its notes. Fix in H3:
+- [ ] **H3 Widget, share-card and restore-dialog fixes (H2/6.5 audit).** No schema change.
+  - **Widget shows only catalog shows.** `TodayInDeadHistoryWidget` reads `getAllShowsOnce()` (the whole `shows_with_user` view, custom shows included), so a user's tribute gig (e.g. a Terrapin Flyer show) appears as "date · venue" under "Today in Dead History". Add a DAO query that returns only `isCustomShow = 0` rows whose month-day matches (`substr(date, 6, 5) = :monthDay`), ordered by date, and use it; keep `showsOnMonthDay` for tests or drop it.
+  - **Widget runs off the main thread.** `onUpdate` uses `runBlocking` on the main thread and loads every show. Use `goAsync()` plus a coroutine on `Dispatchers.IO` (call `finish()` in `finally`), with the SQL query above.
+  - **Widget shows today's date, not the date it was placed.** `updatePeriodMillis = 86400000` refreshes 24 h after placement, so it can show yesterday's shows most of the day. Set an inexact `AlarmManager` alarm (`setAndAllowWhileIdle` or plain `set`, no exact-alarm permission) for just after local midnight that broadcasts `APPWIDGET_UPDATE` to the widget's ids and re-arms itself, and also refresh all widgets when the app starts (e.g. from `MainActivity.onCreate` or `Application`). Keep `updatePeriodMillis` as a fallback.
+  - **Setlist card credit only on catalog shows.** `buildSetlistShareLines` adds "Setlist data: gdshowsdb / Deadlists" to custom shows too, crediting a user-entered setlist to gdshowsdb. Credit only when `!show.isCustomShow`; custom shows get no data credit (the band line already comes from the user's entry).
+  - **Restore dialog: keep the pending backup in the ViewModel, not saved state.** `rememberSaveable` holds the raw JSON (up to 5 MB) in the saved-instance bundle (~1 MB limit), so rotating or leaving the app with the dialog open can crash with `TransactionTooLargeException`. Hold the parsed `BackupDocument` + preview in `ProfileViewModel` (a `StateFlow<PendingRestore?>`), set it after a successful parse, clear it on Restore/Cancel. That also survives rotation.
+  - **Minor:**
+    - Share cards: wrap long lines to the card width (measure with `Paint.measureText`, break at spaces) instead of clipping; delete old files in `cacheDir/share_cards` before writing a new one.
+    - Backup read: stop reading once more than `BACKUP_MAX_BYTES` have been read (bounded loop), so a huge file never loads fully into memory.
+    - Restore result: count review cards actually taken from the backup (not ones where the local copy was kept), and say "kept N newer cards on this phone" when N > 0.
+  - **Tests:** the DAO query returns catalog shows for the month-day and excludes custom shows (Robolectric/in-memory Room); `buildSetlistShareLines` has the credit for a catalog show and not for a custom show; line wrapping keeps every word (pure function); the bounded read rejects input one byte over the limit; restore feedback counts kept vs restored cards; `ProfileViewModel` pending-restore state is set on parse and cleared on confirm/cancel.
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
 - [ ] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows.
+  _Notes (Claude Code):_
+  - **Compose UI tests** (Robolectric + `createComposeRule`, so they run in `testDebugUnitTest` on CI; no emulator): cover the flows 6.3b will touch — Trivia hub → start quiz → answer → summary; Me → Profile edit and save; Stats pane renders with data and with none; Shows list → filter → open detail → toggle attendance; restore dialog confirm/cancel. Use the existing `testTag`s; add tags where needed (no visual change).
+  - **MockWebServer** (OkHttp's, test-only dependency) for the concerts proxy client and the setlist.fm fetch: success, empty, HTTP error, malformed JSON. Point the clients at the server's URL through their existing base-URL parameter, or add one.
+  - **Finish the accessibility pass** from 6.5 on the screens it skipped (Shows list, Live, Segues, Almanac hub, Me): content descriptions on icon-only buttons, 48 dp targets, headings. Add a Compose test that asserts icon-only buttons on these screens have a content description. List what you changed under this step.
+  - Tests only plus a11y fixes; no behavior changes. If a test exposes a real bug, fix it in its own commit and note it here.
 - [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
 
 ---
@@ -294,6 +313,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Claude Code (audit of H2, 6.5)
+- H2 and 6.5 safe to keep (fresh run of `e40b8df`: 194 tests, 0 failures, 1 skipped for the missing `catalog.db`; CI green; CodeRabbit summaries only). Widget includes custom/tribute shows and blocks the main thread; restore dialog's `rememberSaveable` JSON can exceed the saved-state limit; setlist credit appears on custom shows. Added **H3** after 6.5 and notes under 6.7. Audit pause lifted.
+- **Next (Cursor):** H3 → 6.7, then **hard stop after 6.7** for the next audit.
 
 ### 2026-11-23 · Cursor (H2 + 6.5 — audit pause)
 - H2 merged (#51, `8e4fb60`): trivia/card merge, catalog collision skip, alerts wiring, 5 MB cap.
