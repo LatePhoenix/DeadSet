@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -219,7 +221,8 @@ fun ShowsListScreen(
                                     color = TextPrimaryDark,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 BerthaRose(size = 18.dp)
@@ -264,7 +267,9 @@ fun ShowsListScreen(
                                 containerColor = StealieGold.copy(alpha = 0.15f),
                                 contentColor = StealieGold
                             ),
-                            modifier = Modifier.testTag("add_show_button")
+                            modifier = Modifier
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                .testTag("add_show_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Add,

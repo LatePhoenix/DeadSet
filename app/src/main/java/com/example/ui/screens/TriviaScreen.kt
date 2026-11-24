@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -153,7 +155,7 @@ fun TriviaScreen(
                             IconButton(
                                 onClick = { stage = TriviaStage.HUB },
                                 modifier = Modifier
-                                    .size(38.dp)
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                     .testTag("trivia_back_button")
                             ) {
                                 Icon(
@@ -177,7 +179,8 @@ fun TriviaScreen(
                                 },
                                 color = TextPrimaryDark,
                                 fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = triviaProgress.rankTitle,

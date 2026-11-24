@@ -11,12 +11,14 @@ class BoundedBackupReadTest {
 
     @Test
     fun `bounded read accepts exact limit and rejects one byte over`() {
-        val under = ByteArray(BACKUP_MAX_BYTES) { 'a'.code.toByte() }
-        val ok = readBoundedUtf8(ByteArrayInputStream(under), BACKUP_MAX_BYTES)
-        assertEquals(BACKUP_MAX_BYTES, ok!!.toByteArray(Charsets.UTF_8).size)
+        val limit = 64
+        val under = ByteArray(limit) { 'a'.code.toByte() }
+        val ok = readBoundedUtf8(ByteArrayInputStream(under), limit)
+        assertEquals(limit, ok!!.toByteArray(Charsets.UTF_8).size)
 
-        val over = ByteArray(BACKUP_MAX_BYTES + 1) { 'b'.code.toByte() }
-        assertNull(readBoundedUtf8(ByteArrayInputStream(over), BACKUP_MAX_BYTES))
+        val over = ByteArray(limit + 1) { 'b'.code.toByte() }
+        assertNull(readBoundedUtf8(ByteArrayInputStream(over), limit))
+        assertTrue(BACKUP_MAX_BYTES == 5 * 1024 * 1024)
     }
 
     @Test
@@ -28,6 +30,5 @@ class BoundedBackupReadTest {
             maxBytes = 5
         )
         assertEquals("hi", ok)
-        assertTrue(BACKUP_MAX_BYTES == 5 * 1024 * 1024)
     }
 }
