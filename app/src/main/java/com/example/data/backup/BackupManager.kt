@@ -115,18 +115,29 @@ class BackupManager(
 
     /**
      * Upserts validated backup data in one Room transaction. Never deletes existing rows.
-     * Skips [UserShowDataEntity] whose show id is not in the catalog (counts them).
+     * Skips [UserShowDataEntity] whose show id is not in the catalog, and custom shows whose
+     * id already exists as a non-custom catalog show (H2). Prefs are written after the
+     * transaction commits. Trivia progress and review cards are merged with local values.
      */
     suspend fun importDocument(doc: BackupDocument): BackupImportResult = withContext(Dispatchers.IO) {
-        var skipped = 0
+        var skippedUnknown = 0
+        var skippedCollisions = 0
         var userUpserts = 0
         var customUpserts = 0
         var chaseUpserts = 0
         var reviewUpserts = 0
         var bandUpserts = 0
+        val localTriviaBefore = prefs.loadTriviaProgress()
+        val backupAlerts = doc.prefs.alertsEnabled
+        val backupProfile = doc.prefs.profile
+        val backupTrivia = doc.prefs.triviaProgress
 
         database.withTransaction {
             for (custom in doc.customShows) {
+                if (showDao.isNonCustomCatalogShow(custom.catalog.id)) {
+                    skippedCollisions++
+                    continue
+                }
                 showDao.upsertCatalog(custom.catalog.copy(isCustomShow = true))
                 ensureSongsForPerformances(custom.performances)
                 showDao.replaceSongPerformances(
@@ -139,9 +150,10 @@ class BackupManager(
             val knownIds = showDao.getAllShowIds().toHashSet()
             for (row in doc.userShowData) {
                 if (row.showId !in knownIds) {
-                    skipped++
+                    skippedUnknown++
                     continue
                 }
+                // Matching show reviews/ratings: backup wins (H2).
                 showDao.upsertUserData(row)
                 userUpserts++
             }
@@ -151,18 +163,20 @@ class BackupManager(
                 chaseUpserts++
             }
             for (card in doc.reviewCards) {
-                reviewDao.upsert(card)
+                val chosen = preferReviewCard(reviewDao.get(card.cardId), card)
+                reviewDao.upsert(chosen)
                 reviewUpserts++
             }
             if (doc.bands.isNotEmpty()) {
                 concertDao.upsertBands(doc.bands)
                 bandUpserts = doc.bands.size
             }
-
-            doc.prefs.profile?.let { prefs.saveProfile(it) }
-            prefs.saveTriviaProgress(doc.prefs.triviaProgress)
-            prefs.setAlertsEnabled(doc.prefs.alertsEnabled)
         }
+
+        // Prefs after Room commits (H2): merge trivia; profile + alerts still backup-wins.
+        backupProfile?.let { prefs.saveProfile(it) }
+        prefs.saveTriviaProgress(mergeTriviaProgress(localTriviaBefore, backupTrivia))
+        prefs.setAlertsEnabled(backupAlerts)
 
         BackupImportResult(
             userShowDataUpserted = userUpserts,
@@ -170,7 +184,8 @@ class BackupManager(
             chaseSongsUpserted = chaseUpserts,
             reviewCardsUpserted = reviewUpserts,
             bandsUpserted = bandUpserts,
-            skippedUnknownShowIds = skipped
+            skippedUnknownShowIds = skippedUnknown,
+            skippedCatalogCollisions = skippedCollisions
         )
     }
 

@@ -100,6 +100,9 @@ interface ShowDao {
     @Query("SELECT EXISTS(SELECT 1 FROM shows WHERE id = :id)")
     suspend fun showExists(id: String): Boolean
 
+    @Query("SELECT EXISTS(SELECT 1 FROM shows WHERE id = :id AND isCustomShow = 0)")
+    suspend fun isNonCustomCatalogShow(id: String): Boolean
+
     /**
      * Insert-or-update catalog + user rows. Upsert (not REPLACE) so FKs on song_performances
      * are not cascade-deleted.

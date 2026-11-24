@@ -122,6 +122,10 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         featureFactory.onHomeCityChanged = { city -> concertsVm.locateHome(city) }
+        // H2: restored alerts must schedule/cancel the worker and update the Live switch.
+        featureFactory.onBackupImported = {
+            concertsVm.setAlertsEnabled(container.userPrefs.alertsEnabled())
+        }
         concertsVm.locateHome(_uiState.value.userProfile.homeCity)
     }
 
@@ -212,6 +216,9 @@ class FeatureViewModelFactory(
     /** Set after [ConcertsViewModel] exists so profile home-city edits geocode. */
     var onHomeCityChanged: (String) -> Unit = {}
 
+    /** Set after [ConcertsViewModel] exists so restore reapplies alerts (H2). */
+    var onBackupImported: () -> Unit = {}
+
     private fun navigation(): NavigationViewModel =
         navigationVm ?: NavigationViewModel(ui).also { navigationVm = it }
 
@@ -246,7 +253,8 @@ class FeatureViewModelFactory(
                 userPrefs = container.userPrefs,
                 backupManager = container.backupManager,
                 ui = ui,
-                onHomeCityChanged = { city -> onHomeCityChanged(city) }
+                onHomeCityChanged = { city -> onHomeCityChanged(city) },
+                onBackupImported = { onBackupImported() }
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }

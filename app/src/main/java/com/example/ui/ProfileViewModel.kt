@@ -53,12 +53,15 @@ class ProfileViewModel(
     fun previewBackup(doc: BackupDocument): BackupPreview = backupManager.preview(doc)
 
     fun confirmRestore(doc: BackupDocument) {
-        viewModelScope.launch {
-            val result = backupManager.importDocument(doc)
-            applyImportedPrefsToUi()
-            onBackupImported()
-            setFeedbackMessage(result.feedbackMessage())
-        }
+        viewModelScope.launch { confirmRestoreAwait(doc) }
+    }
+
+    /** Suspend entry for tests (H2 alerts wiring) and the ViewModel launch path. */
+    suspend fun confirmRestoreAwait(doc: BackupDocument) {
+        val result = backupManager.importDocument(doc)
+        applyImportedPrefsToUi()
+        onBackupImported()
+        setFeedbackMessage(result.feedbackMessage())
     }
 
     private fun applyImportedPrefsToUi() {
