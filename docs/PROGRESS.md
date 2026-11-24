@@ -24,14 +24,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **G1, G2 and 6.2 merged; the audit is back (2026-11-23).** No blocking issues; one test-only fix, **H1** (end of Phase 2c). Do it, then 6.3. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H1 and 6.3 merged; the audit is back (2026-11-23).** H1 is good. 6.3 only moved functions into new files (no function was split); the real split is deferred to **6.3b**, after 6.7 adds Compose UI tests. Next is 6.4. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**H1 → 6.3**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.4 until the owner returns with audit results.
-2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **6.4** Backup/export of user data (see the notes under 6.4).
+2. **HARD STOP after 6.4 merges** for the next owner / Claude Code audit (it touches user data). Do **not** start 6.5.
+3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+4. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.4) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -266,16 +267,30 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (`4c64fb5`) `AppContainer` + Shows/Concerts/Chase/Navigation/Trivia/Profile ViewModels; `DeadSetViewModel` facade keeps MainActivity API. Tests per feature VM + `ShowCatalogFilters`.
 - [x] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`). (`8b2cd8d`)
   Extracted `TriviaPanels`/`TriviaModels`, `UserProfileCards`, `StatsCharts`/`StatsMetrics`; screens already used state+lambdas (not the facade). Facade still used by `MainActivity` — no unused forwards to drop. Test: `StatsMetricsTest` for `songFrequencyProgress`.
+  _Audit (Claude Code, 2026-11-23):_ safe (line-by-line compare: only change is the `maxCount <= 0` guard), but this was a **file split only**: every function moved unchanged, and the big ones are still 300–450 lines (`TriviaHubContent` 458, `ActiveQuizContent` 446, `UserProfileScreen` 407, `StatsScreen` 376, `TriviaScreen` 322). Owner decision: do the real split as **6.3b**, after 6.7 adds Compose UI tests to catch regressions.
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
+  _Notes (Claude Code):_
+  - **Export:** `ACTION_CREATE_DOCUMENT` (system picker, no storage permission), default name `deadset-backup-<todayIsoDate()>.json`. Build JSON with org.json (no new library). Top-level `format: "deadset-backup"`, `version: 1`, `exportedAt`, `appVersion`.
+  - **Include all user-owned data:** `user_show_data` rows; custom shows (`isCustomShow = 1`) with their `song_performances` (setlists); `chase_songs`; `review_cards`; followed / user-added `bands`; prefs: profile, trivia progress, alerts on/off. **Exclude** catalog rows, `events` (a cache), and internal prefs (`importedCatalogVersion`, tonight-reminder date).
+  - **Import:** `ACTION_OPEN_DOCUMENT`, then validate before writing anything (format, version ≤ supported, required fields); reject a bad file with a clear message and change nothing. Show a confirm dialog with counts ("12 attended shows, 3 custom shows, …") before writing. Merge by key (upsert), never delete existing data. Write in one `withTransaction`. User data for a catalog show id that isn't in the catalog is skipped and counted in the result message; don't invent catalog rows.
+  - Put the logic in a plain class (e.g. `data/backup/BackupManager`) so it's unit-testable without the UI. Tests: round trip (export → wipe in-memory DB → import → same data); import into a DB that already has data (merge, nothing lost); malformed / wrong-format / newer-version file rejected with no writes; unknown show ids skipped.
+  - No schema change expected. If one is needed, it gets a migration plus a `MigrationTest` case.
+  - UI: two entries on the Me → Profile pane ("Back up my data", "Restore from backup"), plus a feedback message with the result. Don't change other screens.
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
 - [ ] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows.
+- [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
 
 ---
 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (audit of H1, 6.3)
+- PRs #46–#47 merged on green `test`; CodeRabbit's 2 findings on #46 were fixed before merge. Fresh local run: 172/172 pass on `a464802`.
+- H1 good. 6.3 is safe but only moved functions between files; owner deferred the real split to **6.3b** (after 6.7). Added implementation notes under 6.4. Audit pause lifted.
+- **Next (Cursor):** 6.4, then **hard stop after 6.4** for the next audit.
 
 ### 2026-11-23 · Cursor (H1 + 6.3 — audit pause)
 - H1 #46 merged (`9e759bd` feature; CR findings fixed with ViewModelStore.clear + nonmatching show).
