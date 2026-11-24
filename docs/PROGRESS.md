@@ -24,14 +24,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **H3 and 6.7 merged; paused for audit (2026-11-24).** Widget/share/restore fixes + test coverage / a11y pass. Do not start 6.3b until the audit returns. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H3 and 6.7 merged; the audit is back (2026-11-24).** H3 is good. 6.7's fake-server tests are good, but most of its "UI tests" exercise copies of the UI written inside the test, not the app's screens, and the restore-confirm test is flaky. Fix in **H4** (real-screen tests), then do **6.3b** on top of them. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**H3 → 6.7**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.3b, 6.6, A5, C4 or key/Cloudflare work until the owner returns with audit results.
-2. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **H4** Real-screen Compose UI tests + flaky restore test (see after 6.7 in Phase 6).
+2. **6.3b** Real split of the large composables, with H4's tests green before and after.
+3. **HARD STOP after 6.3b** for the next Claude Code audit. Do not start 6.6, A5, C4 or key/Cloudflare work.
+4. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.7) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3b) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -304,13 +306,28 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - **Compose UI tests** (Robolectric + `createComposeRule`, `mainClock.autoAdvance = false`): `ActiveQuizContent` / `QuizSummaryContent`; `StatsScreen` empty+data; restore confirm/cancel dialog wired to `ProfileViewModel.pendingRestore`; profile handle save (isolated fields); attendance toggle chip; icon-only CD assertions on the same tags as Shows/Live. **Deviation:** full-screen mounts that include `rememberInfiniteTransition` (dancing bears) never idle under Espresso — use panels / isolated controls instead of `TriviaScreen` / `ShowsListScreen` / `UserProfileScreen` / `LiveConcertsScreen`.
   - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar.
   - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests.
-- [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
+  _Audit (Claude Code, 2026-11-24):_ MockWebServer tests and a11y fixes are good. But the profile-edit, attendance-toggle, restore-dialog and icon-CD "Compose tests" build their own `OutlinedTextField`/`FilterChip`/`AlertDialog`/`IconButton` inside the test, so they'd pass even if the real screens broke. Only `ActiveQuizContent`, `QuizSummaryContent` and `StatsScreen` (title only) are mounted for real. The "full screens never idle" deviation doesn't hold: Claude Code mounted the real `UserProfileScreen` (dancing bears included) with `mainClock.autoAdvance = false`, clicked `edit_profile_button`, replaced `profile_handle_input`, clicked `save_profile_button`, and `onUpdateProfile` received the new handle. Also: `RestoreDialogComposeTest.confirm clears pending restore` is flaky (failed once in a full fresh run of `febed47`, passed 3 isolated reruns): `confirmPendingRestore()` launches the import, and `tearDown` closes the in-memory DB before it finishes ("database ':memory:' is not open").
+- [ ] **H4 Real-screen Compose UI tests (6.7 audit).** Test-only, except the one dialog extraction below. No behavior or visual changes.
+  - **Pattern:** Robolectric + `createComposeRule`, `mainClock.autoAdvance = false`, then `mainClock.advanceTimeBy(…)` after each action (this works with the dancing bears). For items further down a `LazyColumn`, scroll the list itself (give the `LazyColumn` a `testTag`, e.g. `user_profile_list`, and use `performScrollToNode`, advancing the clock between steps; or temporarily set `autoAdvance = true` around the scroll). Write a small helper for this in `ComposeTestHelpers.kt`.
+  - **Replace the stand-in tests** with tests of the real composables (delete the stand-ins):
+    - `UserProfileScreen`: edit → change handle → save calls `onUpdateProfile` with the new handle; Back up / Restore buttons call `onBackupClick` / `onRestoreClick` (needs the scroll helper); empty attended list shows its empty state.
+    - Show detail: mount the real `ShowDetailScreen` with a catalog show and a custom show; the attendance chip calls `onToggleAttendance`; share and back buttons have content descriptions; delete appears only for custom shows.
+    - Icon-only content descriptions: mount the real `ShowsListScreen` and `LiveConcertsScreen` (or the smallest real composable that contains `add_show_button` / `refresh_concerts_button`) and assert the descriptions there.
+  - **Restore dialog:** move the inline `AlertDialog` in `MainActivity` into `ui/components/RestoreConfirmDialog.kt` (`RestoreConfirmDialog(pending, onConfirm, onDismiss)`), use it from `MainActivity` unchanged in look and wording, and test that composable directly: shows the "replace the matching items" wording and the counts; Restore and Cancel call the right callbacks.
+  - **Fix the flaky test:** the test that confirms a restore must wait for the import to finish before `tearDown` closes the DB (e.g. call `confirmRestoreAwait` in `runTest`, or wait until the feedback message appears), and clear the ViewModel (or cancel its scope) in `tearDown`. Run the full suite 3 times in a row locally; all three must pass.
+  - **Cover the 6.3b targets that have no real test yet:** `TriviaHubContent` (renders mode cards; tapping a mode calls its start callback), `TriviaScreen` (hub → start quiz → first question shows → answer → summary, driven through the real screen with a seeded deck), and `StatsScreen` with data (assert a few real values render, e.g. total shows and top song, not just the title).
+  - Update the 6.7 "_As built_" note to say what is and isn't covered after H4.
+- [ ] **6.3b Real split of the large composables** (after H4's real-screen tests exist and pass). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the H4 and 6.7 UI tests must pass before and after, unchanged, and add UI tests for any flow they don't cover yet.
 
 ---
 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Claude Code (audit of H3, 6.7)
+- H3 good. 6.7: MockWebServer + a11y good; most "Compose tests" test stand-in UI built in the test, not the real screens; full-screen mounts do work with a paused clock (verified on `UserProfileScreen`); `RestoreDialogComposeTest` confirm case is flaky (DB closed before the import finishes). Fresh run of `febed47`: 217 tests, 1 flaky failure, 1 skipped (`catalog.db`). Added **H4** after 6.7. Audit pause lifted.
+- **Next (Cursor):** H4 → 6.3b, then **hard stop after 6.3b** for the next audit.
 
 ### 2026-11-24 · Cursor (H3 + 6.7 — audit pause)
 - H3 merged (#54, feature `4e66adb`, merge `e64a96f`). 6.7 merged (#55, feature `eab4e3b` + CR `b0308c5`, merge `3fdc5dd`): MockWebServer concerts; Compose panel/isolated UI tests (`mainClock.autoAdvance = false`); a11y headings/48dp. Full-screen bear-anim screens avoided under Robolectric.
