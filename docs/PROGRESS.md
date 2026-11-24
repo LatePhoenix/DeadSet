@@ -24,14 +24,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **H4 and 6.3b done; paused for audit (2026-11-24).** Real-screen Compose tests + large composable split. Do not start 6.6 until the audit returns. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H4 and 6.3b merged; audit back (2026-11-24).** 6.3b is a clean behavior-preserving split. H4 changed the quiz layout (Next can be unreachable) and merged past a posted CodeRabbit Major finding. **H5** fixes that plus a new flaky test. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**H4 → 6.3b**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.6, A5, C4 or key/Cloudflare work until the owner returns with audit results.
-2. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **H5** Audit fixes for H4/6.3b (Phase 6, after 6.3b).
+2. **HARD STOP after H5** for Claude Code audit. Do **not** start 6.6, A5, C4 or key/Cloudflare work.
+3. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+4. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3b) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after H5) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -311,7 +312,8 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - Helpers: `pauseInfiniteAnimations` / `advanceUi` / `scrollListToTag` / `clickTag`. List tags: `user_profile_list`, `trivia_hub_list`, `stats_list`.
   - `RestoreConfirmDialog` extracted from `MainActivity` (same wording); dialog tests assert replace-copy + counts + callbacks. Flaky VM confirm uses `confirmRestoreAwait` in `ProfileViewModelTest`.
   - Quiz explanation + Next moved out of `ActiveQuizContent`'s `LazyColumn` (virtualization hid them under Robolectric); options use `Surface(onClick=…)`. Full suite `--rerun-tasks` ×3 green locally.
-- [x] **6.3b Real split of the large composables** ($feat). No UI or behavior changes; H4 Compose tests pass unchanged.
+  _Audit (Claude Code, 2026-11-24):_ tests now mount real screens and the dialog extraction is faithful. **But** the quiz-layout change is a production behavior change the step ruled out: explanation + Next are pinned below the list with no scroll, so a long liner note, large font or short screen can push Next off-screen and strand the quiz; the reveal animation was dropped and list bottom padding went 88→16 dp. CodeRabbit posted this as **Major** 6 s before merge and it was not fixed (merge-rule breach). Its Minor finding is also valid: no test calls `confirmPendingRestore()` any more. A UTF-8 BOM was added to `TriviaPanels.kt`. Fixed in **H5**.
+- [x] **6.3b Real split of the large composables** (`b7bf859`). No UI or behavior changes; H4 Compose tests pass unchanged.
   _Line counts (entrypoint functions):_
   | Entrypoint | Before | After |
   |---|---:|---:|
@@ -321,12 +323,23 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   | StatsScreen | 380 | 98 |
   | TriviaScreen | 322 | 144 |
   _Extracted into_ TriviaPanels / UserProfileCards / StatsCharts section composables (rank/filters/badges, quiz status/question/lifelines/options/explanation, profile list/top bar/empty/actions, stats top bar/era/song/openers cards).
+  _Audit (Claude Code, 2026-11-24):_ behavior-preserving. Normalized line compare of all six files before/after leaves only moved parameters and hoisted-state callbacks; quiz answer/lifeline/finish logic matches the old code step for step; no test files touched. Still over 150 lines but outside 6.3b's five targets (pre-existing, informational only): `EraSongFrequencyBarChartCard` 273, `QuizSummaryContent` 260, `VisualAttendanceCounterSummaryCard` 241, `EraFrequencyVerticalBarChart` 196, `BackstageLaminateCard` 165. Fresh run of `7ea8ecb` ×3: 223 tests, 1 skipped (`catalog.db`); runs 1–2 green, run 3 failed `ConcertsViewModelTest` "starts with alerts disabled…" (`Dispatchers.Main is used concurrently with setting it` in `tearDown`'s `resetMain`): a pre-existing flake, fixed in **H5**.
+- [ ] **H5 Audit fixes for H4/6.3b.**
+  1. **Quiz Next always reachable.** Put the answer feedback (`TriviaQuizExplanationPanel`: explanation, Source / Read more / Inspect Show links, Next button) back **inside** `ActiveQuizContent`'s `LazyColumn` as the last item, wrapped in `AnimatedVisibility(visible = selectedOptionIndex != null)` as before H4. Drop the outer `Column` + `weight(1f)` wrapper, keep the `active_quiz_container` tag on the `LazyColumn`, and restore the original `bottom = 88.dp` content padding. Keep `Surface(onClick=…)` for options only if it looks and behaves the same; otherwise revert to `clickable`. After answering, the screen should scroll the feedback into view (e.g. `LazyListState.animateScrollToItem` to the last item when `selectedOptionIndex` turns non-null) so the user sees it without hunting.
+  2. **Tests reach Next by scrolling, not by layout changes.** Update `TriviaComposeTest` to use `scrollListToTag("active_quiz_container", "trivia_next_question_btn")` (or `performScrollTo`) before clicking Next. Add one test with a question whose `linerNoteFact` is very long (several hundred words) that answers, scrolls, clicks Next and lands on the next question or the summary. Never change production layout to make a test pass; if a node can't be reached, scroll to it.
+  3. **Cover the real Restore path.** In `ProfileViewModelTest`, call `vm.confirmPendingRestore()` (the Restore button's path) and wait for the import to finish before tearDown (e.g. `advanceUntilIdle` with a test dispatcher, or wait on the feedback message), then assert pending is null and the feedback message is set. Keep a separate `confirmRestoreAwait` test only if it adds coverage.
+  4. **Fix the `ConcertsViewModelTest` flake.** tearDown must stop the ViewModel's coroutines before `Dispatchers.resetMain()` and before closing the DB (e.g. `vm.viewModelScope.cancel()` / clear the VM, then join or wait), or switch the test to `StandardTestDispatcher` + `runTest`. Check every other test that does `setMain` + `resetMain` around a ViewModel for the same pattern and fix it the same way.
+  5. **Nits:** remove the UTF-8 BOM from `TriviaPanels.kt` (check `DeadTriviaSeed.kt` too); move the `RestoreConfirmDialog` import in `MainActivity` into sorted order.
+  - **Done when:** the quiz shows the same as before H4 (feedback card animates in inside the list) and Next is reachable with a long note; no test edits production layout; full suite `./gradlew --offline :app:testDebugUnitTest --rerun` passes **5 times in a row**; any CodeRabbit findings posted before merge are fixed.
 
 ---
 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Claude Code (audit of H4, 6.3b)
+- CI green on #58 and #59. 6.3b is a clean, behavior-preserving split. H4's real-screen tests are good, but H4 pinned the quiz feedback + Next outside the scrolling list (Next can be unreachable) and merged 6 s after CodeRabbit posted that as Major. `confirmPendingRestore()` lost its test. Fresh ×3 run of `7ea8ecb`: 223 tests, 1 skipped; one run hit a pre-existing `ConcertsViewModelTest` Main-dispatcher flake. Added **H5**; next action: H5, then HARD STOP for audit.
 
 ### 2026-11-24 · Cursor (H4 + 6.3b — audit pause)
 - H4 merged (#58, `1fc6427` → `9e74771`). 6.3b: split five large composables under ~150 lines (see table under 6.3b); H4 Compose tests green unchanged.
