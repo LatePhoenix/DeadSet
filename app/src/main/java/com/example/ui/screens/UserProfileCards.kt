@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +43,43 @@ import com.example.ui.theme.*
 
 
 // Extracted for 6.3 screen breakup.
+
+internal data class UserProfileTourRank(
+    val title: String,
+    val subtitle: String,
+    val nextMilestoneTarget: Int
+)
+
+internal fun userProfileTourRank(totalAttendedCount: Int, totalCatalogCount: Int): UserProfileTourRank {
+    val (title, subtitle, target) = when {
+        totalAttendedCount == 0 -> Triple(
+            "Shakedown Stroller",
+            "Tap any show below to punch your first ticket!",
+            1
+        )
+        totalAttendedCount in 1..2 -> Triple(
+            "Miracle Ticket Holder ⚡",
+            "On the bus and catching the groove",
+            3
+        )
+        totalAttendedCount in 3..5 -> Triple(
+            "Taper Section Regular 📼",
+            "Trading Maxell XL-IIs on the lot",
+            6
+        )
+        totalAttendedCount in 6..9 -> Triple(
+            "Further Bus Rider 🚌",
+            "Seasoned traveler across eras & venues",
+            10
+        )
+        else -> Triple(
+            "Cosmic Charlie • Tour Legend 🌹",
+            "Keeper of the vault & Deadhead historian",
+            totalCatalogCount
+        )
+    }
+    return UserProfileTourRank(title, subtitle, target)
+}
 
 @Composable
 internal fun BackstageLaminateCard(
@@ -781,4 +820,436 @@ internal fun EditDeadheadProfileDialog(
             }
         }
     )
+}
+
+@Composable
+internal fun UserProfileScreenList(
+    innerPadding: PaddingValues,
+    profileData: UserProfileData,
+    tourRank: UserProfileTourRank,
+    totalAttendedCount: Int,
+    totalCatalogCount: Int,
+    totalLiveSongsHeard: Int,
+    uniqueLiveSongsCount: Int,
+    totalLiveSeguesCount: Int,
+    uniqueCitiesVisited: List<String>,
+    uniqueVenuesVisited: List<String>,
+    terrapinFlyerAttended: Int,
+    allShows: List<ShowEntity>,
+    attendedShows: List<ShowEntity>,
+    onShowClick: (String) -> Unit,
+    onToggleAttendance: (ShowEntity) -> Unit,
+    onExploreCatalogClick: () -> Unit,
+    onBackupClick: () -> Unit,
+    onRestoreClick: () -> Unit,
+    onAboutCreditsClick: () -> Unit
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = innerPadding.calculateTopPadding() + 8.dp,
+            bottom = innerPadding.calculateBottomPadding() + 84.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("user_profile_list")
+    ) {
+        item {
+            BackstageLaminateCard(
+                profileData = profileData,
+                rankTitle = tourRank.title,
+                rankSubtitle = tourRank.subtitle,
+                attendedCount = totalAttendedCount
+            )
+        }
+
+        item { StealieThemeControlCard() }
+
+        item {
+            VisualAttendanceCounterSummaryCard(
+                attendedShowsCount = totalAttendedCount,
+                totalCatalogCount = totalCatalogCount,
+                nextMilestoneTarget = tourRank.nextMilestoneTarget,
+                totalLiveSongsHeard = totalLiveSongsHeard,
+                uniqueLiveSongsCount = uniqueLiveSongsCount,
+                totalLiveSeguesCount = totalLiveSeguesCount,
+                citiesCount = uniqueCitiesVisited.size,
+                venuesCount = uniqueVenuesVisited.size,
+                terrapinFlyerCount = terrapinFlyerAttended
+            )
+        }
+
+        item {
+            EraPassportStampsCard(
+                allShows = allShows,
+                attendedShows = attendedShows
+            )
+        }
+
+        if (uniqueCitiesVisited.isNotEmpty()) {
+            item {
+                VisitedLocationsCard(
+                    cities = uniqueCitiesVisited,
+                    venues = uniqueVenuesVisited
+                )
+            }
+        }
+
+        item {
+            UserProfileAttendedLogHeader(
+                attendedCount = attendedShows.size,
+                onExploreCatalogClick = onExploreCatalogClick
+            )
+        }
+
+        if (attendedShows.isEmpty()) {
+            item { ProfileAttendedEmptyPrompt() }
+        } else {
+            items(attendedShows, key = { "profile_attended_${it.id}" }) { show ->
+                ShowCard(
+                    show = show,
+                    onClick = { onShowClick(show.id) }
+                )
+            }
+        }
+
+        val unattendedSample = allShows.filter { !it.isAttended }.take(5)
+        if (unattendedSample.isNotEmpty()) {
+            item {
+                QuickTicketPunchCard(
+                    shows = unattendedSample,
+                    onShowClick = onShowClick,
+                    onToggleAttendance = onToggleAttendance
+                )
+            }
+        }
+
+        item {
+            UserProfileDataActions(
+                onBackupClick = onBackupClick,
+                onRestoreClick = onRestoreClick,
+                onAboutCreditsClick = onAboutCreditsClick
+            )
+        }
+    }
+}
+
+@Composable
+internal fun UserProfileScreenTopBar(onEditProfile: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(StealieMidnight)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StealieEmblem(size = 38.dp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Deadhead Profile",
+                            color = TextPrimaryDark,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        BerthaRose(size = 18.dp)
+                    }
+                    Text(
+                        text = "Backstage Laminate & Tour Counter",
+                        color = StealieGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            FilledTonalButton(
+                onClick = onEditProfile,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = StealieGold.copy(alpha = 0.15f),
+                    contentColor = StealieGold
+                ),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.testTag("edit_profile_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Edit Profile",
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Customize",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        DancingBearsMarchRow()
+
+        HorizontalDivider(
+            color = BorderSubtle,
+            thickness = 0.5.dp,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
+}
+
+@Composable
+internal fun UserProfileAttendedLogHeader(
+    attendedCount: Int,
+    onExploreCatalogClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "MY ATTENDED CONCERT LOG ($attendedCount)",
+                color = StealieGold,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            BerthaRose(size = 14.dp)
+        }
+        TextButton(
+            onClick = onExploreCatalogClick,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = "Browse Full Vault →",
+                color = StealieCyan,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ProfileAttendedEmptyPrompt() {
+    Surface(
+        color = StealieCardDark,
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("profile_attended_empty")
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(20.dp)
+        ) {
+            StealieEmblem(size = 48.dp)
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Punch Your First Tour Ticket",
+                color = TextPrimaryDark,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tap any show below to toggle attendance and watch your Deadhead Tour Odometer climb!",
+                color = TextSecondaryDark,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+internal fun QuickTicketPunchCard(
+    shows: List<ShowEntity>,
+    onShowClick: (String) -> Unit,
+    onToggleAttendance: (ShowEntity) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Text(
+                        text = "QUICK TICKET PUNCH • ADD TO COUNTER",
+                        color = StealieCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = "Tap '+ I Was There' to log attendance into your counter",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ConfirmationNumber,
+                    contentDescription = null,
+                    tint = StealieGold,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            for (show in shows) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onShowClick(show.id) }
+                    ) {
+                        Text(
+                            text = "${show.date} • ${show.venue}",
+                            color = TextPrimaryDark,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "${show.city}, ${show.stateOrCountry} (${show.bandName})",
+                            color = TextSecondaryDark,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    FilledTonalButton(
+                        onClick = { onToggleAttendance(show) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = StealieGold.copy(alpha = 0.16f),
+                            contentColor = StealieGold
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.testTag("quick_attend_${show.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "+ I Was There",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun UserProfileDataActions(
+    onBackupClick: () -> Unit,
+    onRestoreClick: () -> Unit,
+    onAboutCreditsClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        OutlinedButton(
+            onClick = onBackupClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("backup_export_button"),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+            border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Upload,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Back up my data",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = onRestoreClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("backup_restore_button"),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+            border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Download,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Restore from backup",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = onAboutCreditsClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("about_credits_button"),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = StealieGold),
+            border = androidx.compose.foundation.BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "About & Credits",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+        }
+    }
 }

@@ -24,14 +24,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **H3 and 6.7 merged; the audit is back (2026-11-24).** H3 is good. 6.7's fake-server tests are good, but most of its "UI tests" exercise copies of the UI written inside the test, not the app's screens, and the restore-confirm test is flaky. Fix in **H4** (real-screen tests), then do **6.3b** on top of them. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **H4 and 6.3b done; paused for audit (2026-11-24).** Real-screen Compose tests + large composable split. Do not start 6.6 until the audit returns. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **H4** Real-screen Compose UI tests + flaky restore test (see after 6.7 in Phase 6).
-2. **6.3b** Real split of the large composables, with H4's tests green before and after.
-3. **HARD STOP after 6.3b** for the next Claude Code audit. Do not start 6.6, A5, C4 or key/Cloudflare work.
-4. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-5. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**H4 → 6.3b**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.6, A5, C4 or key/Cloudflare work until the owner returns with audit results.
+2. **Blocked on owner:** A5 / 6.6 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3b) and reads any CodeRabbit comments then.
 
@@ -313,13 +311,26 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - Helpers: `pauseInfiniteAnimations` / `advanceUi` / `scrollListToTag` / `clickTag`. List tags: `user_profile_list`, `trivia_hub_list`, `stats_list`.
   - `RestoreConfirmDialog` extracted from `MainActivity` (same wording); dialog tests assert replace-copy + counts + callbacks. Flaky VM confirm uses `confirmRestoreAwait` in `ProfileViewModelTest`.
   - Quiz explanation + Next moved out of `ActiveQuizContent`'s `LazyColumn` (virtualization hid them under Robolectric); options use `Surface(onClick=…)`. Full suite `--rerun-tasks` ×3 green locally.
-- [ ] **6.3b Real split of the large composables** (after H4's real-screen tests exist and pass). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the H4 and 6.7 UI tests must pass before and after, unchanged, and add UI tests for any flow they don't cover yet.
+- [x] **6.3b Real split of the large composables** ($feat). No UI or behavior changes; H4 Compose tests pass unchanged.
+  _Line counts (entrypoint functions):_
+  | Entrypoint | Before | After |
+  |---|---:|---:|
+  | TriviaHubContent | 458 | 76 |
+  | ActiveQuizContent | 457 | 98 |
+  | UserProfileScreen | 461 | 86 |
+  | StatsScreen | 380 | 98 |
+  | TriviaScreen | 322 | 144 |
+  _Extracted into_ TriviaPanels / UserProfileCards / StatsCharts section composables (rank/filters/badges, quiz status/question/lifelines/options/explanation, profile list/top bar/empty/actions, stats top bar/era/song/openers cards).
 
 ---
 
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Cursor (H4 + 6.3b — audit pause)
+- H4 merged (#58, `1fc6427` → `9e74771`). 6.3b: split five large composables under ~150 lines (see table under 6.3b); H4 Compose tests green unchanged.
+- **HARD STOP after 6.3b:** do not start 6.6 / A5 / C4 / keys / CF. Owner + Claude Code audit next.
 
 ### 2026-11-24 · Cursor (H4 real-screen Compose tests)
 - H4 on `phase-6-h4-real-compose-tests`: real-screen Compose UI tests; `RestoreConfirmDialog` extract; quiz explanation outside LazyColumn; flaky restore await fix. Local full suite ×3 green.

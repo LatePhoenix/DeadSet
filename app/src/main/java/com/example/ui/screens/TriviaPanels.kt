@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -97,421 +98,39 @@ internal fun TriviaHubContent(
             .fillMaxSize()
             .testTag("trivia_hub_list")
     ) {
-        // 1. Deadhead Trivia Scoreboard & Rank Banner
         item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                border = BorderStroke(1.5.dp, StealieGold.copy(alpha = 0.5f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("trivia_rank_scoreboard_card")
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    StealieCrimson.copy(alpha = 0.22f),
-                                    StealieCardDark
-                                )
-                            )
-                        )
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "DEADHEAD TRIVIA STANDING",
-                                color = StealieGold,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.1.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = triviaProgress.rankTitle,
-                                color = TextPrimaryDark,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                text = "${allAvailableQuestions.size} total questions (${vaultGeneratedCount} live from your Room Concert Vault)",
-                                color = TextSecondaryDark,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                        DancingBear(color = BearYellow, size = 44.dp)
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // 4-Stat Summary Row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TriviaStatPill(
-                            value = "${triviaProgress.totalCorrect}/${triviaProgress.totalAnswered}",
-                            label = "Correct",
-                            accent = StealieCyan,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TriviaStatPill(
-                            value = "${triviaProgress.accuracyPercent}%",
-                            label = "Accuracy",
-                            accent = StealieGold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TriviaStatPill(
-                            value = "${triviaProgress.bestStreak}🔥",
-                            label = "Best Streak",
-                            accent = StealieCrimsonLight,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TriviaStatPill(
-                            value = "${triviaProgress.quizzesCompleted}",
-                            label = "Tours Played",
-                            accent = EraEurope72Color,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // 2. Category & Difficulty Filter Deck for Classic Tour & Terrapin Blitz
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("trivia_setup_filters_card")
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "1. Choose Trivia Topic & Era Lore",
-                        color = TextPrimaryDark,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
-                        TriviaCategory.entries.forEach { category ->
-                            val isSelected = selectedCategory == category
-                            Surface(
-                                color = if (isSelected) category.accentColor.copy(alpha = 0.22f) else StealieMidnight,
-                                shape = RoundedCornerShape(20.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) category.accentColor else BorderSubtle
-                                ),
-                                modifier = Modifier
-                                    .clickable { onSelectCategory(category) }
-                                    .testTag("trivia_category_chip_${category.id}")
-                            ) {
-                                Text(
-                                    text = "${category.emoji} ${category.shortLabel}",
-                                    color = if (isSelected) category.accentColor else TextSecondaryDark,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "2. Select Difficulty Tier",
-                        color = TextPrimaryDark,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
-                        val isAllDiff = selectedDifficulty == null
-                        Surface(
-                            color = if (isAllDiff) StealieGold.copy(alpha = 0.2f) else StealieMidnight,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, if (isAllDiff) StealieGold else BorderSubtle),
-                            modifier = Modifier
-                                .clickable { onSelectDifficulty(null) }
-                                .testTag("trivia_diff_all")
-                        ) {
-                            Text(
-                                text = "All Tiers (Mixed)",
-                                color = if (isAllDiff) StealieGold else TextSecondaryDark,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
-                            )
-                        }
-
-                        TriviaDifficulty.entries.forEach { diff ->
-                            val isSelected = selectedDifficulty == diff
-                            Surface(
-                                color = if (isSelected) diff.badgeColor.copy(alpha = 0.2f) else StealieMidnight,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, if (isSelected) diff.badgeColor else BorderSubtle),
-                                modifier = Modifier
-                                    .clickable { onSelectDifficulty(diff) }
-                                    .testTag("trivia_diff_${diff.id}")
-                            ) {
-                                Text(
-                                    text = "${diff.label} (+${diff.basePoints})",
-                                    color = if (isSelected) diff.badgeColor else TextSecondaryDark,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3. Game Mode Cards
-        item {
-            Text(
-                text = "Launch a Trivia Mode",
-                color = StealieGold,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.8.sp
+            TriviaRankScoreboardCard(
+                triviaProgress = triviaProgress,
+                totalQuestionsCount = allAvailableQuestions.size,
+                vaultGeneratedCount = vaultGeneratedCount
             )
         }
 
-        // Classic Tour Quiz CTA Card
         item {
-            TriviaModeCard(
-                title = TriviaGameMode.CLASSIC_TOUR.title,
-                subtitle = TriviaGameMode.CLASSIC_TOUR.subtitle,
-                badgeText = "10 Qs • ${selectedCategory.shortLabel}",
-                accentColor = StealieGold,
-                buttonText = "Start Classic Tour Quiz ⚡",
-                testTag = "start_classic_trivia_btn",
-                onClick = { onStartMode(TriviaGameMode.CLASSIC_TOUR) }
+            TriviaSetupFiltersCard(
+                selectedCategory = selectedCategory,
+                onSelectCategory = onSelectCategory,
+                selectedDifficulty = selectedDifficulty,
+                onSelectDifficulty = onSelectDifficulty
             )
         }
 
-        // Terrapin Blitz 60s Mode Card
-        item {
-            TriviaModeCard(
-                title = TriviaGameMode.TERRAPIN_BLITZ.title,
-                subtitle = TriviaGameMode.TERRAPIN_BLITZ.subtitle,
-                badgeText = "⏱️ 60s Speed Multiplier",
-                accentColor = StealieCyan,
-                buttonText = "Launch 60s Terrapin Blitz 🐢",
-                testTag = "start_blitz_trivia_btn",
-                onClick = { onStartMode(TriviaGameMode.TERRAPIN_BLITZ) }
-            )
-        }
+        triviaHubGameModeItems(
+            selectedCategory = selectedCategory,
+            allAvailableQuestionsCount = allAvailableQuestions.size,
+            isDailyCompletedToday = isDailyCompletedToday,
+            onStartMode = onStartMode,
+            onOpenAlmanac = onOpenAlmanac
+        )
 
-        // Daily Deadhead Challenge Card
-        item {
-            TriviaModeCard(
-                title = TriviaGameMode.DAILY_DEADHEAD.title,
-                subtitle = TriviaGameMode.DAILY_DEADHEAD.subtitle,
-                badgeText = if (isDailyCompletedToday) "✅ Completed Today" else "🌟 Daily Trophy Available",
-                accentColor = EraSpring77Color,
-                buttonText = if (isDailyCompletedToday) "Replay Today's Daily Five 🌹" else "Play Daily Deadhead Five 🌹",
-                testTag = "start_daily_trivia_btn",
-                onClick = { onStartMode(TriviaGameMode.DAILY_DEADHEAD) }
-            )
-        }
-
-        // Almanac essays (step 5.4)
-        item {
-            TriviaModeCard(
-                title = "Almanac",
-                subtitle = "Bundled Markdown essays with cited sources — song stories, show spotlights, band guides, tributes",
-                badgeText = "📖 Sourced articles",
-                accentColor = StealieGold,
-                buttonText = "Open Almanac →",
-                testTag = "open_almanac_btn",
-                onClick = onOpenAlmanac
-            )
-        }
-
-        // Archivist Lore Flashcards Mode Card
-        item {
-            TriviaModeCard(
-                title = TriviaGameMode.LORE_FLASHCARDS.title,
-                subtitle = TriviaGameMode.LORE_FLASHCARDS.subtitle,
-                badgeText = "${allAvailableQuestions.size} Interactive Cards",
-                accentColor = StealiePurple,
-                buttonText = "Open Archivist Flashcard Deck 📜",
-                testTag = "open_flashcards_btn",
-                onClick = { onStartMode(TriviaGameMode.LORE_FLASHCARDS) }
-            )
-        }
-
-        // Segue School (transition training with spaced repetition)
-        item {
-            TriviaModeCard(
-                title = TriviaGameMode.SEGUE_SCHOOL.title,
-                subtitle = TriviaGameMode.SEGUE_SCHOOL.subtitle,
-                badgeText = "🎶 ->  >  ~>  Spaced repetition",
-                accentColor = StealieCrimsonLight,
-                buttonText = "Start Segue School ->",
-                testTag = "start_segue_school_btn",
-                onClick = { onStartMode(TriviaGameMode.SEGUE_SCHOOL) }
-            )
-        }
-
-        // Accuracy by category, from per-question answer history (step 5.1)
         if (accuracy.isNotEmpty()) {
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("accuracy_by_category_card")
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Your accuracy by category", color = TextPrimaryDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        for (a in accuracy) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(a.label, color = TextSecondaryDark, fontSize = 12.sp, modifier = Modifier.width(120.dp))
-                                LinearProgressIndicator(
-                                    progress = { a.percent / 100f },
-                                    color = StealieGold,
-                                    trackColor = StealieMidnight,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(6.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("${a.percent}% (${a.correct}/${a.answered})", color = TextSecondaryDark, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
+                TriviaAccuracyByCategoryCard(accuracy = accuracy)
             }
         }
 
-        // 4. Deadhead Trivia Badges & Achievements
         item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("trivia_badges_card")
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Deadhead Trivia Merit Badges",
-                            color = TextPrimaryDark,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${triviaProgress.unlockedBadgeIds.size}/${DeadTriviaSeed.allBadges.size} Unlocked",
-                            color = StealieGold,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DeadTriviaSeed.allBadges.forEach { badge ->
-                            val unlocked = badge.id in triviaProgress.unlockedBadgeIds
-                            Surface(
-                                color = if (unlocked) badge.color.copy(alpha = 0.14f) else StealieMidnight,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (unlocked) badge.color.copy(alpha = 0.5f) else BorderSubtle
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(12.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (unlocked) badge.color.copy(alpha = 0.25f)
-                                                else StealieCardDark
-                                            )
-                                    ) {
-                                        Text(
-                                            text = if (unlocked) badge.iconText else "🔒",
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = badge.title,
-                                            color = if (unlocked) TextPrimaryDark else TextSecondaryDark,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = badge.description,
-                                            color = TextTertiaryDark,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                    if (unlocked) {
-                                        Surface(
-                                            color = badge.color.copy(alpha = 0.2f),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                text = "EARNED",
-                                                color = badge.color,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            TriviaMeritBadgesCard(triviaProgress = triviaProgress)
         }
     }
 }
@@ -561,416 +180,57 @@ internal fun ActiveQuizContent(
             .weight(1f)
             .fillMaxWidth()
     ) {
-        // 1. Top Status Bar: Question Counter, Streak, Score, and Blitz Timer
         item {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Question ${questionIndex + 1} of $totalQuestions",
-                        color = TextPrimaryDark,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (mode == TriviaGameMode.TERRAPIN_BLITZ) {
-                            Surface(
-                                color = if (remainingSeconds <= 15) StealieCrimson.copy(alpha = 0.25f) else StealieCyan.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (remainingSeconds <= 15) StealieCrimsonLight else StealieCyan
-                                )
-                            ) {
-                                Text(
-                                    text = "⏱️ ${remainingSeconds}s",
-                                    color = if (remainingSeconds <= 15) StealieCrimsonLight else StealieCyan,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-
-                        if (sessionStreak > 0) {
-                            Surface(
-                                color = StealieCrimsonLight.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, StealieCrimsonLight)
-                            ) {
-                                Text(
-                                    text = "🔥 ${sessionStreak}x Streak",
-                                    color = StealieCrimsonLight,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-
-                        Surface(
-                            color = StealieGold.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text(
-                                text = "+$sessionPoints pts",
-                                color = StealieGold,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    color = StealieGold,
-                    trackColor = StealieCardDark,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                )
-            }
+            TriviaActiveQuizStatusBar(
+                mode = mode,
+                questionIndex = questionIndex,
+                totalQuestions = totalQuestions,
+                sessionStreak = sessionStreak,
+                sessionPoints = sessionPoints,
+                remainingSeconds = remainingSeconds,
+                animatedProgress = animatedProgress
+            )
         }
 
-        // 2. Question Card
         item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                border = BorderStroke(1.dp, question.category.accentColor.copy(alpha = 0.45f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("trivia_question_card")
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Surface(
-                            color = question.category.accentColor.copy(alpha = 0.16f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "${question.category.emoji} ${question.category.shortLabel}",
-                                color = question.category.accentColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if (question.format != TriviaFormat.MULTIPLE_CHOICE) {
-                                Surface(
-                                    color = StealiePurple.copy(alpha = 0.16f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = question.format.label,
-                                        color = StealiePurple,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                            if (question.era != DeadEra.ALL) {
-                                Surface(
-                                    color = question.era.color.copy(alpha = 0.16f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = question.era.years,
-                                        color = question.era.color,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                            Surface(
-                                color = question.difficulty.badgeColor.copy(alpha = 0.16f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "${question.difficulty.basePoints} PTS",
-                                    color = question.difficulty.badgeColor,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = question.question,
-                        color = TextPrimaryDark,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 24.sp
-                    )
-                }
-            }
+            TriviaActiveQuestionCard(question = question)
         }
 
-        // 3. Lifelines Bar (Ask Bear 50/50 & Flip Tape Skip)
         item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val canUse5050 = !usedAskBear5050 && selectedOptionIndex == null &&
-                    question.options.size >= 4
-                OutlinedButton(
-                    onClick = onUseAskBear5050,
-                    enabled = canUse5050,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (canUse5050) StealieCyan else BorderSubtle
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("lifeline_5050_btn")
-                ) {
-                    Text(
-                        text = if (usedAskBear5050) "🎛️ Bear 50/50 Used" else "🎛️ Ask Bear (50/50)",
-                        color = if (canUse5050) StealieCyan else TextTertiaryDark,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                val canUseSkip = !usedFlipTapeSkip && selectedOptionIndex == null
-                OutlinedButton(
-                    onClick = onUseFlipTapeSkip,
-                    enabled = canUseSkip,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (canUseSkip) StealieGold else BorderSubtle
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("lifeline_skip_btn")
-                ) {
-                    Text(
-                        text = if (usedFlipTapeSkip) "📼 Tape Flipped" else "📼 Flip Tape (Skip)",
-                        color = if (canUseSkip) StealieGold else TextTertiaryDark,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            TriviaQuizLifelinesRow(
+                question = question,
+                selectedOptionIndex = selectedOptionIndex,
+                usedAskBear5050 = usedAskBear5050,
+                usedFlipTapeSkip = usedFlipTapeSkip,
+                onUseAskBear5050 = onUseAskBear5050,
+                onUseFlipTapeSkip = onUseFlipTapeSkip
+            )
         }
 
-        // 4. Answer Options
         itemsIndexed(question.options) { idx, optionText ->
-            val isHiddenBy5050 = idx in hiddenOptionIndices
-            val isAnswered = selectedOptionIndex != null
-            val isSelected = selectedOptionIndex == idx
-            val isCorrectOption = idx == question.correctIndex
-
-            val containerColor = when {
-                isHiddenBy5050 -> StealieMidnight.copy(alpha = 0.35f)
-                !isAnswered -> StealieCardDark
-                isCorrectOption -> EraEurope72Color.copy(alpha = 0.22f)
-                isSelected && !isCorrectOption -> StealieCrimson.copy(alpha = 0.25f)
-                else -> StealieCardDark.copy(alpha = 0.6f)
-            }
-
-            val borderColor = when {
-                isHiddenBy5050 -> BorderSubtle.copy(alpha = 0.3f)
-                !isAnswered -> BorderSubtle
-                isCorrectOption -> EraEurope72Color
-                isSelected && !isCorrectOption -> StealieCrimsonLight
-                else -> BorderSubtle
-            }
-
-            val optionLetter = ('A' + idx).toString()
-
-            Surface(
-                color = containerColor,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, borderColor),
-                onClick = {
-                    if (!isAnswered && !isHiddenBy5050) onSelectOption(idx)
-                },
-                enabled = !isAnswered && !isHiddenBy5050,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("trivia_option_$idx")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isAnswered && isCorrectOption -> EraEurope72Color
-                                    isAnswered && isSelected -> StealieCrimsonLight
-                                    else -> StealieMidnight
-                                }
-                            )
-                    ) {
-                        Text(
-                            text = when {
-                                isAnswered && isCorrectOption -> "✓"
-                                isAnswered && isSelected -> "✗"
-                                else -> optionLetter
-                            },
-                            color = if (isAnswered && (isCorrectOption || isSelected)) StealieMidnight else StealieGold,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Text(
-                        text = if (isHiddenBy5050) "— Eliminated by Bear's Soundboard —" else optionText,
-                        color = if (isHiddenBy5050) TextTertiaryDark else TextPrimaryDark,
-                        fontSize = 14.sp,
-                        fontWeight = if (isAnswered && isCorrectOption) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
+            TriviaQuizAnswerOption(
+                index = idx,
+                optionText = optionText,
+                question = question,
+                selectedOptionIndex = selectedOptionIndex,
+                hiddenOptionIndices = hiddenOptionIndices,
+                onSelectOption = onSelectOption
+            )
         }
 
     } // LazyColumn
 
-        // Explanation + Next stay outside LazyColumn so they always compose when answered
-        // (LazyColumn virtualization hid them off-screen under Robolectric H4 tests).
         val selected = selectedOptionIndex
         if (selected != null) {
-            val isCorrect = selected == question.correctIndex
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                border = BorderStroke(
-                    1.dp,
-                    if (isCorrect) EraEurope72Color else StealieGold
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("trivia_explanation_card")
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (isCorrect) "⚡ Right On! Deadhead Bullseye" else "🌹 Archivist Liner Note",
-                            color = if (isCorrect) EraEurope72Color else StealieGold,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-
-                        if (question.relatedShowId != null) {
-                            TextButton(
-                                onClick = { onOpenShowDetail(question.relatedShowId) },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "Inspect Show Setlist ➔",
-                                    color = StealieCyan,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = question.linerNoteFact,
-                        color = TextSecondaryDark,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp
-                    )
-                    val sourceUrl = question.sourceUrl
-                    if (!sourceUrl.isNullOrBlank()) {
-                        val uriHandler = LocalUriHandler.current
-                        TextButton(
-                            onClick = { uriHandler.openUri(sourceUrl) },
-                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Source",
-                                color = StealieCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    question.relatedArticleId?.let { articleId ->
-                        TextButton(
-                            onClick = { onOpenAlmanacArticle(articleId) },
-                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                            modifier = Modifier.testTag("trivia_read_more")
-                        ) {
-                            Text(
-                                text = "Read more →",
-                                color = StealieGold,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Button(
-                        onClick = onNextQuestion,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = StealieGold,
-                            contentColor = StealieMidnight
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("trivia_next_question_btn")
-                    ) {
-                        Text(
-                            text = if (questionIndex + 1 < totalQuestions) {
-                                "Next Question ➔"
-                            } else {
-                                "View Encore Scorecard 🏆"
-                            },
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
+            TriviaQuizExplanationPanel(
+                question = question,
+                questionIndex = questionIndex,
+                totalQuestions = totalQuestions,
+                selectedOptionIndex = selected,
+                onNextQuestion = onNextQuestion,
+                onOpenShowDetail = onOpenShowDetail,
+                onOpenAlmanacArticle = onOpenAlmanacArticle
+            )
         }
     } // Column wrapper
 }
@@ -1497,5 +757,1212 @@ internal fun TriviaModeCard(
                 )
             }
         }
+    }
+}
+
+internal fun LazyListScope.triviaHubGameModeItems(
+    selectedCategory: TriviaCategory,
+    allAvailableQuestionsCount: Int,
+    isDailyCompletedToday: Boolean,
+    onStartMode: (TriviaGameMode) -> Unit,
+    onOpenAlmanac: () -> Unit
+) {
+    item {
+        Text(
+            text = "Launch a Trivia Mode",
+            color = StealieGold,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.8.sp
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = TriviaGameMode.CLASSIC_TOUR.title,
+            subtitle = TriviaGameMode.CLASSIC_TOUR.subtitle,
+            badgeText = "10 Qs • ${selectedCategory.shortLabel}",
+            accentColor = StealieGold,
+            buttonText = "Start Classic Tour Quiz ⚡",
+            testTag = "start_classic_trivia_btn",
+            onClick = { onStartMode(TriviaGameMode.CLASSIC_TOUR) }
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = TriviaGameMode.TERRAPIN_BLITZ.title,
+            subtitle = TriviaGameMode.TERRAPIN_BLITZ.subtitle,
+            badgeText = "⏱️ 60s Speed Multiplier",
+            accentColor = StealieCyan,
+            buttonText = "Launch 60s Terrapin Blitz 🐢",
+            testTag = "start_blitz_trivia_btn",
+            onClick = { onStartMode(TriviaGameMode.TERRAPIN_BLITZ) }
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = TriviaGameMode.DAILY_DEADHEAD.title,
+            subtitle = TriviaGameMode.DAILY_DEADHEAD.subtitle,
+            badgeText = if (isDailyCompletedToday) "✅ Completed Today" else "🌟 Daily Trophy Available",
+            accentColor = EraSpring77Color,
+            buttonText = if (isDailyCompletedToday) "Replay Today's Daily Five 🌹" else "Play Daily Deadhead Five 🌹",
+            testTag = "start_daily_trivia_btn",
+            onClick = { onStartMode(TriviaGameMode.DAILY_DEADHEAD) }
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = "Almanac",
+            subtitle = "Bundled Markdown essays with cited sources — song stories, show spotlights, band guides, tributes",
+            badgeText = "📖 Sourced articles",
+            accentColor = StealieGold,
+            buttonText = "Open Almanac →",
+            testTag = "open_almanac_btn",
+            onClick = onOpenAlmanac
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = TriviaGameMode.LORE_FLASHCARDS.title,
+            subtitle = TriviaGameMode.LORE_FLASHCARDS.subtitle,
+            badgeText = "$allAvailableQuestionsCount Interactive Cards",
+            accentColor = StealiePurple,
+            buttonText = "Open Archivist Flashcard Deck 📜",
+            testTag = "open_flashcards_btn",
+            onClick = { onStartMode(TriviaGameMode.LORE_FLASHCARDS) }
+        )
+    }
+
+    item {
+        TriviaModeCard(
+            title = TriviaGameMode.SEGUE_SCHOOL.title,
+            subtitle = TriviaGameMode.SEGUE_SCHOOL.subtitle,
+            badgeText = "🎶 ->  >  ~>  Spaced repetition",
+            accentColor = StealieCrimsonLight,
+            buttonText = "Start Segue School ->",
+            testTag = "start_segue_school_btn",
+            onClick = { onStartMode(TriviaGameMode.SEGUE_SCHOOL) }
+        )
+    }
+}
+
+@Composable
+internal fun TriviaRankScoreboardCard(
+    triviaProgress: TriviaUserProgress,
+    totalQuestionsCount: Int,
+    vaultGeneratedCount: Int
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(1.5.dp, StealieGold.copy(alpha = 0.5f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("trivia_rank_scoreboard_card")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            StealieCrimson.copy(alpha = 0.22f),
+                            StealieCardDark
+                        )
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "DEADHEAD TRIVIA STANDING",
+                        color = StealieGold,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.1.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = triviaProgress.rankTitle,
+                        color = TextPrimaryDark,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "$totalQuestionsCount total questions ($vaultGeneratedCount live from your Room Concert Vault)",
+                        color = TextSecondaryDark,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                DancingBear(color = BearYellow, size = 44.dp)
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TriviaStatPill(
+                    value = "${triviaProgress.totalCorrect}/${triviaProgress.totalAnswered}",
+                    label = "Correct",
+                    accent = StealieCyan,
+                    modifier = Modifier.weight(1f)
+                )
+                TriviaStatPill(
+                    value = "${triviaProgress.accuracyPercent}%",
+                    label = "Accuracy",
+                    accent = StealieGold,
+                    modifier = Modifier.weight(1f)
+                )
+                TriviaStatPill(
+                    value = "${triviaProgress.bestStreak}🔥",
+                    label = "Best Streak",
+                    accent = StealieCrimsonLight,
+                    modifier = Modifier.weight(1f)
+                )
+                TriviaStatPill(
+                    value = "${triviaProgress.quizzesCompleted}",
+                    label = "Tours Played",
+                    accent = EraEurope72Color,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TriviaSetupFiltersCard(
+    selectedCategory: TriviaCategory,
+    onSelectCategory: (TriviaCategory) -> Unit,
+    selectedDifficulty: TriviaDifficulty?,
+    onSelectDifficulty: (TriviaDifficulty?) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("trivia_setup_filters_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "1. Choose Trivia Topic & Era Lore",
+                color = TextPrimaryDark,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                TriviaCategory.entries.forEach { category ->
+                    val isSelected = selectedCategory == category
+                    Surface(
+                        color = if (isSelected) category.accentColor.copy(alpha = 0.22f) else StealieMidnight,
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) category.accentColor else BorderSubtle
+                        ),
+                        modifier = Modifier
+                            .clickable { onSelectCategory(category) }
+                            .testTag("trivia_category_chip_${category.id}")
+                    ) {
+                        Text(
+                            text = "${category.emoji} ${category.shortLabel}",
+                            color = if (isSelected) category.accentColor else TextSecondaryDark,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = "2. Select Difficulty Tier",
+                color = TextPrimaryDark,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                val isAllDiff = selectedDifficulty == null
+                Surface(
+                    color = if (isAllDiff) StealieGold.copy(alpha = 0.2f) else StealieMidnight,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, if (isAllDiff) StealieGold else BorderSubtle),
+                    modifier = Modifier
+                        .clickable { onSelectDifficulty(null) }
+                        .testTag("trivia_diff_all")
+                ) {
+                    Text(
+                        text = "All Tiers (Mixed)",
+                        color = if (isAllDiff) StealieGold else TextSecondaryDark,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                    )
+                }
+
+                TriviaDifficulty.entries.forEach { diff ->
+                    val isSelected = selectedDifficulty == diff
+                    Surface(
+                        color = if (isSelected) diff.badgeColor.copy(alpha = 0.2f) else StealieMidnight,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, if (isSelected) diff.badgeColor else BorderSubtle),
+                        modifier = Modifier
+                            .clickable { onSelectDifficulty(diff) }
+                            .testTag("trivia_diff_${diff.id}")
+                    ) {
+                        Text(
+                            text = "${diff.label} (+${diff.basePoints})",
+                            color = if (isSelected) diff.badgeColor else TextSecondaryDark,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TriviaAccuracyByCategoryCard(
+    accuracy: List<com.example.data.review.CategoryAccuracy>
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("accuracy_by_category_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Your accuracy by category", color = TextPrimaryDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            for (a in accuracy) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(a.label, color = TextSecondaryDark, fontSize = 12.sp, modifier = Modifier.width(120.dp))
+                    LinearProgressIndicator(
+                        progress = { a.percent / 100f },
+                        color = StealieGold,
+                        trackColor = StealieMidnight,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("${a.percent}% (${a.correct}/${a.answered})", color = TextSecondaryDark, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TriviaMeritBadgesCard(triviaProgress: TriviaUserProgress) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("trivia_badges_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Deadhead Trivia Merit Badges",
+                    color = TextPrimaryDark,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${triviaProgress.unlockedBadgeIds.size}/${DeadTriviaSeed.allBadges.size} Unlocked",
+                    color = StealieGold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DeadTriviaSeed.allBadges.forEach { badge ->
+                    val unlocked = badge.id in triviaProgress.unlockedBadgeIds
+                    Surface(
+                        color = if (unlocked) badge.color.copy(alpha = 0.14f) else StealieMidnight,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (unlocked) badge.color.copy(alpha = 0.5f) else BorderSubtle
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (unlocked) badge.color.copy(alpha = 0.25f)
+                                        else StealieCardDark
+                                    )
+                            ) {
+                                Text(
+                                    text = if (unlocked) badge.iconText else "🔒",
+                                    fontSize = 18.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = badge.title,
+                                    color = if (unlocked) TextPrimaryDark else TextSecondaryDark,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = badge.description,
+                                    color = TextTertiaryDark,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (unlocked) {
+                                Surface(
+                                    color = badge.color.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "EARNED",
+                                        color = badge.color,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TriviaActiveQuizStatusBar(
+    mode: TriviaGameMode,
+    questionIndex: Int,
+    totalQuestions: Int,
+    sessionStreak: Int,
+    sessionPoints: Int,
+    remainingSeconds: Int,
+    animatedProgress: Float
+) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Question ${questionIndex + 1} of $totalQuestions",
+                color = TextPrimaryDark,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (mode == TriviaGameMode.TERRAPIN_BLITZ) {
+                    Surface(
+                        color = if (remainingSeconds <= 15) StealieCrimson.copy(alpha = 0.25f) else StealieCyan.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (remainingSeconds <= 15) StealieCrimsonLight else StealieCyan
+                        )
+                    ) {
+                        Text(
+                            text = "⏱️ ${remainingSeconds}s",
+                            color = if (remainingSeconds <= 15) StealieCrimsonLight else StealieCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                if (sessionStreak > 0) {
+                    Surface(
+                        color = StealieCrimsonLight.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, StealieCrimsonLight)
+                    ) {
+                        Text(
+                            text = "🔥 ${sessionStreak}x Streak",
+                            color = StealieCrimsonLight,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    color = StealieGold.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = "+$sessionPoints pts",
+                        color = StealieGold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LinearProgressIndicator(
+            progress = { animatedProgress },
+            color = StealieGold,
+            trackColor = StealieCardDark,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+        )
+    }
+}
+
+@Composable
+internal fun TriviaActiveQuestionCard(question: TriviaQuestion) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(1.dp, question.category.accentColor.copy(alpha = 0.45f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("trivia_question_card")
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Surface(
+                    color = question.category.accentColor.copy(alpha = 0.16f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "${question.category.emoji} ${question.category.shortLabel}",
+                        color = question.category.accentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (question.format != TriviaFormat.MULTIPLE_CHOICE) {
+                        Surface(
+                            color = StealiePurple.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = question.format.label,
+                                color = StealiePurple,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    if (question.era != DeadEra.ALL) {
+                        Surface(
+                            color = question.era.color.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = question.era.years,
+                                color = question.era.color,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Surface(
+                        color = question.difficulty.badgeColor.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "${question.difficulty.basePoints} PTS",
+                            color = question.difficulty.badgeColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = question.question,
+                color = TextPrimaryDark,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 24.sp
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TriviaQuizLifelinesRow(
+    question: TriviaQuestion,
+    selectedOptionIndex: Int?,
+    usedAskBear5050: Boolean,
+    usedFlipTapeSkip: Boolean,
+    onUseAskBear5050: () -> Unit,
+    onUseFlipTapeSkip: () -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val canUse5050 = !usedAskBear5050 && selectedOptionIndex == null &&
+            question.options.size >= 4
+        OutlinedButton(
+            onClick = onUseAskBear5050,
+            enabled = canUse5050,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(
+                1.dp,
+                if (canUse5050) StealieCyan else BorderSubtle
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("lifeline_5050_btn")
+        ) {
+            Text(
+                text = if (usedAskBear5050) "🎛️ Bear 50/50 Used" else "🎛️ Ask Bear (50/50)",
+                color = if (canUse5050) StealieCyan else TextTertiaryDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        val canUseSkip = !usedFlipTapeSkip && selectedOptionIndex == null
+        OutlinedButton(
+            onClick = onUseFlipTapeSkip,
+            enabled = canUseSkip,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(
+                1.dp,
+                if (canUseSkip) StealieGold else BorderSubtle
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("lifeline_skip_btn")
+        ) {
+            Text(
+                text = if (usedFlipTapeSkip) "📼 Tape Flipped" else "📼 Flip Tape (Skip)",
+                color = if (canUseSkip) StealieGold else TextTertiaryDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TriviaQuizAnswerOption(
+    index: Int,
+    optionText: String,
+    question: TriviaQuestion,
+    selectedOptionIndex: Int?,
+    hiddenOptionIndices: Set<Int>,
+    onSelectOption: (Int) -> Unit
+) {
+    val isHiddenBy5050 = index in hiddenOptionIndices
+    val isAnswered = selectedOptionIndex != null
+    val isSelected = selectedOptionIndex == index
+    val isCorrectOption = index == question.correctIndex
+
+    val containerColor = when {
+        isHiddenBy5050 -> StealieMidnight.copy(alpha = 0.35f)
+        !isAnswered -> StealieCardDark
+        isCorrectOption -> EraEurope72Color.copy(alpha = 0.22f)
+        isSelected && !isCorrectOption -> StealieCrimson.copy(alpha = 0.25f)
+        else -> StealieCardDark.copy(alpha = 0.6f)
+    }
+
+    val borderColor = when {
+        isHiddenBy5050 -> BorderSubtle.copy(alpha = 0.3f)
+        !isAnswered -> BorderSubtle
+        isCorrectOption -> EraEurope72Color
+        isSelected && !isCorrectOption -> StealieCrimsonLight
+        else -> BorderSubtle
+    }
+
+    val optionLetter = ('A' + index).toString()
+
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.5.dp, borderColor),
+        onClick = {
+            if (!isAnswered && !isHiddenBy5050) onSelectOption(index)
+        },
+        enabled = !isAnswered && !isHiddenBy5050,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("trivia_option_$index")
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            isAnswered && isCorrectOption -> EraEurope72Color
+                            isAnswered && isSelected -> StealieCrimsonLight
+                            else -> StealieMidnight
+                        }
+                    )
+            ) {
+                Text(
+                    text = when {
+                        isAnswered && isCorrectOption -> "✓"
+                        isAnswered && isSelected -> "✗"
+                        else -> optionLetter
+                    },
+                    color = if (isAnswered && (isCorrectOption || isSelected)) StealieMidnight else StealieGold,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = if (isHiddenBy5050) "— Eliminated by Bear's Soundboard —" else optionText,
+                color = if (isHiddenBy5050) TextTertiaryDark else TextPrimaryDark,
+                fontSize = 14.sp,
+                fontWeight = if (isAnswered && isCorrectOption) FontWeight.Bold else FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TriviaQuizExplanationPanel(
+    question: TriviaQuestion,
+    questionIndex: Int,
+    totalQuestions: Int,
+    selectedOptionIndex: Int,
+    onNextQuestion: () -> Unit,
+    onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit
+) {
+    val isCorrect = selectedOptionIndex == question.correctIndex
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+        border = BorderStroke(
+            1.dp,
+            if (isCorrect) EraEurope72Color else StealieGold
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("trivia_explanation_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (isCorrect) "⚡ Right On! Deadhead Bullseye" else "🌹 Archivist Liner Note",
+                    color = if (isCorrect) EraEurope72Color else StealieGold,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+
+                if (question.relatedShowId != null) {
+                    TextButton(
+                        onClick = { onOpenShowDetail(question.relatedShowId) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Inspect Show Setlist ➔",
+                            color = StealieCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = question.linerNoteFact,
+                color = TextSecondaryDark,
+                fontSize = 13.sp,
+                lineHeight = 19.sp
+            )
+            val sourceUrl = question.sourceUrl
+            if (!sourceUrl.isNullOrBlank()) {
+                val uriHandler = LocalUriHandler.current
+                TextButton(
+                    onClick = { uriHandler.openUri(sourceUrl) },
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Source",
+                        color = StealieCyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            question.relatedArticleId?.let { articleId ->
+                TextButton(
+                    onClick = { onOpenAlmanacArticle(articleId) },
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                    modifier = Modifier.testTag("trivia_read_more")
+                ) {
+                    Text(
+                        text = "Read more →",
+                        color = StealieGold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Button(
+                onClick = onNextQuestion,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StealieGold,
+                    contentColor = StealieMidnight
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("trivia_next_question_btn")
+            ) {
+                Text(
+                    text = if (questionIndex + 1 < totalQuestions) {
+                        "Next Question ➔"
+                    } else {
+                        "View Encore Scorecard 🏆"
+                    },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TriviaScreenStageBody(
+    stage: TriviaStage,
+    shows: List<ShowEntity>,
+    parseSongs: (ShowEntity) -> List<SongEntry>,
+    triviaProgress: TriviaUserProgress,
+    selectedCategory: TriviaCategory,
+    onSelectedCategoryChange: (TriviaCategory) -> Unit,
+    selectedDifficulty: TriviaDifficulty?,
+    onSelectedDifficultyChange: (TriviaDifficulty?) -> Unit,
+    activeMode: TriviaGameMode,
+    activeDeck: List<TriviaQuestion>,
+    currentIndex: Int,
+    onCurrentIndexChange: (Int) -> Unit,
+    selectedOptionIndex: Int?,
+    onSelectedOptionIndexChange: (Int?) -> Unit,
+    hiddenOptionIndices: Set<Int>,
+    onHiddenOptionIndicesChange: (Set<Int>) -> Unit,
+    usedAskBear5050: Boolean,
+    onUsedAskBear5050Change: (Boolean) -> Unit,
+    usedFlipTapeSkip: Boolean,
+    onUsedFlipTapeSkipChange: (Boolean) -> Unit,
+    sessionStreak: Int,
+    onSessionStreakChange: (Int) -> Unit,
+    maxSessionStreak: Int,
+    onMaxSessionStreakChange: (Int) -> Unit,
+    sessionPoints: Int,
+    onSessionPointsChange: (Int) -> Unit,
+    answeredHistory: List<AnsweredQuestionRecord>,
+    onAnsweredHistoryChange: (List<AnsweredQuestionRecord>) -> Unit,
+    remainingSeconds: Int,
+    onStageChange: (TriviaStage) -> Unit,
+    onStartMode: (TriviaGameMode) -> Unit,
+    reviewStates: Map<String, com.example.data.review.ReviewState>,
+    onOpenAlmanac: () -> Unit,
+    onRecordQuizCompletion: (
+        answeredCount: Int,
+        correctCount: Int,
+        pointsEarned: Int,
+        maxStreakInRound: Int,
+        mode: TriviaGameMode
+    ) -> Unit,
+    onCardAnswered: (cardId: String, correct: Boolean) -> Unit,
+    onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit,
+    innerPadding: PaddingValues
+) {
+    when (stage) {
+        TriviaStage.HUB -> {
+            TriviaHubContent(
+                shows = shows,
+                parseSongs = parseSongs,
+                triviaProgress = triviaProgress,
+                selectedCategory = selectedCategory,
+                onSelectCategory = onSelectedCategoryChange,
+                selectedDifficulty = selectedDifficulty,
+                onSelectDifficulty = onSelectedDifficultyChange,
+                onStartMode = onStartMode,
+                reviewStates = reviewStates,
+                onOpenAlmanac = onOpenAlmanac,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+
+        TriviaStage.ACTIVE_QUIZ -> {
+            TriviaActiveQuizStage(
+                activeMode = activeMode,
+                activeDeck = activeDeck,
+                currentIndex = currentIndex,
+                onCurrentIndexChange = onCurrentIndexChange,
+                selectedOptionIndex = selectedOptionIndex,
+                onSelectedOptionIndexChange = onSelectedOptionIndexChange,
+                hiddenOptionIndices = hiddenOptionIndices,
+                onHiddenOptionIndicesChange = onHiddenOptionIndicesChange,
+                usedAskBear5050 = usedAskBear5050,
+                onUsedAskBear5050Change = onUsedAskBear5050Change,
+                usedFlipTapeSkip = usedFlipTapeSkip,
+                onUsedFlipTapeSkipChange = onUsedFlipTapeSkipChange,
+                sessionStreak = sessionStreak,
+                onSessionStreakChange = onSessionStreakChange,
+                maxSessionStreak = maxSessionStreak,
+                onMaxSessionStreakChange = onMaxSessionStreakChange,
+                sessionPoints = sessionPoints,
+                onSessionPointsChange = onSessionPointsChange,
+                answeredHistory = answeredHistory,
+                onAnsweredHistoryChange = onAnsweredHistoryChange,
+                remainingSeconds = remainingSeconds,
+                onStageChange = onStageChange,
+                onRecordQuizCompletion = onRecordQuizCompletion,
+                onCardAnswered = onCardAnswered,
+                onOpenShowDetail = onOpenShowDetail,
+                onOpenAlmanacArticle = onOpenAlmanacArticle,
+                innerPadding = innerPadding
+            )
+        }
+
+        TriviaStage.QUIZ_SUMMARY -> {
+            QuizSummaryContent(
+                mode = activeMode,
+                answeredHistory = answeredHistory,
+                sessionPoints = sessionPoints,
+                maxSessionStreak = maxSessionStreak,
+                triviaProgress = triviaProgress,
+                onPlayAgain = { onStartMode(activeMode) },
+                onBackToHub = { onStageChange(TriviaStage.HUB) },
+                onOpenShowDetail = onOpenShowDetail,
+                onOpenAlmanacArticle = onOpenAlmanacArticle,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+
+        TriviaStage.FLASHCARD_DECK -> {
+            FlashcardDeckContent(
+                questions = remember(shows) {
+                    DeadTriviaSeed.getAllAvailableQuestions(shows, parseSongs)
+                },
+                onOpenShowDetail = onOpenShowDetail,
+                onOpenAlmanacArticle = onOpenAlmanacArticle,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TriviaScreenTopBar(
+    stage: TriviaStage,
+    activeMode: TriviaGameMode,
+    triviaProgress: TriviaUserProgress,
+    onBackToHub: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(StealieMidnight)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (stage != TriviaStage.HUB) {
+                    IconButton(
+                        onClick = onBackToHub,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .testTag("trivia_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Trivia Hub",
+                            tint = StealieGold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                } else {
+                    StealieEmblem(size = 38.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+                Column {
+                    Text(
+                        text = when (stage) {
+                            TriviaStage.HUB -> "Deadhead Trivia Vault"
+                            TriviaStage.ACTIVE_QUIZ -> activeMode.title
+                            TriviaStage.QUIZ_SUMMARY -> "Setlist Encore Scorecard"
+                            TriviaStage.FLASHCARD_DECK -> "Archivist Lore Flashcards"
+                        },
+                        color = TextPrimaryDark,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    Text(
+                        text = triviaProgress.rankTitle,
+                        color = StealieGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Surface(
+                color = StealieGold.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f))
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Bolt,
+                        contentDescription = null,
+                        tint = StealieGold,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${triviaProgress.totalPoints} pts",
+                        color = StealieGold,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+        HorizontalDivider(
+            color = BorderSubtle,
+            thickness = 0.5.dp,
+            modifier = Modifier.padding(top = 10.dp)
+        )
+    }
+}
+
+@Composable
+internal fun TriviaActiveQuizStage(
+    activeMode: TriviaGameMode,
+    activeDeck: List<TriviaQuestion>,
+    currentIndex: Int,
+    onCurrentIndexChange: (Int) -> Unit,
+    selectedOptionIndex: Int?,
+    onSelectedOptionIndexChange: (Int?) -> Unit,
+    hiddenOptionIndices: Set<Int>,
+    onHiddenOptionIndicesChange: (Set<Int>) -> Unit,
+    usedAskBear5050: Boolean,
+    onUsedAskBear5050Change: (Boolean) -> Unit,
+    usedFlipTapeSkip: Boolean,
+    onUsedFlipTapeSkipChange: (Boolean) -> Unit,
+    sessionStreak: Int,
+    onSessionStreakChange: (Int) -> Unit,
+    maxSessionStreak: Int,
+    onMaxSessionStreakChange: (Int) -> Unit,
+    sessionPoints: Int,
+    onSessionPointsChange: (Int) -> Unit,
+    answeredHistory: List<AnsweredQuestionRecord>,
+    onAnsweredHistoryChange: (List<AnsweredQuestionRecord>) -> Unit,
+    remainingSeconds: Int,
+    onStageChange: (TriviaStage) -> Unit,
+    onRecordQuizCompletion: (
+        answeredCount: Int,
+        correctCount: Int,
+        pointsEarned: Int,
+        maxStreakInRound: Int,
+        mode: TriviaGameMode
+    ) -> Unit,
+    onCardAnswered: (cardId: String, correct: Boolean) -> Unit,
+    onOpenShowDetail: (String) -> Unit,
+    onOpenAlmanacArticle: (String) -> Unit,
+    innerPadding: PaddingValues
+) {
+    val currentQ = activeDeck.getOrNull(currentIndex)
+    if (currentQ != null) {
+        fun finishQuiz() {
+            val correctCount = answeredHistory.count { it.isCorrect }
+            onRecordQuizCompletion(
+                answeredHistory.size,
+                correctCount,
+                sessionPoints,
+                maxSessionStreak,
+                activeMode
+            )
+            onStageChange(TriviaStage.QUIZ_SUMMARY)
+        }
+
+        ActiveQuizContent(
+            mode = activeMode,
+            question = currentQ,
+            questionIndex = currentIndex,
+            totalQuestions = activeDeck.size,
+            selectedOptionIndex = selectedOptionIndex,
+            hiddenOptionIndices = hiddenOptionIndices,
+            usedAskBear5050 = usedAskBear5050,
+            usedFlipTapeSkip = usedFlipTapeSkip,
+            sessionStreak = sessionStreak,
+            sessionPoints = sessionPoints,
+            remainingSeconds = remainingSeconds,
+            onSelectOption = { idx ->
+                if (selectedOptionIndex == null) {
+                    onSelectedOptionIndexChange(idx)
+                    val isCorrect = idx == currentQ.correctIndex
+                    onCardAnswered(currentQ.id, isCorrect)
+                    val newStreak = if (isCorrect) sessionStreak + 1 else 0
+                    onSessionStreakChange(newStreak)
+                    if (newStreak > maxSessionStreak) {
+                        onMaxSessionStreakChange(newStreak)
+                    }
+                    val streakBonus = if (isCorrect) (newStreak - 1).coerceAtLeast(0) * 35 else 0
+                    val speedBonus = if (isCorrect && activeMode == TriviaGameMode.TERRAPIN_BLITZ) 40 else 0
+                    val earned = if (isCorrect) currentQ.difficulty.basePoints + streakBonus + speedBonus else 0
+                    onSessionPointsChange(sessionPoints + earned)
+                    onAnsweredHistoryChange(
+                        answeredHistory + AnsweredQuestionRecord(
+                            question = currentQ,
+                            selectedOptionIndex = idx,
+                            isCorrect = isCorrect,
+                            pointsEarned = earned
+                        )
+                    )
+                }
+            },
+            onUseAskBear5050 = {
+                if (!usedAskBear5050 && selectedOptionIndex == null &&
+                    currentQ.options.size >= 4
+                ) {
+                    onUsedAskBear5050Change(true)
+                    val wrongIndices = currentQ.options.indices
+                        .filter { it != currentQ.correctIndex }
+                        .shuffled()
+                        .take(2)
+                        .toSet()
+                    onHiddenOptionIndicesChange(wrongIndices)
+                }
+            },
+            onUseFlipTapeSkip = {
+                if (!usedFlipTapeSkip && selectedOptionIndex == null) {
+                    onUsedFlipTapeSkipChange(true)
+                    if (currentIndex + 1 < activeDeck.size) {
+                        onCurrentIndexChange(currentIndex + 1)
+                        onSelectedOptionIndexChange(null)
+                        onHiddenOptionIndicesChange(emptySet())
+                    } else {
+                        finishQuiz()
+                    }
+                }
+            },
+            onNextQuestion = {
+                if (currentIndex + 1 < activeDeck.size) {
+                    onCurrentIndexChange(currentIndex + 1)
+                    onSelectedOptionIndexChange(null)
+                    onHiddenOptionIndicesChange(emptySet())
+                } else {
+                    finishQuiz()
+                }
+            },
+            onOpenShowDetail = onOpenShowDetail,
+            onOpenAlmanacArticle = onOpenAlmanacArticle,
+            modifier = Modifier.padding(innerPadding)
+        )
     }
 }
