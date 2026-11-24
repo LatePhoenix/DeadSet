@@ -24,14 +24,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 
 **Where the code is (read this first):**
 - **`main` is the working line** (through 6.1): Phases 0–1, 2 (except C4), 3–4 (except live keys), 5.1–5.7, seed reset, A1–A3, **C1–C3 + C5–C7 + 2.4 + D1–D2**, **6.1**. DB **v12**.
-- **Phase 2b and 2c merged; the F1–F5 audit is back (2026-11-23).** F1–F4 are fine; it found 2 small fixes, **G1–G2** (end of Phase 2c). Do them, then 6.2. Deploy D1 Worker when owner has CF + Ticketmaster key.
+- **G1, G2 and 6.2 merged; the audit is back (2026-11-23).** No blocking issues; one test-only fix, **H1** (end of Phase 2c). Do it, then 6.3. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**G1 → G2 → 6.2**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.3 until the owner returns with audit results.
-2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-3. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. **H1** Fill the 6.2 test gaps (end of Phase 2c).
+2. **6.3** Break up large screens (see the audit note under 6.3).
+3. **HARD STOP after 6.3 merges** for the next owner / Claude Code audit. Do **not** start 6.4.
+4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+5. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
-**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.2) and reads any CodeRabbit comments then.
+**Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3) and reads any CodeRabbit comments then.
 
 **Open decisions for the owner**
 - [x] **Catalog asset in git.** _Decided (agent, R3):_ keep `catalog.db` **gitignored** (~10MB); regenerate with `./gradlew :tools:importer:run --args=--build-catalog` after `--fetch`. `assembleRelease` fails via `verifyCatalogAsset` when the file is missing. Do not commit the binary unless the owner asks. CI `minifyReleaseWithR8` does not require the asset.
@@ -255,12 +257,21 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **G1 F5's fresh-install stamp probably never fires.** (`25bef79`) Stamp via `createFromAsset(…, PrepackagedDatabaseCallback.onOpenPrepackagedDatabase)`; dropped `onCreate` callback. Test opens DB through `createFromFile(fixture, callback)` (never calls callback by hand).
 - [x] **G2 Restore the Slipknot! writer credit (undo R6).** (`2234558`) `writers = "Kreutzmann"`, `debutDate = null`; almanac MD restored. Source: dead.net/song/slipknot (Music By: Bill Kreutzmann, checked 2026-11-23).
 
+**Audit of G1, G2, 6.2 (Claude Code, 2026-11-23):** G1 and G2 are correct. 6.2 keeps behavior identical (compared line by line with the old `DeadSetViewModel`); 167/167 tests pass on `89a2ca7`. One small test fix before 6.3:
+
+- [ ] **H1 Fill the 6.2 test gaps.**
+  - **`ShowsViewModel` has no ViewModel tests.** `ShowsViewModelTest` only tests `ShowCatalogFilters`. Add Robolectric tests that build a real `ShowsViewModel` (in-memory DB, real `NavigationViewModel`) and cover: `filterBySegue` sets the filter, switches `currentTab` to SHOWS and sends `NavCommand.ToShowsTab`; calling it again with the same title clears the filter; `clearSegueFilter`; `deleteShow` sends `NavCommand.Back` and sets the feedback message; a filter setter (e.g. `setEra`) re-filters `filteredShows`.
+  - **`ConcertsViewModelTest.addBand writes followed band` depends on timing** (`delay(100)` then reads the DB). Replace with a deterministic wait: e.g. collect `db.concertDao()` / `vm.concerts` with `withTimeout { first { … } }`, or poll with a short timeout. No fixed sleeps.
+  - Optional: `ChaseViewModelTest` mostly tests the repository. Add one test that calls `vm.addChaseSong("Scarlet Begonias")` and waits for `chaseSongs` / the DAO to contain it.
+  - Test-only change: no production code changes unless a test exposes a real bug (then note it here).
+
 ## Phase 6: Polish & architecture
 
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [x] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (`4c64fb5`) `AppContainer` + Shows/Concerts/Chase/Navigation/Trivia/Profile ViewModels; `DeadSetViewModel` facade keeps MainActivity API. Tests per feature VM + `ShowCatalogFilters`.
 - [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
+  _From the 6.2 audit:_ screens still take the forwarding `DeadSetViewModel`. As you split each screen, have the new composables take the feature ViewModel they need (`viewModel.triviaVm`, `profileVm`, `showsVm`, …) or plain state + lambdas, not the whole facade. Remove facade methods that no caller uses any more. No UI or behavior changes; keep tests green and add tests for any logic moved out of composables.
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
@@ -271,6 +282,11 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Claude Code (audit of G1, G2, 6.2)
+- PRs #42–#44 merged on green `test`; CodeRabbit posted no findings. Fresh local run: 167/167 pass on `89a2ca7`.
+- G1, G2 correct; 6.2 behavior identical to the old ViewModel. Added **H1** (ShowsViewModel tests, deterministic Concerts test) and an audit note under 6.3 (screens take feature VMs, not the facade). Audit pause lifted.
+- **Next (Cursor):** H1 → 6.3, then **hard stop after 6.3** for the next audit.
 
 ### 2026-11-23 · Cursor (6.2 ViewModel split — audit pause)
 - PR pending: `AppContainer` + feature ViewModels (`4c64fb5`); facade keeps MainActivity unchanged.
