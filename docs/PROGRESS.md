@@ -278,7 +278,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - UI: two entries on the Me → Profile pane ("Back up my data", "Restore from backup"), plus a feedback message with the result. Don't change other screens.
   _Audit (Claude Code, 2026-11-23):_ safe to keep: validation before writes, one transaction, upsert without cascade deletes, safe enum parsing; CI green, 176/176 on a fresh run of `603e7f7`. But restore replaces matching local data with the backup's copy (the dialog says "nothing is deleted"), and alerts restored as "on" aren't scheduled. Fix in H2:
 - [x] **H2 Restore fixes (6.4 audit).** (`8e4fb60`) Trivia merge (`mergeTriviaProgress`), review-card prefer, catalog-id collision skip, prefs after Room txn, alerts via `onBackupImported` → `concertsVm.setAlertsEnabled`, 5 MB cap, `rememberSaveable` pending JSON, honest confirm dialog. Tests: overlap, trivia merge, collision, `RestoreAlertsWiringTest`.
-- [x] **6.5 Share cards, home-screen widget, accessibility pass.** (`PENDING_65`)
+- [x] **6.5 Share cards, home-screen widget, accessibility pass.** (`bd8cd3d`)
   Share setlist (Show detail) + trivia score (quiz summary) via `FileProvider` bitmaps; setlist credits gdshowsdb/Deadlists. Widget: plain `AppWidgetProvider` (no Glance — lean deps). A11y: share/back/delete 48dp targets, attendance CD, headings on detail/summary. Tests: `TodayInDeadHistoryTest`, `ShareCardTextTest`.
   _Notes (Claude Code):_ (plan: IMPROVEMENT_PLAN.md "Share cards" / "Home-screen widget")
   - **Share cards:** render a setlist card from Show detail and a trivia-score card from the Almanac results screen to a bitmap, write it to `cacheDir` and share through a `FileProvider` with `ACTION_SEND` (no storage permission). Every fact on a card comes from the app's data; credit "Setlist data: gdshowsdb / Deadlists" in small text on setlist cards. "My year in Dead" can wait.
@@ -297,7 +297,7 @@ _Newest first. Keep entries short: what changed, what's half-done, next action._
 
 ### 2026-11-23 · Cursor (H2 + 6.5 — audit pause)
 - H2 merged (#51, `8e4fb60`): trivia/card merge, catalog collision skip, alerts wiring, 5 MB cap.
-- 6.5 pending: share cards + Today-in-Dead-History widget + a11y (`PENDING_65`).
+- 6.5 pending: share cards + Today-in-Dead-History widget + a11y (`bd8cd3d`).
 - **HARD STOP after 6.5:** do not start 6.6 / 6.7 / 6.3b. Owner + Claude Code audit next.
 
 ### 2026-11-23 · Claude Code (audit of 6.4)
