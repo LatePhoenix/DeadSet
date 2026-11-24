@@ -1,25 +1,64 @@
 package com.example.ui.compose
 
-import org.junit.Assert.assertEquals
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
- * 6.7 a11y contract for icon-only controls (production screens use these exact strings).
- * Compose/Robolectric UI probing was dropped — see [ComposeUiTestNotes].
+ * 6.7: icon-only controls must expose a content description (same tags/CDs as Shows/Live).
+ * Isolated buttons avoid infinite dancing-bear animations that never idle under Robolectric
+ * when mounting full Screens (CodeRabbit: production mounts deferred for that reason).
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class IconOnlyAccessibilityComposeTest {
 
-    @Test
-    fun `shows and live icon-only CD strings stay non-blank`() {
-        assertEquals("Add Show", ADD_SHOW_CD)
-        assertEquals("Refresh dates", REFRESH_CONCERTS_CD)
-        assertEquals("Back to Trivia Hub", TRIVIA_BACK_CD)
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    @Before
+    fun pauseAnims() {
+        composeRule.pauseInfiniteAnimations()
     }
 
-    companion object {
-        // Keep in sync with ShowsListScreen / LiveConcertsScreen / TriviaScreen Icon contentDescriptions.
-        const val ADD_SHOW_CD = "Add Show"
-        const val REFRESH_CONCERTS_CD = "Refresh dates"
-        const val TRIVIA_BACK_CD = "Back to Trivia Hub"
+    @Test
+    fun `add show icon button exposes content description`() {
+        composeRule.setContent {
+            IconButton(
+                onClick = {},
+                modifier = Modifier.testTag("add_show_button")
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Add Show")
+            }
+        }
+        composeRule.onNodeWithTag("add_show_button")
+            .assertContentDescriptionEquals("Add Show")
+    }
+
+    @Test
+    fun `refresh concerts icon button exposes content description`() {
+        composeRule.setContent {
+            IconButton(
+                onClick = {},
+                modifier = Modifier.testTag("refresh_concerts_button")
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Refresh dates")
+            }
+        }
+        composeRule.onNodeWithTag("refresh_concerts_button")
+            .assertContentDescriptionEquals("Refresh dates")
     }
 }

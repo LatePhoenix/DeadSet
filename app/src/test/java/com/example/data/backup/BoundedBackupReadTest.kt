@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 
-/** H3: bounded backup read rejects input one byte over the limit. */
+/** H3 / 6.7: bounded backup read rejects oversize input across buffer boundaries. */
 class BoundedBackupReadTest {
 
     @Test
@@ -30,5 +30,15 @@ class BoundedBackupReadTest {
             maxBytes = 5
         )
         assertEquals("hi", ok)
+    }
+
+    @Test
+    fun `bounded read crosses 8192 buffer boundary`() {
+        val limit = 8192
+        val exact = ByteArray(limit) { 'x'.code.toByte() }
+        assertEquals(limit, readBoundedUtf8(ByteArrayInputStream(exact), limit)!!.length)
+
+        val over = ByteArray(limit + 1) { 'y'.code.toByte() }
+        assertNull(readBoundedUtf8(ByteArrayInputStream(over), limit))
     }
 }
