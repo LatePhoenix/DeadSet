@@ -139,234 +139,56 @@ fun TriviaScreen(
 
     Scaffold(
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(StealieMidnight)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (stage != TriviaStage.HUB) {
-                            IconButton(
-                                onClick = { stage = TriviaStage.HUB },
-                                modifier = Modifier
-                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                                    .testTag("trivia_back_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back to Trivia Hub",
-                                    tint = StealieGold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                        } else {
-                            StealieEmblem(size = 38.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                        }
-                        Column {
-                            Text(
-                                text = when (stage) {
-                                    TriviaStage.HUB -> "Deadhead Trivia Vault"
-                                    TriviaStage.ACTIVE_QUIZ -> activeMode.title
-                                    TriviaStage.QUIZ_SUMMARY -> "Setlist Encore Scorecard"
-                                    TriviaStage.FLASHCARD_DECK -> "Archivist Lore Flashcards"
-                                },
-                                color = TextPrimaryDark,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.semantics { heading() }
-                            )
-                            Text(
-                                text = triviaProgress.rankTitle,
-                                color = StealieGold,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    // Points pill
-                    Surface(
-                        color = StealieGold.copy(alpha = 0.16f),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Bolt,
-                                contentDescription = null,
-                                tint = StealieGold,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${triviaProgress.totalPoints} pts",
-                                color = StealieGold,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-                }
-                HorizontalDivider(
-                    color = BorderSubtle,
-                    thickness = 0.5.dp,
-                    modifier = Modifier.padding(top = 10.dp)
-                )
-            }
+            TriviaScreenTopBar(
+                stage = stage,
+                activeMode = activeMode,
+                triviaProgress = triviaProgress,
+                onBackToHub = { stage = TriviaStage.HUB }
+            )
         },
         containerColor = StealieMidnight,
         modifier = modifier.testTag("trivia_screen_root")
     ) { innerPadding ->
-        when (stage) {
-            TriviaStage.HUB -> {
-                TriviaHubContent(
-                    shows = shows,
-                    parseSongs = parseSongs,
-                    triviaProgress = triviaProgress,
-                    selectedCategory = selectedCategory,
-                    onSelectCategory = { selectedCategory = it },
-                    selectedDifficulty = selectedDifficulty,
-                    onSelectDifficulty = { selectedDifficulty = it },
-                    onStartMode = { mode -> startQuiz(mode) },
-                    reviewStates = reviewStates,
-                    onOpenAlmanac = onOpenAlmanac,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            TriviaStage.ACTIVE_QUIZ -> {
-                val currentQ = activeDeck.getOrNull(currentIndex)
-                if (currentQ != null) {
-                    ActiveQuizContent(
-                        mode = activeMode,
-                        question = currentQ,
-                        questionIndex = currentIndex,
-                        totalQuestions = activeDeck.size,
-                        selectedOptionIndex = selectedOptionIndex,
-                        hiddenOptionIndices = hiddenOptionIndices,
-                        usedAskBear5050 = usedAskBear5050,
-                        usedFlipTapeSkip = usedFlipTapeSkip,
-                        sessionStreak = sessionStreak,
-                        sessionPoints = sessionPoints,
-                        remainingSeconds = remainingSeconds,
-                        onSelectOption = { idx ->
-                            if (selectedOptionIndex == null) {
-                                selectedOptionIndex = idx
-                                val isCorrect = idx == currentQ.correctIndex
-                                // Every answer feeds per-question history (step 5.1) and Leitner review.
-                                onCardAnswered(currentQ.id, isCorrect)
-                                val newStreak = if (isCorrect) sessionStreak + 1 else 0
-                                sessionStreak = newStreak
-                                if (newStreak > maxSessionStreak) {
-                                    maxSessionStreak = newStreak
-                                }
-                                val streakBonus = if (isCorrect) (newStreak - 1).coerceAtLeast(0) * 35 else 0
-                                val speedBonus = if (isCorrect && activeMode == TriviaGameMode.TERRAPIN_BLITZ) 40 else 0
-                                val earned = if (isCorrect) currentQ.difficulty.basePoints + streakBonus + speedBonus else 0
-                                sessionPoints += earned
-                                answeredHistory = answeredHistory + AnsweredQuestionRecord(
-                                    question = currentQ,
-                                    selectedOptionIndex = idx,
-                                    isCorrect = isCorrect,
-                                    pointsEarned = earned
-                                )
-                            }
-                        },
-                        onUseAskBear5050 = {
-                            // Need ≥4 options so hiding two wrong answers leaves a real choice
-                            // (True/False and some typed formats only have 2).
-                            if (!usedAskBear5050 && selectedOptionIndex == null &&
-                                currentQ.options.size >= 4
-                            ) {
-                                usedAskBear5050 = true
-                                val wrongIndices = currentQ.options.indices
-                                    .filter { it != currentQ.correctIndex }
-                                    .shuffled()
-                                    .take(2)
-                                    .toSet()
-                                hiddenOptionIndices = wrongIndices
-                            }
-                        },
-                        onUseFlipTapeSkip = {
-                            if (!usedFlipTapeSkip && selectedOptionIndex == null) {
-                                usedFlipTapeSkip = true
-                                if (currentIndex + 1 < activeDeck.size) {
-                                    currentIndex += 1
-                                    selectedOptionIndex = null
-                                    hiddenOptionIndices = emptySet()
-                                } else {
-                                    val correctCount = answeredHistory.count { it.isCorrect }
-                                    onRecordQuizCompletion(
-                                        answeredHistory.size,
-                                        correctCount,
-                                        sessionPoints,
-                                        maxSessionStreak,
-                                        activeMode
-                                    )
-                                    stage = TriviaStage.QUIZ_SUMMARY
-                                }
-                            }
-                        },
-                        onNextQuestion = {
-                            if (currentIndex + 1 < activeDeck.size) {
-                                currentIndex += 1
-                                selectedOptionIndex = null
-                                hiddenOptionIndices = emptySet()
-                            } else {
-                                val correctCount = answeredHistory.count { it.isCorrect }
-                                onRecordQuizCompletion(
-                                    answeredHistory.size,
-                                    correctCount,
-                                    sessionPoints,
-                                    maxSessionStreak,
-                                    activeMode
-                                )
-                                stage = TriviaStage.QUIZ_SUMMARY
-                            }
-                        },
-                        onOpenShowDetail = onOpenShowDetail,
-                        onOpenAlmanacArticle = onOpenAlmanacArticle,
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
-
-            TriviaStage.QUIZ_SUMMARY -> {
-                QuizSummaryContent(
-                    mode = activeMode,
-                    answeredHistory = answeredHistory,
-                    sessionPoints = sessionPoints,
-                    maxSessionStreak = maxSessionStreak,
-                    triviaProgress = triviaProgress,
-                    onPlayAgain = { startQuiz(activeMode) },
-                    onBackToHub = { stage = TriviaStage.HUB },
-                    onOpenShowDetail = onOpenShowDetail,
-                    onOpenAlmanacArticle = onOpenAlmanacArticle,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            TriviaStage.FLASHCARD_DECK -> {
-                FlashcardDeckContent(
-                    questions = remember(shows) {
-                        DeadTriviaSeed.getAllAvailableQuestions(shows, parseSongs)
-                    },
-                    onOpenShowDetail = onOpenShowDetail,
-                    onOpenAlmanacArticle = onOpenAlmanacArticle,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-        }
+        TriviaScreenStageBody(
+            stage = stage,
+            shows = shows,
+            parseSongs = parseSongs,
+            triviaProgress = triviaProgress,
+            selectedCategory = selectedCategory,
+            onSelectedCategoryChange = { selectedCategory = it },
+            selectedDifficulty = selectedDifficulty,
+            onSelectedDifficultyChange = { selectedDifficulty = it },
+            activeMode = activeMode,
+            activeDeck = activeDeck,
+            currentIndex = currentIndex,
+            onCurrentIndexChange = { currentIndex = it },
+            selectedOptionIndex = selectedOptionIndex,
+            onSelectedOptionIndexChange = { selectedOptionIndex = it },
+            hiddenOptionIndices = hiddenOptionIndices,
+            onHiddenOptionIndicesChange = { hiddenOptionIndices = it },
+            usedAskBear5050 = usedAskBear5050,
+            onUsedAskBear5050Change = { usedAskBear5050 = it },
+            usedFlipTapeSkip = usedFlipTapeSkip,
+            onUsedFlipTapeSkipChange = { usedFlipTapeSkip = it },
+            sessionStreak = sessionStreak,
+            onSessionStreakChange = { sessionStreak = it },
+            maxSessionStreak = maxSessionStreak,
+            onMaxSessionStreakChange = { maxSessionStreak = it },
+            sessionPoints = sessionPoints,
+            onSessionPointsChange = { sessionPoints = it },
+            answeredHistory = answeredHistory,
+            onAnsweredHistoryChange = { answeredHistory = it },
+            remainingSeconds = remainingSeconds,
+            onStageChange = { stage = it },
+            onStartMode = { mode -> startQuiz(mode) },
+            reviewStates = reviewStates,
+            onOpenAlmanac = onOpenAlmanac,
+            onRecordQuizCompletion = onRecordQuizCompletion,
+            onCardAnswered = onCardAnswered,
+            onOpenShowDetail = onOpenShowDetail,
+            onOpenAlmanacArticle = onOpenAlmanacArticle,
+            innerPadding = innerPadding
+        )
     }
 }
 
