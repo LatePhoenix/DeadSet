@@ -311,7 +311,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - Helpers: `pauseInfiniteAnimations` / `advanceUi` / `scrollListToTag` / `clickTag`. List tags: `user_profile_list`, `trivia_hub_list`, `stats_list`.
   - `RestoreConfirmDialog` extracted from `MainActivity` (same wording); dialog tests assert replace-copy + counts + callbacks. Flaky VM confirm uses `confirmRestoreAwait` in `ProfileViewModelTest`.
   - Quiz explanation + Next moved out of `ActiveQuizContent`'s `LazyColumn` (virtualization hid them under Robolectric); options use `Surface(onClick=…)`. Full suite `--rerun-tasks` ×3 green locally.
-- [x] **6.3b Real split of the large composables** (pending stamp). No UI or behavior changes; H4 Compose tests pass unchanged.
+- [x] **6.3b Real split of the large composables** ($feat). No UI or behavior changes; H4 Compose tests pass unchanged.
   _Line counts (entrypoint functions):_
   | Entrypoint | Before | After |
   |---|---:|---:|
