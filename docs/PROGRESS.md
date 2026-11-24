@@ -259,7 +259,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 **Audit of G1, G2, 6.2 (Claude Code, 2026-11-23):** G1 and G2 are correct. 6.2 keeps behavior identical (compared line by line with the old `DeadSetViewModel`); 167/167 tests pass on `89a2ca7`. One small test fix before 6.3:
 
-- [ ] **H1 Fill the 6.2 test gaps.**
+- [~] **H1 Fill the 6.2 test gaps.** (Cursor)
   - **`ShowsViewModel` has no ViewModel tests.** `ShowsViewModelTest` only tests `ShowCatalogFilters`. Add Robolectric tests that build a real `ShowsViewModel` (in-memory DB, real `NavigationViewModel`) and cover: `filterBySegue` sets the filter, switches `currentTab` to SHOWS and sends `NavCommand.ToShowsTab`; calling it again with the same title clears the filter; `clearSegueFilter`; `deleteShow` sends `NavCommand.Back` and sets the feedback message; a filter setter (e.g. `setEra`) re-filters `filteredShows`.
   - **`ConcertsViewModelTest.addBand writes followed band` depends on timing** (`delay(100)` then reads the DB). Replace with a deterministic wait: e.g. collect `db.concertDao()` / `vm.concerts` with `withTimeout { first { … } }`, or poll with a short timeout. No fixed sleeps.
   - Optional: `ChaseViewModelTest` mostly tests the repository. Add one test that calls `vm.addChaseSong("Scarlet Begonias")` and waits for `chaseSongs` / the DAO to contain it.
