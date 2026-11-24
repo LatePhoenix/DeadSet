@@ -307,7 +307,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
   - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar.
   - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests (H4 later extracted restore dialog + quiz explanation placement).
   _Audit (Claude Code, 2026-11-24):_ MockWebServer + a11y good; stand-in Compose tests and flaky restore-confirm fixed in **H4**.
-- [x] **H4 Real-screen Compose UI tests (6.7 audit).** (pending stamp)
+- [x] **H4 Real-screen Compose UI tests (6.7 audit).** (`1fc6427`)
   _As built:_
   - Stand-in Compose tests deleted; all mounts are real screens/panels (`UserProfileScreen`, `ShowDetailScreen`, `ShowsListScreen`, `LiveConcertsScreen`, `TriviaHubContent`, `TriviaScreen`, `StatsScreen`, `RestoreConfirmDialog`).
   - Helpers: `pauseInfiniteAnimations` / `advanceUi` / `scrollListToTag` / `clickTag`. List tags: `user_profile_list`, `trivia_hub_list`, `stats_list`.
