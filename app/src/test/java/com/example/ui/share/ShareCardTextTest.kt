@@ -5,6 +5,7 @@ import com.example.data.model.SongEntry
 import com.example.data.model.TransitionType
 import com.example.widget.TodayInDeadHistoryWidget
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,7 +21,8 @@ class ShareCardTextTest {
             stateOrCountry = "NY",
             eraId = "spring_77",
             tourName = "",
-            bandName = "Grateful Dead"
+            bandName = "Grateful Dead",
+            isCustomShow = false
         )
         val songs = listOf(
             SongEntry("Scarlet Begonias", transitionOut = TransitionType.SEGUE),
@@ -31,6 +33,36 @@ class ShareCardTextTest {
         assertTrue(lines.any { it.contains("Barton Hall") })
         assertTrue(lines.any { it.startsWith("Scarlet Begonias") && it.endsWith("->") })
         assertEquals(SETLIST_CREDIT, lines.last())
+    }
+
+    @Test
+    fun `custom setlist card has no gdshowsdb credit`() {
+        val show = ShowEntity(
+            id = "custom-1",
+            date = "2024-06-01",
+            venue = "Martyrs'",
+            city = "Chicago",
+            stateOrCountry = "IL",
+            eraId = "",
+            tourName = "",
+            bandName = "Terrapin Flyer",
+            isCustomShow = true
+        )
+        val lines = buildSetlistShareLines(show, listOf(SongEntry("Truckin'")))
+        assertFalse(lines.contains(SETLIST_CREDIT))
+        assertTrue(lines.any { it.contains("Terrapin Flyer") })
+    }
+
+    @Test
+    fun `line wrapping keeps every word`() {
+        val text = "Scarlet Begonias into Fire on the Mountain tonight"
+        // Character-count measure: force wraps under a short width.
+        val wrapped = wrapLineToWidth(text, maxWidth = 18f) { it.length.toFloat() }
+        assertEquals(text, wrapped.joinToString(" "))
+        assertTrue(wrapped.size > 1)
+        for (word in text.split(' ')) {
+            assertTrue(wrapped.any { it.split(' ').contains(word) })
+        }
     }
 
     @Test

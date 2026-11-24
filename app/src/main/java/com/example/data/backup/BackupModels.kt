@@ -71,10 +71,13 @@ data class BackupImportResult(
     val userShowDataUpserted: Int,
     val customShowsUpserted: Int,
     val chaseSongsUpserted: Int,
+    /** Review cards taken from the backup (not ones where the local copy was kept). */
     val reviewCardsUpserted: Int,
     val bandsUpserted: Int,
     val skippedUnknownShowIds: Int,
-    val skippedCatalogCollisions: Int = 0
+    val skippedCatalogCollisions: Int = 0,
+    /** Matching cards where the phone's copy was preferred over the backup (H3). */
+    val reviewCardsKeptLocal: Int = 0
 ) {
     fun feedbackMessage(): String = buildString {
         append("Restored: $userShowDataUpserted show memories, $customShowsUpserted custom shows, ")
@@ -94,9 +97,38 @@ data class BackupImportResult(
             }
             append(" (${parts.joinToString("; ")})")
         }
+        if (reviewCardsKeptLocal > 0) {
+            append(". Kept $reviewCardsKeptLocal newer card")
+            if (reviewCardsKeptLocal != 1) append('s')
+            append(" on this phone")
+        }
         append('.')
     }
 }
 
 /** Max backup file size accepted on restore (H2). */
 const val BACKUP_MAX_BYTES = 5 * 1024 * 1024
+
+/**
+ * Reads UTF-8 from [input], stopping once more than [maxBytes] have been read (H3).
+ * Returns null when the stream exceeds the limit (nothing usable is returned).
+ */
+fun readBoundedUtf8(input: java.io.InputStream, maxBytes: Int = BACKUP_MAX_BYTES): String? {
+    val buffer = ByteArray(8192)
+    val out = java.io.ByteArrayOutputStream()
+    var total = 0
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) break
+        if (total + n > maxBytes) return null
+        out.write(buffer, 0, n)
+        total += n
+    }
+    return out.toString(Charsets.UTF_8.name())
+}
+
+/** Pending restore held in [com.example.ui.ProfileViewModel] so rotation doesn't serialize JSON (H3). */
+data class PendingRestore(
+    val document: BackupDocument,
+    val preview: BackupPreview
+)

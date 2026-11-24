@@ -36,12 +36,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import com.example.data.backup.BACKUP_MAX_BYTES
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,9 +58,8 @@ import androidx.navigation.navArgument
 import com.example.data.almanac.AlmanacLinkIndex
 import com.example.data.almanac.AlmanacRepository
 import com.example.data.almanac.SongStoryComposer
-import com.example.data.backup.BackupDocument
 import com.example.data.backup.BackupParseResult
-import com.example.data.backup.BackupPreview
+import com.example.data.backup.readBoundedUtf8
 import com.example.data.local.isUpcoming
 import com.example.data.setlist.ChaseProgress
 import com.example.data.todayIsoDate
@@ -89,14 +84,16 @@ import com.example.ui.theme.StealieMidnight
 import com.example.ui.theme.TextPrimaryDark
 import com.example.ui.theme.TextSecondaryDark
 import com.example.ui.theme.DeadSetThemeProvider
+import com.example.widget.TodayInDeadHistoryWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.charset.Charset
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // H3: refresh home-screen widget so "today" is current even if the 24h period hasn't elapsed.
+        TodayInDeadHistoryWidget.refreshAll(this)
         enableEdgeToEdge()
         setContent {
             DeadSetThemeProvider {
@@ -117,19 +114,10 @@ private data class TabSpec(
 @Composable
 fun DeadSetApp(viewModel: DeadSetViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // H2: survive rotation — hold raw JSON, re-parse for the confirm dialog.
-    var pendingRestoreJson by rememberSaveable { mutableStateOf<String?>(null) }
-    val pendingRestore: Pair<BackupDocument, BackupPreview>? = remember(pendingRestoreJson) {
-        pendingRestoreJson?.let { json ->
-            when (val parsed = viewModel.parseBackup(json)) {
-                is BackupParseResult.Ok -> parsed.document to viewModel.previewBackup(parsed.document)
-                is BackupParseResult.Err -> null
-            }
-        }
-    }
     val createBackupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -155,20 +143,16 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
         scope.launch {
             try {
                 val json = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        val bytes = input.readBytes()
-                        if (bytes.size > BACKUP_MAX_BYTES) {
-                            return@withContext null
-                        }
-                        bytes.toString(Charset.forName("UTF-8"))
-                    } ?: error("Could not read backup file")
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: error("Could not read backup file")
+                    stream.use { readBoundedUtf8(it) }
                 }
                 if (json == null) {
                     viewModel.setBackupFeedback("Backup file is too large (max 5 MB).")
                     return@launch
                 }
-                when (val parsed = viewModel.parseBackup(json)) {
-                    is BackupParseResult.Ok -> pendingRestoreJson = json
+                when (val parsed = viewModel.offerPendingRestore(json)) {
+                    is BackupParseResult.Ok -> Unit
                     is BackupParseResult.Err -> viewModel.setBackupFeedback(parsed.message)
                 }
             } catch (e: Exception) {
@@ -183,27 +167,24 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
         AlmanacRepository(context).loadArticles()
     }
 
-    pendingRestore?.let { (doc, preview) ->
+    pendingRestore?.let { pending ->
         AlertDialog(
-            onDismissRequest = { pendingRestoreJson = null },
+            onDismissRequest = { viewModel.clearPendingRestore() },
             title = { Text("Restore from backup?") },
             text = {
                 Text(
                     "Items in this backup replace the matching items on this phone. " +
-                        "Nothing else is changed or deleted.\n${preview.summaryLines()}"
+                        "Nothing else is changed or deleted.\n${pending.preview.summaryLines()}"
                 )
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        pendingRestoreJson = null
-                        viewModel.confirmRestore(doc)
-                    },
+                    onClick = { viewModel.confirmPendingRestore() },
                     modifier = Modifier.testTag("backup_restore_confirm")
                 ) { Text("Restore") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRestoreJson = null }) { Text("Cancel") }
+                TextButton(onClick = { viewModel.clearPendingRestore() }) { Text("Cancel") }
             }
         )
     }

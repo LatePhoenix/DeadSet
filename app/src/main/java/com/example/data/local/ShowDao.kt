@@ -64,6 +64,16 @@ interface ShowDao {
     @Query("SELECT * FROM shows_with_user")
     suspend fun getAllShowsOnce(): List<ShowEntity>
 
+    /** Catalog-only rows for a calendar month-day (`MM-dd`); used by the home-screen widget (H3). */
+    @Query(
+        """
+        SELECT * FROM shows_with_user
+        WHERE isCustomShow = 0 AND substr(date, 6, 5) = :monthDay
+        ORDER BY date ASC
+        """
+    )
+    suspend fun getCatalogShowsOnMonthDay(monthDay: String): List<ShowEntity>
+
     @Query("SELECT COUNT(*) FROM shows")
     suspend fun getShowsCount(): Int
 
