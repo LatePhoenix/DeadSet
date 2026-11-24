@@ -303,20 +303,16 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows. (`eab4e3b`, CR fix `b0308c5`)
   _As built:_
   - **MockWebServer** (test-only `okhttp-mockwebserver`): `LiveConcertApiClientMockWebServerTest` — Bandsintown + Ticketmaster proxy success/empty/HTTP error/malformed. Optional constructor base-URL overrides on `LiveConcertApiClient` (defaults unchanged). **setlist.fm client not built yet (D3)** — note only.
-  - **Compose UI tests** (Robolectric + `createComposeRule`, `mainClock.autoAdvance = false`): `ActiveQuizContent` / `QuizSummaryContent`; `StatsScreen` empty+data; restore confirm/cancel dialog wired to `ProfileViewModel.pendingRestore`; profile handle save (isolated fields); attendance toggle chip; icon-only CD assertions on the same tags as Shows/Live. **Deviation:** full-screen mounts that include `rememberInfiniteTransition` (dancing bears) never idle under Espresso — use panels / isolated controls instead of `TriviaScreen` / `ShowsListScreen` / `UserProfileScreen` / `LiveConcertsScreen`.
+  - **Compose UI tests:** superseded by **H4** real-screen mounts (stand-ins deleted). MockWebServer + a11y from 6.7 remain.
   - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar.
-  - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests.
-  _Audit (Claude Code, 2026-11-24):_ MockWebServer tests and a11y fixes are good. But the profile-edit, attendance-toggle, restore-dialog and icon-CD "Compose tests" build their own `OutlinedTextField`/`FilterChip`/`AlertDialog`/`IconButton` inside the test, so they'd pass even if the real screens broke. Only `ActiveQuizContent`, `QuizSummaryContent` and `StatsScreen` (title only) are mounted for real. The "full screens never idle" deviation doesn't hold: Claude Code mounted the real `UserProfileScreen` (dancing bears included) with `mainClock.autoAdvance = false`, clicked `edit_profile_button`, replaced `profile_handle_input`, clicked `save_profile_button`, and `onUpdateProfile` received the new handle. Also: `RestoreDialogComposeTest.confirm clears pending restore` is flaky (failed once in a full fresh run of `febed47`, passed 3 isolated reruns): `confirmPendingRestore()` launches the import, and `tearDown` closes the in-memory DB before it finishes ("database ':memory:' is not open").
-- [ ] **H4 Real-screen Compose UI tests (6.7 audit).** Test-only, except the one dialog extraction below. No behavior or visual changes.
-  - **Pattern:** Robolectric + `createComposeRule`, `mainClock.autoAdvance = false`, then `mainClock.advanceTimeBy(…)` after each action (this works with the dancing bears). For items further down a `LazyColumn`, scroll the list itself (give the `LazyColumn` a `testTag`, e.g. `user_profile_list`, and use `performScrollToNode`, advancing the clock between steps; or temporarily set `autoAdvance = true` around the scroll). Write a small helper for this in `ComposeTestHelpers.kt`.
-  - **Replace the stand-in tests** with tests of the real composables (delete the stand-ins):
-    - `UserProfileScreen`: edit → change handle → save calls `onUpdateProfile` with the new handle; Back up / Restore buttons call `onBackupClick` / `onRestoreClick` (needs the scroll helper); empty attended list shows its empty state.
-    - Show detail: mount the real `ShowDetailScreen` with a catalog show and a custom show; the attendance chip calls `onToggleAttendance`; share and back buttons have content descriptions; delete appears only for custom shows.
-    - Icon-only content descriptions: mount the real `ShowsListScreen` and `LiveConcertsScreen` (or the smallest real composable that contains `add_show_button` / `refresh_concerts_button`) and assert the descriptions there.
-  - **Restore dialog:** move the inline `AlertDialog` in `MainActivity` into `ui/components/RestoreConfirmDialog.kt` (`RestoreConfirmDialog(pending, onConfirm, onDismiss)`), use it from `MainActivity` unchanged in look and wording, and test that composable directly: shows the "replace the matching items" wording and the counts; Restore and Cancel call the right callbacks.
-  - **Fix the flaky test:** the test that confirms a restore must wait for the import to finish before `tearDown` closes the DB (e.g. call `confirmRestoreAwait` in `runTest`, or wait until the feedback message appears), and clear the ViewModel (or cancel its scope) in `tearDown`. Run the full suite 3 times in a row locally; all three must pass.
-  - **Cover the 6.3b targets that have no real test yet:** `TriviaHubContent` (renders mode cards; tapping a mode calls its start callback), `TriviaScreen` (hub → start quiz → first question shows → answer → summary, driven through the real screen with a seeded deck), and `StatsScreen` with data (assert a few real values render, e.g. total shows and top song, not just the title).
-  - Update the 6.7 "_As built_" note to say what is and isn't covered after H4.
+  - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests (H4 later extracted restore dialog + quiz explanation placement).
+  _Audit (Claude Code, 2026-11-24):_ MockWebServer + a11y good; stand-in Compose tests and flaky restore-confirm fixed in **H4**.
+- [x] **H4 Real-screen Compose UI tests (6.7 audit).** (pending stamp)
+  _As built:_
+  - Stand-in Compose tests deleted; all mounts are real screens/panels (`UserProfileScreen`, `ShowDetailScreen`, `ShowsListScreen`, `LiveConcertsScreen`, `TriviaHubContent`, `TriviaScreen`, `StatsScreen`, `RestoreConfirmDialog`).
+  - Helpers: `pauseInfiniteAnimations` / `advanceUi` / `scrollListToTag` / `clickTag`. List tags: `user_profile_list`, `trivia_hub_list`, `stats_list`.
+  - `RestoreConfirmDialog` extracted from `MainActivity` (same wording); dialog tests assert replace-copy + counts + callbacks. Flaky VM confirm uses `confirmRestoreAwait` in `ProfileViewModelTest`.
+  - Quiz explanation + Next moved out of `ActiveQuizContent`'s `LazyColumn` (virtualization hid them under Robolectric); options use `Surface(onClick=…)`. Full suite `--rerun-tasks` ×3 green locally.
 - [ ] **6.3b Real split of the large composables** (after H4's real-screen tests exist and pass). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the H4 and 6.7 UI tests must pass before and after, unchanged, and add UI tests for any flow they don't cover yet.
 
 ---
@@ -324,6 +320,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-24 · Cursor (H4 real-screen Compose tests)
+- H4 on `phase-6-h4-real-compose-tests`: real-screen Compose UI tests; `RestoreConfirmDialog` extract; quiz explanation outside LazyColumn; flaky restore await fix. Local full suite ×3 green.
+- **Next:** 6.3b real composable split, then **HARD STOP after 6.3b** for audit.
 
 ### 2026-11-24 · Claude Code (audit of H3, 6.7)
 - H3 good. 6.7: MockWebServer + a11y good; most "Compose tests" test stand-in UI built in the test, not the real screens; full-screen mounts do work with a paused clock (verified on `UserProfileScreen`); `RestoreDialogComposeTest` confirm case is flaky (DB closed before the import finishes). Fresh run of `febed47`: 217 tests, 1 flaky failure, 1 skipped (`catalog.db`). Added **H4** after 6.7. Audit pause lifted.

@@ -20,7 +20,6 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -32,7 +31,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.components.RestoreConfirmDialog
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -168,24 +167,10 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
     }
 
     pendingRestore?.let { pending ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearPendingRestore() },
-            title = { Text("Restore from backup?") },
-            text = {
-                Text(
-                    "Items in this backup replace the matching items on this phone. " +
-                        "Nothing else is changed or deleted.\n${pending.preview.summaryLines()}"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.confirmPendingRestore() },
-                    modifier = Modifier.testTag("backup_restore_confirm")
-                ) { Text("Restore") }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.clearPendingRestore() }) { Text("Cancel") }
-            }
+        RestoreConfirmDialog(
+            pending = pending,
+            onConfirm = { viewModel.confirmPendingRestore() },
+            onDismiss = { viewModel.clearPendingRestore() }
         )
     }
     val navController = rememberNavController()

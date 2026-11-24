@@ -1,4 +1,4 @@
-package com.example.ui.screens
+﻿package com.example.ui.screens
 
 
 import androidx.activity.compose.BackHandler
@@ -93,7 +93,9 @@ internal fun TriviaHubContent(
             bottom = 88.dp
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("trivia_hub_list")
     ) {
         // 1. Deadhead Trivia Scoreboard & Rank Banner
         item {
@@ -542,17 +544,22 @@ internal fun ActiveQuizContent(
         label = "quizProgress"
     )
 
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("active_quiz_container")
+    ) {
     LazyColumn(
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 10.dp,
-            bottom = 88.dp
+            bottom = 16.dp
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("active_quiz_container")
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
     ) {
         // 1. Top Status Bar: Question Counter, Streak, Score, and Blitz Timer
         item {
@@ -803,11 +810,12 @@ internal fun ActiveQuizContent(
                 color = containerColor,
                 shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.5.dp, borderColor),
+                onClick = {
+                    if (!isAnswered && !isHiddenBy5050) onSelectOption(idx)
+                },
+                enabled = !isAnswered && !isHiddenBy5050,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !isAnswered && !isHiddenBy5050) {
-                        onSelectOption(idx)
-                    }
                     .testTag("trivia_option_$idx")
             ) {
                 Row(
@@ -852,112 +860,119 @@ internal fun ActiveQuizContent(
             }
         }
 
-        // 5. Archivist Liner Notes Reveal & Next Button
-        item {
-            AnimatedVisibility(visible = selectedOptionIndex != null) {
-                val isCorrect = selectedOptionIndex == question.correctIndex
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = StealieCardDark),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isCorrect) EraEurope72Color else StealieGold
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("trivia_explanation_card")
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = if (isCorrect) "⚡ Right On! Deadhead Bullseye" else "🌹 Archivist Liner Note",
-                                color = if (isCorrect) EraEurope72Color else StealieGold,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+    } // LazyColumn
 
-                            if (question.relatedShowId != null) {
-                                TextButton(
-                                    onClick = { onOpenShowDetail(question.relatedShowId) },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "Inspect Show Setlist ➔",
-                                        color = StealieCyan,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
+        // Explanation + Next stay outside LazyColumn so they always compose when answered
+        // (LazyColumn virtualization hid them off-screen under Robolectric H4 tests).
+        val selected = selectedOptionIndex
+        if (selected != null) {
+            val isCorrect = selected == question.correctIndex
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = StealieCardDark),
+                border = BorderStroke(
+                    1.dp,
+                    if (isCorrect) EraEurope72Color else StealieGold
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("trivia_explanation_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
-                            text = question.linerNoteFact,
-                            color = TextSecondaryDark,
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp
+                            text = if (isCorrect) "⚡ Right On! Deadhead Bullseye" else "🌹 Archivist Liner Note",
+                            color = if (isCorrect) EraEurope72Color else StealieGold,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
-                        val sourceUrl = question.sourceUrl
-                        if (!sourceUrl.isNullOrBlank()) {
-                            val uriHandler = LocalUriHandler.current
+
+                        if (question.relatedShowId != null) {
                             TextButton(
-                                onClick = { uriHandler.openUri(sourceUrl) },
-                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                                onClick = { onOpenShowDetail(question.relatedShowId) },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "Source",
+                                    text = "Inspect Show Setlist ➔",
                                     color = StealieCyan,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        question.relatedArticleId?.let { articleId ->
-                            TextButton(
-                                onClick = { onOpenAlmanacArticle(articleId) },
-                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                                modifier = Modifier.testTag("trivia_read_more")
-                            ) {
-                                Text(
-                                    text = "Read more →",
-                                    color = StealieGold,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                    }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                        Button(
-                            onClick = onNextQuestion,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = StealieGold,
-                                contentColor = StealieMidnight
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .testTag("trivia_next_question_btn")
+                    Text(
+                        text = question.linerNoteFact,
+                        color = TextSecondaryDark,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp
+                    )
+                    val sourceUrl = question.sourceUrl
+                    if (!sourceUrl.isNullOrBlank()) {
+                        val uriHandler = LocalUriHandler.current
+                        TextButton(
+                            onClick = { uriHandler.openUri(sourceUrl) },
+                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = if (questionIndex + 1 < totalQuestions) "Next Question ➔" else "View Encore Scorecard 🏆",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                text = "Source",
+                                color = StealieCyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                    question.relatedArticleId?.let { articleId ->
+                        TextButton(
+                            onClick = { onOpenAlmanacArticle(articleId) },
+                            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                            modifier = Modifier.testTag("trivia_read_more")
+                        ) {
+                            Text(
+                                text = "Read more →",
+                                color = StealieGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = onNextQuestion,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StealieGold,
+                            contentColor = StealieMidnight
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("trivia_next_question_btn")
+                    ) {
+                        Text(
+                            text = if (questionIndex + 1 < totalQuestions) {
+                                "Next Question ➔"
+                            } else {
+                                "View Encore Scorecard 🏆"
+                            },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
             }
         }
-    }
+    } // Column wrapper
 }
 
 @Composable

@@ -205,7 +205,9 @@ fun UserProfileScreen(
                 bottom = innerPadding.calculateBottomPadding() + 84.dp
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("user_profile_list")
         ) {
             // 1. VINTAGE BACKSTAGE ALL-ACCESS LAMINATE PASS CARD
             item {
@@ -293,7 +295,9 @@ fun UserProfileScreen(
                         color = StealieCardDark,
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("profile_attended_empty")
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,

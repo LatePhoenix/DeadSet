@@ -1,17 +1,15 @@
 package com.example.ui.compose
 
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.example.data.local.ShowEntity
+import com.example.ui.screens.ShowDetailScreen
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -20,10 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * 6.7: attendance toggle (isolated — full ShowDetailScreen / ShowsListScreen pull in
- * infinite dancing-bear animations that never idle under Robolectric).
- */
+/** H4: real [ShowDetailScreen] for catalog and custom shows. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ShowsDetailComposeTest {
@@ -37,21 +32,56 @@ class ShowsDetailComposeTest {
     }
 
     @Test
-    fun `attendance toggle fires callback`() {
-        var attended = false
+    fun `catalog detail toggles attendance and has share and back cds`() {
+        var toggled: ShowEntity? = null
+        val show = sampleShow(attended = false)
         composeRule.setContent {
-            var selected by remember { mutableStateOf(false) }
-            FilterChip(
-                selected = selected,
-                onClick = {
-                    selected = !selected
-                    attended = selected
-                },
-                label = { Text(if (selected) "Attended" else "I Was There") },
-                modifier = Modifier.testTag("toggle_attendance_button")
+            ShowDetailScreen(
+                show = show,
+                songs = listOf(sampleSong()),
+                onBack = {},
+                onToggleAttendance = { toggled = it },
+                onToggleSongTransition = { _, _ -> },
+                onSaveReviewAndNotes = { _, _, _, _, _ -> },
+                onDeleteShow = { }
             )
         }
-        composeRule.onNodeWithTag("toggle_attendance_button").assertIsDisplayed().performClick()
-        assertTrue(attended)
+        composeRule.advanceUi()
+        composeRule.onNodeWithTag("detail_back_button")
+            .assertContentDescriptionEquals("Back")
+        composeRule.onNodeWithTag("share_setlist_button").assertIsDisplayed()
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithContentDescription("Delete Show").fetchSemanticsNodes().size
+        )
+        composeRule.onNodeWithTag("toggle_attendance_button").performClick()
+        composeRule.advanceUi()
+        assertEquals(show.id, toggled?.id)
+    }
+
+    @Test
+    fun `custom detail shows delete and toggles attendance`() {
+        var deleted: ShowEntity? = null
+        var toggled = false
+        val show = sampleShow(id = "custom-1", custom = true, attended = false)
+        composeRule.setContent {
+            ShowDetailScreen(
+                show = show,
+                songs = emptyList(),
+                onBack = {},
+                onToggleAttendance = { toggled = true },
+                onToggleSongTransition = { _, _ -> },
+                onSaveReviewAndNotes = { _, _, _, _, _ -> },
+                onDeleteShow = { deleted = it }
+            )
+        }
+        composeRule.advanceUi()
+        composeRule.onNodeWithContentDescription("Delete Show").assertIsDisplayed()
+        composeRule.onNodeWithTag("toggle_attendance_button").performClick()
+        composeRule.advanceUi()
+        assertTrue(toggled)
+        composeRule.onNodeWithContentDescription("Delete Show").performClick()
+        composeRule.advanceUi()
+        assertEquals("custom-1", deleted?.id)
     }
 }
