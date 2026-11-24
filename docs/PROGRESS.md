@@ -259,11 +259,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 **Audit of G1, G2, 6.2 (Claude Code, 2026-11-23):** G1 and G2 are correct. 6.2 keeps behavior identical (compared line by line with the old `DeadSetViewModel`); 167/167 tests pass on `89a2ca7`. One small test fix before 6.3:
 
-- [ ] **H1 Fill the 6.2 test gaps.**
-  - **`ShowsViewModel` has no ViewModel tests.** `ShowsViewModelTest` only tests `ShowCatalogFilters`. Add Robolectric tests that build a real `ShowsViewModel` (in-memory DB, real `NavigationViewModel`) and cover: `filterBySegue` sets the filter, switches `currentTab` to SHOWS and sends `NavCommand.ToShowsTab`; calling it again with the same title clears the filter; `clearSegueFilter`; `deleteShow` sends `NavCommand.Back` and sets the feedback message; a filter setter (e.g. `setEra`) re-filters `filteredShows`.
-  - **`ConcertsViewModelTest.addBand writes followed band` depends on timing** (`delay(100)` then reads the DB). Replace with a deterministic wait: e.g. collect `db.concertDao()` / `vm.concerts` with `withTimeout { first { … } }`, or poll with a short timeout. No fixed sleeps.
-  - Optional: `ChaseViewModelTest` mostly tests the repository. Add one test that calls `vm.addChaseSong("Scarlet Begonias")` and waits for `chaseSongs` / the DAO to contain it.
-  - Test-only change: no production code changes unless a test exposes a real bug (then note it here).
+- [x] **H1 Fill the 6.2 test gaps.** (`9e759bd`) Robolectric `ShowsViewModelRobolectricTest` covers filterBySegue (set/clear + ToShowsTab), clearSegueFilter, deleteShow (Back + feedback), setEra. Concerts `addBand` uses `withTimeout` + `first { }`; Chase `addChaseSong` waits on `chaseSongs`. Test-only; no production changes.
 
 ## Phase 6: Polish & architecture
 
@@ -282,6 +278,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (H1 ShowsViewModel tests)
+- PR pending: `ShowsViewModelRobolectricTest` + deterministic Concerts/Chase waits (`9e759bd`).
+- **Next:** 6.3 screen breakup, then hard stop for audit.
 
 ### 2026-11-23 · Claude Code (audit of G1, G2, 6.2)
 - PRs #42–#44 merged on green `test`; CodeRabbit posted no findings. Fresh local run: 167/167 pass on `89a2ca7`.

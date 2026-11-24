@@ -6,7 +6,13 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
 import com.example.data.repository.ConcertRepository
 import com.example.di.AppContainer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -16,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ConcertsViewModelTest {
@@ -27,6 +34,7 @@ class ConcertsViewModelTest {
 
     @Before
     fun setUp() {
+        Dispatchers.setMain(Dispatchers.Unconfined)
         AppContainer.resetForTests()
         val app = ApplicationProvider.getApplicationContext<Application>()
         db = AppDatabase.createInMemoryDatabase(app)
@@ -40,6 +48,7 @@ class ConcertsViewModelTest {
     fun tearDown() {
         db.close()
         AppContainer.resetForTests()
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -51,9 +60,14 @@ class ConcertsViewModelTest {
     @Test
     fun `addBand writes followed band`() = runBlocking {
         vm.addBand("Test Tribute Band")
-        // Give the viewModelScope launch a tick
-        kotlinx.coroutines.delay(100)
-        val names = db.concertDao().followedBands().map { it.name }
-        assertTrue(names.any { it.equals("Test Tribute Band", ignoreCase = true) })
+        withTimeout(5_000) {
+            vm.concerts.first { state ->
+                state.bands.any { it.name.equals("Test Tribute Band", ignoreCase = true) && it.isFollowed }
+            }
+        }
+        assertTrue(
+            db.concertDao().followedBands()
+                .any { it.name.equals("Test Tribute Band", ignoreCase = true) }
+        )
     }
 }
