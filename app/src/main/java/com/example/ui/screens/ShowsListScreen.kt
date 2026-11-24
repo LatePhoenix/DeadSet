@@ -266,7 +266,11 @@ fun ShowsListScreen(
                             ),
                             modifier = Modifier.testTag("add_show_button")
                         ) {
-                            Icon(imageVector = Icons.Filled.Add, contentDescription = "Add Show")
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Add Show",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }

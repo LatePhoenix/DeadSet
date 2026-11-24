@@ -26,14 +26,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.local.ShowEntity
 import com.example.data.model.DeadEra
 import com.example.data.model.SongEntry
@@ -41,7 +45,11 @@ import com.example.data.seed.*
 import com.example.ui.components.BearYellow
 import com.example.ui.components.DancingBear
 import com.example.ui.components.StealieEmblem
+import com.example.ui.share.ShareHelper
+import com.example.ui.share.buildTriviaShareLines
+import com.example.ui.share.renderShareCardBitmap
 import com.example.ui.theme.*
+import java.util.UUID
 import kotlinx.coroutines.delay
 
 
@@ -1005,7 +1013,8 @@ internal fun QuizSummaryContent(
                         color = StealieGold,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Text(
                         text = "${mode.title} Complete • Current Rank: ${triviaProgress.rankTitle}",
@@ -1042,6 +1051,47 @@ internal fun QuizSummaryContent(
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
+
+                    val context = LocalContext.current
+                    OutlinedButton(
+                        onClick = {
+                            val lines = buildTriviaShareLines(
+                                modeTitle = mode.title,
+                                correctCount = correctCount,
+                                answeredCount = answeredHistory.size,
+                                sessionPoints = sessionPoints,
+                                maxStreak = maxSessionStreak,
+                                rankTitle = triviaProgress.rankTitle
+                            )
+                            ShareHelper.shareBitmap(
+                                context,
+                                renderShareCardBitmap(lines),
+                                "trivia-${UUID.randomUUID()}.png",
+                                context.getString(R.string.share_trivia)
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, StealieGold.copy(alpha = 0.45f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("summary_share_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = null,
+                            tint = StealieGold,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = context.getString(R.string.share_trivia),
+                            color = StealieGold,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1090,7 +1140,8 @@ internal fun QuizSummaryContent(
                 text = "Round Setlist Breakdown",
                 color = TextPrimaryDark,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() }
             )
         }
 
