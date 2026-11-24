@@ -180,6 +180,11 @@ class DeadSetViewModel(application: Application) : AndroidViewModel(application)
     fun restoreOfflineCatalog() = showsVm.restoreOfflineCatalog()
 
     fun updateUserProfile(profile: UserProfileData) = profileVm.updateUserProfile(profile)
+    suspend fun exportBackupJson(): String = profileVm.exportBackupJson()
+    fun parseBackup(json: String) = profileVm.parseBackup(json)
+    fun previewBackup(doc: com.example.data.backup.BackupDocument) = profileVm.previewBackup(doc)
+    fun confirmRestore(doc: com.example.data.backup.BackupDocument) = profileVm.confirmRestore(doc)
+    fun setBackupFeedback(message: String) = profileVm.setFeedbackMessage(message)
     fun recordTriviaQuizCompletion(
         answeredCount: Int,
         correctCount: Int,
@@ -239,6 +244,7 @@ class FeatureViewModelFactory(
             ) as T
             modelClass.isAssignableFrom(ProfileViewModel::class.java) -> ProfileViewModel(
                 userPrefs = container.userPrefs,
+                backupManager = container.backupManager,
                 ui = ui,
                 onHomeCityChanged = { city -> onHomeCityChanged(city) }
             ) as T

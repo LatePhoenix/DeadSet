@@ -2,6 +2,8 @@ package com.example.ui
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.backup.BackupManager
+import com.example.data.local.AppDatabase
 import com.example.data.local.UserPrefsStore
 import com.example.di.AppContainer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class ProfileViewModelTest {
 
+    private lateinit var db: AppDatabase
     private lateinit var prefs: UserPrefsStore
     private lateinit var ui: MutableStateFlow<UiState>
     private var homeCalls = 0
@@ -25,6 +28,7 @@ class ProfileViewModelTest {
     fun setUp() {
         AppContainer.resetForTests()
         val app = ApplicationProvider.getApplicationContext<Application>()
+        db = AppDatabase.createInMemoryDatabase(app)
         prefs = UserPrefsStore(app)
         ui = MutableStateFlow(UiState(userProfile = UserProfileData(homeCity = "Chicago, IL")))
         homeCalls = 0
@@ -32,12 +36,18 @@ class ProfileViewModelTest {
 
     @After
     fun tearDown() {
+        db.close()
         AppContainer.resetForTests()
     }
 
     @Test
     fun `updateUserProfile persists and notifies home city change`() {
-        val vm = ProfileViewModel(prefs, ui) { homeCalls++ }
+        val vm = ProfileViewModel(
+            userPrefs = prefs,
+            backupManager = BackupManager(db, prefs, "test"),
+            ui = ui,
+            onHomeCityChanged = { homeCalls++ }
+        )
         val next = UserProfileData(
             handle = "Bobby",
             homeCity = "San Francisco, CA",

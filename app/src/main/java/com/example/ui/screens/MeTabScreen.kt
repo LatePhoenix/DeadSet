@@ -48,6 +48,8 @@ fun MeTabScreen(
     onUpdateProfile: (UserProfileData) -> Unit,
     onToggleAttendance: (ShowEntity) -> Unit,
     onAboutCreditsClick: () -> Unit,
+    onBackupClick: () -> Unit = {},
+    onRestoreClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var pane by rememberSaveable { mutableIntStateOf(0) }
@@ -102,7 +104,9 @@ fun MeTabScreen(
                 onShowClick = onShowClick,
                 onToggleAttendance = onToggleAttendance,
                 onExploreCatalogClick = onExploreShowsClick,
-                onAboutCreditsClick = onAboutCreditsClick
+                onAboutCreditsClick = onAboutCreditsClick,
+                onBackupClick = onBackupClick,
+                onRestoreClick = onRestoreClick
             )
         }
     }
