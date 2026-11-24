@@ -73,16 +73,30 @@ data class BackupImportResult(
     val chaseSongsUpserted: Int,
     val reviewCardsUpserted: Int,
     val bandsUpserted: Int,
-    val skippedUnknownShowIds: Int
+    val skippedUnknownShowIds: Int,
+    val skippedCatalogCollisions: Int = 0
 ) {
     fun feedbackMessage(): String = buildString {
         append("Restored: $userShowDataUpserted show memories, $customShowsUpserted custom shows, ")
         append("$chaseSongsUpserted chase songs, $reviewCardsUpserted review cards, $bandsUpserted bands")
-        if (skippedUnknownShowIds > 0) {
-            append(". Skipped $skippedUnknownShowIds unknown show id")
-            if (skippedUnknownShowIds != 1) append('s')
-            append(" (not in catalog)")
+        val skipped = skippedUnknownShowIds + skippedCatalogCollisions
+        if (skipped > 0) {
+            append(". Skipped $skipped item")
+            if (skipped != 1) append('s')
+            val parts = mutableListOf<String>()
+            if (skippedUnknownShowIds > 0) {
+                parts += "$skippedUnknownShowIds unknown show id" +
+                    if (skippedUnknownShowIds != 1) "s" else ""
+            }
+            if (skippedCatalogCollisions > 0) {
+                parts += "$skippedCatalogCollisions catalog id collision" +
+                    if (skippedCatalogCollisions != 1) "s" else ""
+            }
+            append(" (${parts.joinToString("; ")})")
         }
         append('.')
     }
 }
+
+/** Max backup file size accepted on restore (H2). */
+const val BACKUP_MAX_BYTES = 5 * 1024 * 1024

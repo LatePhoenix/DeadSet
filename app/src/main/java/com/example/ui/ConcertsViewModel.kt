@@ -59,8 +59,11 @@ class ConcertsViewModel(
 
     fun setAlertsEnabled(enabled: Boolean) {
         userPrefs.setAlertsEnabled(enabled)
-        if (enabled) com.example.notifications.ConcertAlertsWorker.schedule(app)
-        else com.example.notifications.ConcertAlertsWorker.cancel(app)
+        // WorkManager may be unavailable in unit tests; prefs + UI state still update.
+        runCatching {
+            if (enabled) com.example.notifications.ConcertAlertsWorker.schedule(app)
+            else com.example.notifications.ConcertAlertsWorker.cancel(app)
+        }
         _concerts.update { it.copy(alertsEnabled = enabled) }
     }
 

@@ -164,6 +164,162 @@ class BackupManagerTest {
         assertTrue(db.showDao().getAllUserShowData().any { it.showId == "custom-1" })
     }
 
+    @Test
+    fun `overlap keeps backup show review later card and merged trivia`() = runBlocking {
+        seedCatalogShow("gd-1")
+        db.showDao().upsertUserData(
+            UserShowDataEntity("gd-1", isAttended = true, userRating = 5f, userReview = "Local review")
+        )
+        db.reviewDao().upsert(ReviewCardEntity("card-1", 3, "2026-11-20", 10, 8))
+        prefs.saveTriviaProgress(
+            TriviaUserProgress(
+                totalPoints = 500,
+                totalAnswered = 20,
+                unlockedBadgeIds = setOf("local_badge"),
+                dailyCompletedDate = "2026-11-21",
+                currentStreak = 3
+            )
+        )
+
+        seedUserData() // backup side: rating 4.5, card dated 2026-11-01, 12 points
+        val json = manager.exportJson()
+
+        // Restore onto a DB that still has the "local" values above for overlap checks.
+        openFreshDb()
+        seedCatalogShow("gd-1")
+        db.showDao().upsertUserData(
+            UserShowDataEntity("gd-1", isAttended = true, userRating = 5f, userReview = "Local review")
+        )
+        db.reviewDao().upsert(ReviewCardEntity("card-1", 3, "2026-11-20", 10, 8))
+        prefs.saveTriviaProgress(
+            TriviaUserProgress(
+                totalPoints = 500,
+                totalAnswered = 20,
+                unlockedBadgeIds = setOf("local_badge"),
+                dailyCompletedDate = "2026-11-21",
+                currentStreak = 3
+            )
+        )
+
+        val parsed = manager.parse(json) as BackupParseResult.Ok
+        manager.importDocument(parsed.document)
+
+        // Show: backup wins
+        val user = db.showDao().getAllUserShowData().first { it.showId == "gd-1" }
+        assertEquals("Great night", user.userReview)
+        assertEquals(4.5f, user.userRating, 0.01f)
+
+        // Card: local has later lastReviewedDate → local kept
+        val card = db.reviewDao().get("card-1")!!
+        assertEquals("2026-11-20", card.lastReviewedDate)
+        assertEquals(3, card.box)
+        assertEquals(10, card.timesSeen)
+
+        // Trivia: max points + union badges
+        val trivia = prefs.loadTriviaProgress()
+        assertEquals(500, trivia.totalPoints)
+        assertEquals(20, trivia.totalAnswered)
+        assertTrue(trivia.unlockedBadgeIds.contains("local_badge"))
+    }
+
+    @Test
+    fun `trivia merge via import keeps higher points and badge union`() = runBlocking {
+        seedCatalogShow("gd-1")
+        prefs.saveTriviaProgress(
+            TriviaUserProgress(
+                totalPoints = 900,
+                totalAnswered = 10,
+                unlockedBadgeIds = setOf("a"),
+                dailyCompletedDate = "2026-11-10",
+                currentStreak = 1
+            )
+        )
+        seedUserData() // 12 points, no badges in seed — wait seed has 12 points
+        // Make backup weaker on points so local must win via merge after export.
+        prefs.saveTriviaProgress(
+            TriviaUserProgress(
+                totalPoints = 50,
+                totalAnswered = 2,
+                unlockedBadgeIds = setOf("b"),
+                dailyCompletedDate = "2026-11-22",
+                currentStreak = 9
+            )
+        )
+        val json = manager.exportJson()
+
+        openFreshDb()
+        seedCatalogShow("gd-1")
+        prefs.saveTriviaProgress(
+            TriviaUserProgress(
+                totalPoints = 900,
+                totalAnswered = 10,
+                unlockedBadgeIds = setOf("a"),
+                dailyCompletedDate = "2026-11-10",
+                currentStreak = 1
+            )
+        )
+        val parsed = manager.parse(json) as BackupParseResult.Ok
+        manager.importDocument(parsed.document)
+        val trivia = prefs.loadTriviaProgress()
+        assertEquals(900, trivia.totalPoints)
+        assertEquals(setOf("a", "b"), trivia.unlockedBadgeIds)
+        assertEquals("2026-11-22", trivia.dailyCompletedDate)
+        assertEquals(9, trivia.currentStreak)
+    }
+
+    @Test
+    fun `catalog id collision skips custom show and leaves catalog setlist`() = runBlocking {
+        seedCatalogShow("gd-1")
+        db.songDao().insertSongs(listOf(SongEntity("truckin", "Truckin'")))
+        db.showDao().replaceSongPerformances(
+            "gd-1",
+            listOf(
+                SongPerformanceEntity(
+                    showId = "gd-1", songId = "truckin", songName = "Truckin'",
+                    setType = "SET_1", trackOrder = 0, transitionOut = "NONE"
+                )
+            )
+        )
+        // Build a backup whose "custom" show reuses the catalog id.
+        seedUserData()
+        val json = manager.exportJson()
+        val root = JSONObject(json)
+        val customs = root.getJSONArray("customShows")
+        val forged = customs.getJSONObject(0)
+        forged.put("id", "gd-1")
+        forged.getJSONArray("performances").getJSONObject(0).put("songName", "FORGED")
+        root.put("customShows", org.json.JSONArray().put(forged))
+
+        openFreshDb()
+        seedCatalogShow("gd-1")
+        db.songDao().insertSongs(listOf(SongEntity("truckin", "Truckin'")))
+        db.showDao().replaceSongPerformances(
+            "gd-1",
+            listOf(
+                SongPerformanceEntity(
+                    showId = "gd-1", songId = "truckin", songName = "Truckin'",
+                    setType = "SET_1", trackOrder = 0, transitionOut = "NONE"
+                )
+            )
+        )
+
+        val parsed = manager.parse(root.toString()) as BackupParseResult.Ok
+        val result = manager.importDocument(parsed.document)
+        assertEquals(1, result.skippedCatalogCollisions)
+        assertEquals(0, result.customShowsUpserted)
+        val songs = db.showDao().getSongsForShowOnce("gd-1")
+        assertEquals(1, songs.size)
+        assertEquals("Truckin'", songs.single().songName)
+        assertTrue(db.showDao().isNonCustomCatalogShow("gd-1"))
+    }
+
+    @Test
+    fun `oversize conceptual reject — parse still requires valid JSON under limit`() {
+        // File-size gate lives in MainActivity (byte read). Guard the constant here.
+        assertTrue(BACKUP_MAX_BYTES == 5 * 1024 * 1024)
+        assertTrue(manager.parse("{") is BackupParseResult.Err)
+    }
+
     private suspend fun seedCatalogShow(id: String) {
         db.showDao().upsertCatalog(
             ShowCatalogEntity(

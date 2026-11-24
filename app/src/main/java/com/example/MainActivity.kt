@@ -39,7 +39,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.data.backup.BACKUP_MAX_BYTES
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -118,7 +120,16 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var pendingRestore by remember { mutableStateOf<Pair<BackupDocument, BackupPreview>?>(null) }
+    // H2: survive rotation — hold raw JSON, re-parse for the confirm dialog.
+    var pendingRestoreJson by rememberSaveable { mutableStateOf<String?>(null) }
+    val pendingRestore: Pair<BackupDocument, BackupPreview>? = remember(pendingRestoreJson) {
+        pendingRestoreJson?.let { json ->
+            when (val parsed = viewModel.parseBackup(json)) {
+                is BackupParseResult.Ok -> parsed.document to viewModel.previewBackup(parsed.document)
+                is BackupParseResult.Err -> null
+            }
+        }
+    }
     val createBackupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -145,13 +156,19 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
             try {
                 val json = withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        input.readBytes().toString(Charset.forName("UTF-8"))
+                        val bytes = input.readBytes()
+                        if (bytes.size > BACKUP_MAX_BYTES) {
+                            return@withContext null
+                        }
+                        bytes.toString(Charset.forName("UTF-8"))
                     } ?: error("Could not read backup file")
                 }
+                if (json == null) {
+                    viewModel.setBackupFeedback("Backup file is too large (max 5 MB).")
+                    return@launch
+                }
                 when (val parsed = viewModel.parseBackup(json)) {
-                    is BackupParseResult.Ok -> {
-                        pendingRestore = parsed.document to viewModel.previewBackup(parsed.document)
-                    }
+                    is BackupParseResult.Ok -> pendingRestoreJson = json
                     is BackupParseResult.Err -> viewModel.setBackupFeedback(parsed.message)
                 }
             } catch (e: Exception) {
@@ -168,24 +185,25 @@ fun DeadSetApp(viewModel: DeadSetViewModel) {
 
     pendingRestore?.let { (doc, preview) ->
         AlertDialog(
-            onDismissRequest = { pendingRestore = null },
+            onDismissRequest = { pendingRestoreJson = null },
             title = { Text("Restore from backup?") },
             text = {
                 Text(
-                    "Merge into your current data (nothing is deleted):\n${preview.summaryLines()}"
+                    "Items in this backup replace the matching items on this phone. " +
+                        "Nothing else is changed or deleted.\n${preview.summaryLines()}"
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        pendingRestore = null
+                        pendingRestoreJson = null
                         viewModel.confirmRestore(doc)
                     },
                     modifier = Modifier.testTag("backup_restore_confirm")
                 ) { Text("Restore") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRestore = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingRestoreJson = null }) { Text("Cancel") }
             }
         )
     }
