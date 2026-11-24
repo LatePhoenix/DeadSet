@@ -27,11 +27,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 - **G1, G2 and 6.2 merged; the audit is back (2026-11-23).** No blocking issues; one test-only fix, **H1** (end of Phase 2c). Do it, then 6.3. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. ~~**H1**~~ done (`9e759bd` / #46).
-2. **[~] 6.3** Break up large screens (see the audit note under 6.3). (Cursor)
-3. **HARD STOP after 6.3 merges** for the next owner / Claude Code audit. Do **not** start 6.4.
-4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-5. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**H1 → 6.3**~~ — **done.** **Paused for owner / Claude Code audit.** Do **not** start 6.4 until the owner returns with audit results.
+2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.3) and reads any CodeRabbit comments then.
 
@@ -266,8 +264,8 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [x] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (`4c64fb5`) `AppContainer` + Shows/Concerts/Chase/Navigation/Trivia/Profile ViewModels; `DeadSetViewModel` facade keeps MainActivity API. Tests per feature VM + `ShowCatalogFilters`.
-- [~] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`). (Cursor)
-  _From the 6.2 audit:_ screens still take the forwarding `DeadSetViewModel`. As you split each screen, have the new composables take the feature ViewModel they need (`viewModel.triviaVm`, `profileVm`, `showsVm`, …) or plain state + lambdas, not the whole facade. Remove facade methods that no caller uses any more. No UI or behavior changes; keep tests green and add tests for any logic moved out of composables.
+- [x] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`). (`8b2cd8d`)
+  Extracted `TriviaPanels`/`TriviaModels`, `UserProfileCards`, `StatsCharts`/`StatsMetrics`; screens already used state+lambdas (not the facade). Facade still used by `MainActivity` — no unused forwards to drop. Test: `StatsMetricsTest` for `songFrequencyProgress`.
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
 - [ ] **6.6 Rename namespace and applicationId.** Same as A5 (owner IDs needed). `.idea/` goes into `.gitignore` in A2.
@@ -279,9 +277,13 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
+### 2026-11-23 · Cursor (H1 + 6.3 — audit pause)
+- H1 #46 merged (`9e759bd` feature; CR findings fixed with ViewModelStore.clear + nonmatching show).
+- 6.3: split Trivia/Profile/Stats into panels/cards/charts files (`8b2cd8d`); screens stay state+lambda; `StatsMetricsTest` added.
+- **HARD STOP:** do not start 6.4. Owner + Claude Code audit next.
+
 ### 2026-11-23 · Cursor (H1 ShowsViewModel tests)
-- PR pending: `ShowsViewModelRobolectricTest` + deterministic Concerts/Chase waits (`9e759bd`).
-- **Next:** 6.3 screen breakup, then hard stop for audit.
+- Merged #46: `ShowsViewModelRobolectricTest` + deterministic Concerts/Chase waits (`9e759bd`).
 
 ### 2026-11-23 · Claude Code (audit of G1, G2, 6.2)
 - PRs #42–#44 merged on green `test`; CodeRabbit posted no findings. Fresh local run: 167/167 pass on `89a2ca7`.
