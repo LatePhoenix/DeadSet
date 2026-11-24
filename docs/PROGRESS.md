@@ -27,8 +27,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 - **G1, G2 and 6.2 merged; the audit is back (2026-11-23).** No blocking issues; one test-only fix, **H1** (end of Phase 2c). Do it, then 6.3. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **H1** Fill the 6.2 test gaps (end of Phase 2c).
-2. **6.3** Break up large screens (see the audit note under 6.3).
+1. ~~**H1**~~ done (`9e759bd` / #46).
+2. **[~] 6.3** Break up large screens (see the audit note under 6.3). (Cursor)
 3. **HARD STOP after 6.3 merges** for the next owner / Claude Code audit. Do **not** start 6.4.
 4. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
 5. **C4** Relisten cross-check remains optional — deferred (not blocking).
@@ -266,7 +266,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.1 Navigation-Compose + 5 tabs.** (`2399b69`) Shows · Live · Segues · Almanac · Me. Enabled `navigation-compose`; `NavHost` + `NavCommand` channel; Almanac = Trivia|Articles panes; Me = My Shows|Stats|Profile panes. Detail routes hide the bottom bar; article overlay still preserves quiz state on tab roots.
   _Decision (reversible):_ string routes (no kotlinx.serialization plugin); Almanac/Me use SecondaryTabRow instead of nested NavHosts for panes.
 - [x] **6.2 Split `DeadSetViewModel`** into per-feature ViewModels; add a DI container. (`4c64fb5`) `AppContainer` + Shows/Concerts/Chase/Navigation/Trivia/Profile ViewModels; `DeadSetViewModel` facade keeps MainActivity API. Tests per feature VM + `ShowCatalogFilters`.
-- [ ] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`).
+- [~] **6.3 Break up large screens** (`TriviaScreen`, `UserProfileScreen`, `StatsScreen`). (Cursor)
   _From the 6.2 audit:_ screens still take the forwarding `DeadSetViewModel`. As you split each screen, have the new composables take the feature ViewModel they need (`viewModel.triviaVm`, `profileVm`, `showsVm`, …) or plain state + lambdas, not the whole facade. Remove facade methods that no caller uses any more. No UI or behavior changes; keep tests green and add tests for any logic moved out of composables.
 - [ ] **6.4 Backup/export** of user data (JSON via the system file picker).
 - [ ] **6.5 Share cards, home-screen widget, accessibility pass.**
