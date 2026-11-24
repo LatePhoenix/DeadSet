@@ -301,9 +301,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 - [x] **6.7 Test coverage:** ViewModel and filter tests, MockWebServer for the APIs, Compose UI tests for the main flows. (`eab4e3b`)
   _As built:_
   - **MockWebServer** (test-only `okhttp-mockwebserver`): `LiveConcertApiClientMockWebServerTest` — Bandsintown + Ticketmaster proxy success/empty/HTTP error/malformed. Optional constructor base-URL overrides on `LiveConcertApiClient` (defaults unchanged). **setlist.fm client not built yet (D3)** — note only.
-  - **Compose UI tests** (Robolectric + `createComposeRule`): active quiz + summary panels; Stats empty/populated; restore dialog confirm/cancel; profile handle save (isolated fields); attendance toggle; icon-only CD assertions. Full-screen mounts that include `rememberInfiniteTransition` (dancing bears) never idle under Espresso — tests use panels / isolated controls with `mainClock.autoAdvance = false` instead.
-  - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar. Icon-only buttons already had CDs on Live/Shows; Compose test locks the CD contract.
+  - **Compose UI tests (deviation):** Robolectric + `createComposeRule` hangs on `AppNotIdleException` for every `setContent` (even bare `Text`/`IconButton`); full-suite runs were harness-killed (exit 4294967295) after ~4–7 min. Shipped non-Compose coverage for the same flows (trivia deck builder, restore confirm/cancel via `ProfileViewModel`, attendance model toggle, icon-only CD string contract). Real Compose UI coverage deferred to instrumented `androidTest` / emulator before **6.3b**.
+  - **Accessibility (finish 6.5 pass):** headings on Shows / Live / Segues / Trivia / Profile / Stats titles; 48 dp min targets on add-show, refresh, trivia back, show-card map/calendar.
   - No production behavior changes beyond a11y sizing/headings + injectable concert base URLs for tests.
+  - **Local verify:** filtered packages only (full local suite fragile under this harness); CI `test` is the authoritative full run.
 - [ ] **6.3b Real split of the large composables** (after 6.7's Compose UI tests exist). Break `TriviaHubContent`, `ActiveQuizContent`, `UserProfileScreen`, `StatsScreen` and `TriviaScreen` into smaller composables (aim: none over ~150 lines). No UI or behavior changes; the 6.7 UI tests must stay green, and add UI tests for any flow they don't cover yet.
 
 ---
@@ -313,8 +314,7 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 _Newest first. Keep entries short: what changed, what's half-done, next action._
 
 ### 2026-11-24 · Cursor (H3 + 6.7 — audit pause)
-- H3 merged (#54, `4e66adb`): catalog-only widget, pending restore in VM, share credit/wrap, bounded read.
-- 6.7: MockWebServer concerts client; Compose panel/isolated UI tests; a11y headings + 48 dp targets on Shows/Live/Segues/Trivia/Me. Full-screen Compose mounts with infinite bear anims avoided (AppNotIdle under Robolectric).
+- H3 merged (#54, `4e66adb`). 6.7 (`eab4e3b`, PR #55): MockWebServer concerts; a11y headings/48dp; Compose `createComposeRule` abandoned (AppNotIdleException → harness kill 4294967295); non-Compose flow tests + androidTest Compose deferred before 6.3b.
 - **HARD STOP after 6.7:** do not start 6.3b / 6.6 / A5 / keys / CF. Owner + Claude Code audit next.
 
 ### 2026-11-24 · Cursor (H3 — widget/share/restore)
