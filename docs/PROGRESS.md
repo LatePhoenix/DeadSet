@@ -27,10 +27,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped (say why)
 - **H1 and 6.3 merged; the audit is back (2026-11-23).** H1 is good. 6.3 only moved functions into new files (no function was split); the real split is deferred to **6.3b**, after 6.7 adds Compose UI tests. Next is 6.4. Deploy D1 Worker when owner has CF + Ticketmaster key.
 
 **Next up (in order):**
-1. **6.4** Backup/export of user data (see the notes under 6.4).
-2. **HARD STOP after 6.4 merges** for the next owner / Claude Code audit (it touches user data). Do **not** start 6.5.
-3. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
-4. **C4** Relisten cross-check remains optional — deferred (not blocking).
+1. ~~**6.4**~~ — **done.** **Paused for owner / Claude Code audit** (user-data path). Do **not** start 6.5 until the owner returns with audit results.
+2. **Blocked on owner:** A5 package IDs; 4.3 Ticketmaster key + Cloudflare deploy.
+3. **C4** Relisten cross-check remains optional — deferred (not blocking).
 
 **Merge rule (owner, 2026-11-23):** merge as soon as the `test` check is green. **Never merge on a red `test` check** (#29 did); re-run flaky jobs until they pass. CodeRabbit is **advisory**: don't wait for it or re-request it. If it has already posted findings when you're ready to merge, fix them first; otherwise merge. Claude Code audits everything at each audit stop (next: after 6.4) and reads any CodeRabbit comments then.
 
@@ -287,6 +286,10 @@ _Checked and fine:_ R3 release gate, R4 full-date almanac links, R7 `compatibili
 ## Handoff log
 
 _Newest first. Keep entries short: what changed, what's half-done, next action._
+
+### 2026-11-23 · Cursor (6.4 backup/export — audit pause)
+- PR pending: `BackupManager` + Me→Profile Back up / Restore (`7309acb`).
+- **HARD STOP:** do not start 6.5. Owner + Claude Code audit next (user-data path).
 
 ### 2026-11-23 · Claude Code (audit of H1, 6.3)
 - PRs #46–#47 merged on green `test`; CodeRabbit's 2 findings on #46 were fixed before merge. Fresh local run: 172/172 pass on `a464802`.
